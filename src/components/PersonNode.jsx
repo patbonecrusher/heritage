@@ -272,6 +272,28 @@ const PersonNode = memo(({ id, data, selected }) => {
                   <span style={{ fontSize: '16px' }}>✏️</span>
                   Edit Info
                 </button>
+                <button
+                  onClick={() => handleMenuAction('research')}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: 'none',
+                    background: 'white',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    color: '#374151',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    borderTop: '1px solid #e5e7eb',
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                  onMouseLeave={(e) => e.target.style.background = 'white'}
+                >
+                  <span style={{ fontSize: '16px' }}>🔍</span>
+                  Research
+                </button>
               </div>
             )}
           </div>

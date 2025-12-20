@@ -29,5 +29,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('menu-preferences');
     ipcRenderer.removeAllListeners('menu-add-person');
     ipcRenderer.removeAllListeners('menu-fit-view');
-  }
+  },
+
+  // Secure store - API keys and credentials
+  getApiKey: () => ipcRenderer.invoke('get-api-key'),
+  setApiKey: (key) => ipcRenderer.invoke('set-api-key', key),
+  hasApiKey: () => ipcRenderer.invoke('has-api-key'),
+  getCredentials: (site) => ipcRenderer.invoke('get-credentials', site),
+  setCredentials: (site, credentials) => ipcRenderer.invoke('set-credentials', { site, credentials }),
+  getAllCredentials: () => ipcRenderer.invoke('get-all-credentials'),
+  hasCredentials: (site) => ipcRenderer.invoke('has-credentials', site),
+
+  // Research agent
+  sendAgentMessage: (data) => ipcRenderer.invoke('send-agent-message', data),
 });

@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const secureStore = require('./secureStore');
+const { runAgent } = require('./agent');
 
 const isDev = process.env.NODE_ENV !== 'production';
 const isMac = process.platform === 'darwin';
@@ -264,4 +266,25 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
+});
+
+// Secure store handlers for API keys and credentials
+ipcMain.handle('get-api-key', () => secureStore.getApiKey());
+ipcMain.handle('set-api-key', (event, key) => {
+  secureStore.setApiKey(key);
+  return true;
+});
+ipcMain.handle('has-api-key', () => secureStore.hasApiKey());
+
+ipcMain.handle('get-credentials', (event, site) => secureStore.getCredentials(site));
+ipcMain.handle('set-credentials', (event, { site, credentials }) => {
+  secureStore.setCredentials(site, credentials);
+  return true;
+});
+ipcMain.handle('get-all-credentials', () => secureStore.getAllCredentials());
+ipcMain.handle('has-credentials', (event, site) => secureStore.hasCredentials(site));
+
+// Research agent handler
+ipcMain.handle('send-agent-message', async (event, { messages, personContext }) => {
+  return await runAgent(messages, personContext);
 });
