@@ -13,7 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@reactflow/node-resizer": "^2.2.14",
-    "electron-store": "^11.0.2",
+    "electron-store": "^7.0.3",
     "html-to-image": "^1.11.11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
