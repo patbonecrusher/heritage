@@ -24,6 +24,10 @@ const secureStore = new Store({
           }
         }
       }
+    },
+    mcpEnabled: {
+      type: 'boolean',
+      default: true
     }
   }
 });
@@ -44,5 +48,9 @@ module.exports = {
   hasCredentials: (site) => {
     const creds = secureStore.get('credentials', {});
     return !!(creds[site]?.username && creds[site]?.password);
-  }
+  },
+
+  // MCP server setting
+  getMcpEnabled: () => secureStore.get('mcpEnabled', true),
+  setMcpEnabled: (enabled) => secureStore.set('mcpEnabled', enabled)
 };

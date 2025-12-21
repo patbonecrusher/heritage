@@ -17,11 +17,15 @@ import {
 } from './dataModel';
 
 const NODE_WIDTH = 180;
-const NODE_HEIGHT = 160;
+const NODE_HEIGHT = 150;
 const UNION_WIDTH = 40;
-const UNION_HEIGHT = 40;
-const H_SPACING = 60;  // Horizontal spacing between nodes
-const V_SPACING = 100; // Vertical spacing between generations
+const UNION_HEIGHT = 46;
+const H_SPACING = 20;
+const V_SPACING = 100;
+
+// PersonNode spouse handles are fixed at 50px from top
+// We need to align union handles with this position
+const SPOUSE_HANDLE_Y = 50;  // Fixed position of spouse handles from node top
 
 /**
  * Compute pedigree layout centered on a person
@@ -60,21 +64,28 @@ export function computePedigreeLayout(data, focusPersonId, options = {}) {
       if (spouse) {
         // Alternate left/right for multiple spouses
         const direction = index % 2 === 0 ? 1 : -1;
-        const spouseX = centerX + direction * (NODE_WIDTH + H_SPACING + UNION_WIDTH);
 
-        // Union node between them
-        const unionX = centerX + direction * (NODE_WIDTH / 2 + H_SPACING / 2);
-        addUnionNode(nodes, union, unionX, centerY);
+        // Place spouse with gap for union in between
+        // Layout: [Person] --[Union]-- [Spouse]
+        const gap = H_SPACING; // Gap on each side of union
+        const spouseX = centerX + direction * (NODE_WIDTH / 2 + gap + UNION_WIDTH + gap + NODE_WIDTH / 2);
+
+        // Union node positioned to align handles with person spouse handles
+        // PersonNode spouse handle is at: personTop + SPOUSE_HANDLE_Y = (centerY - NODE_HEIGHT/2) + SPOUSE_HANDLE_Y
+        // Union handle is at center of union, so we position union center at that Y
+        const unionX = centerX + direction * (NODE_WIDTH / 2 + gap + UNION_WIDTH / 2);
+        const unionHandleY = centerY - NODE_HEIGHT / 2 + SPOUSE_HANDLE_Y;
+        addUnionNode(nodes, union, unionX, unionHandleY);
 
         // Spouse node
         addPersonNode(nodes, spouse, spouseX, centerY, false);
         positioned.add(spouse.id);
 
-        // Edges: focus -> union -> spouse
+        // Edges: focus -> union <- spouse (both point to union)
         edges.push(createSpouseEdge(focusPersonId, union.id, direction > 0 ? 'right' : 'left'));
         edges.push(createSpouseEdge(spouseId, union.id, direction > 0 ? 'left' : 'right'));
 
-        spouseOffset = direction * (NODE_WIDTH + H_SPACING + UNION_WIDTH);
+        spouseOffset = direction * (NODE_WIDTH / 2 + gap + UNION_WIDTH + gap + NODE_WIDTH / 2);
       }
     }
   });
@@ -83,7 +94,8 @@ export function computePedigreeLayout(data, focusPersonId, options = {}) {
   const parentIds = getParentIds(data, focusPersonId);
   if (parentIds.length > 0) {
     const parentY = centerY - V_SPACING - NODE_HEIGHT / 2;
-    const parentSpacing = NODE_WIDTH + H_SPACING;
+    // Spacing must include room for union node between parents
+    const parentSpacing = NODE_WIDTH + H_SPACING + UNION_WIDTH + H_SPACING;
     const parentStartX = centerX - (parentIds.length - 1) * parentSpacing / 2;
 
     // Find the union that connects the parents
@@ -105,8 +117,9 @@ export function computePedigreeLayout(data, focusPersonId, options = {}) {
     // Add parent union node if exists
     if (parentUnion && parentIds.length === 2) {
       const unionX = parentStartX + parentSpacing / 2;
-      const unionY = parentY + NODE_HEIGHT / 2 + 20;
-      addUnionNode(nodes, parentUnion, unionX, unionY);
+      // Position union to align with parent spouse handles
+      const unionHandleY = parentY - NODE_HEIGHT / 2 + SPOUSE_HANDLE_Y;
+      addUnionNode(nodes, parentUnion, unionX, unionHandleY);
 
       // Edges: parent1 -> union <- parent2 -> child
       edges.push(createSpouseEdge(parentIds[0], parentUnion.id, 'right'));
@@ -124,9 +137,10 @@ export function computePedigreeLayout(data, focusPersonId, options = {}) {
         if (grandparentIds.length === 0) return;
 
         const gpY = parentY - V_SPACING - NODE_HEIGHT / 2;
-        const gpSpacing = NODE_WIDTH / 2 + H_SPACING / 2;
-        const parentX = parentStartX + pIndex * (NODE_WIDTH + H_SPACING);
-        const gpStartX = parentX - gpSpacing / 2;
+        // Spacing must include room for union node between grandparents
+        const gpSpacing = NODE_WIDTH + H_SPACING + UNION_WIDTH + H_SPACING;
+        const parentX = parentStartX + pIndex * parentSpacing;
+        const gpStartX = parentX - (gpSpacing / 2);
 
         grandparentIds.forEach((gpId, gpIndex) => {
           if (!positioned.has(gpId)) {
@@ -146,8 +160,9 @@ export function computePedigreeLayout(data, focusPersonId, options = {}) {
 
         if (gpUnion && grandparentIds.length === 2) {
           const unionX = gpStartX + gpSpacing / 2;
-          const unionY = gpY + NODE_HEIGHT / 2 + 20;
-          addUnionNode(nodes, gpUnion, unionX, unionY);
+          // Position union to align with grandparent spouse handles
+          const unionHandleY = gpY - NODE_HEIGHT / 2 + SPOUSE_HANDLE_Y;
+          addUnionNode(nodes, gpUnion, unionX, unionHandleY);
 
           edges.push(createSpouseEdge(grandparentIds[0], gpUnion.id, 'right'));
           edges.push(createSpouseEdge(grandparentIds[1], gpUnion.id, 'left'));
@@ -159,13 +174,18 @@ export function computePedigreeLayout(data, focusPersonId, options = {}) {
 
   // Position children below
   if (showChildren) {
-    focusUnions.forEach(union => {
+    focusUnions.forEach((union, unionIndex) => {
       const childIds = union.childIds || [];
       if (childIds.length === 0) return;
 
+      // Get the union's X position (it was placed when positioning spouse)
+      const direction = unionIndex % 2 === 0 ? 1 : -1;
+      const unionX = centerX + direction * (NODE_WIDTH / 2 + H_SPACING + UNION_WIDTH / 2);
+
       const childY = centerY + V_SPACING + NODE_HEIGHT / 2;
       const childSpacing = NODE_WIDTH + H_SPACING;
-      const childStartX = centerX - (childIds.length - 1) * childSpacing / 2;
+      // Center children under the union node
+      const childStartX = unionX - (childIds.length - 1) * childSpacing / 2;
 
       childIds.forEach((childId, index) => {
         if (!positioned.has(childId)) {
@@ -227,7 +247,7 @@ function createSpouseEdge(personId, unionId, side) {
     target: unionId,
     sourceHandle: side === 'right' ? 'spouse-right' : 'spouse-left',
     targetHandle: side === 'right' ? 'left' : 'right',
-    type: 'smoothstep',
+    type: 'straight',
     className: 'spouse-edge'
   };
 }

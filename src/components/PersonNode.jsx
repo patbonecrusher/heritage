@@ -6,6 +6,37 @@ const PersonNode = memo(({ id, data, selected }) => {
   const { theme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const clickTimeoutRef = useRef(null);
+  const clickCountRef = useRef(0);
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    clickCountRef.current += 1;
+
+    if (clickCountRef.current === 1) {
+      // First click - wait to see if there's a second
+      clickTimeoutRef.current = setTimeout(() => {
+        // Single click - do nothing special (navigation handled by React Flow)
+        clickCountRef.current = 0;
+      }, 300);
+    } else if (clickCountRef.current === 2) {
+      // Double click detected
+      clearTimeout(clickTimeoutRef.current);
+      clickCountRef.current = 0;
+      if (data.onDoubleClick) {
+        data.onDoubleClick(id);
+      }
+    }
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Get color from theme using colorIndex, or fall back to legacy color or primary
   const nodeColor = data.colorIndex !== undefined
@@ -70,6 +101,7 @@ const PersonNode = memo(({ id, data, selected }) => {
           width: '8px',
           height: '8px',
           border: '2px solid white',
+          top: '50px',  // Fixed position for consistent spouse connections
         }}
       />
 
@@ -83,6 +115,7 @@ const PersonNode = memo(({ id, data, selected }) => {
           width: '8px',
           height: '8px',
           border: '2px solid white',
+          top: '50px',  // Fixed position for consistent spouse connections
         }}
       />
 
@@ -102,15 +135,17 @@ const PersonNode = memo(({ id, data, selected }) => {
       {/* Inner content */}
       <div
         className="person-node-inner"
+        onClick={handleClick}
         style={{
           background: theme.colors.surface,
           borderRadius: '8px',
           padding: '0',
-          minWidth: '180px',
+          width: '180px',
           boxShadow: selected
             ? `0 0 0 2px ${nodeColor}, 0 4px 12px rgba(0,0,0,0.15)`
             : '0 2px 8px rgba(0,0,0,0.1)',
           transition: 'box-shadow 0.2s',
+          cursor: 'pointer',
         }}
       >
         {/* Image section */}
@@ -278,7 +313,7 @@ const PersonNode = memo(({ id, data, selected }) => {
           </div>
         </div>
 
-        {/* Body */}
+        {/* Body - Notes/Description with line clamp */}
         {data.description && (
           <div
             style={{
@@ -287,7 +322,15 @@ const PersonNode = memo(({ id, data, selected }) => {
               color: theme.colors.textMuted,
               borderTop: `1px solid ${theme.colors.border}`,
               borderRadius: '0 0 8px 8px',
+              maxWidth: '220px',
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              lineHeight: '1.4',
             }}
+            title={data.description}
           >
             {data.description}
           </div>

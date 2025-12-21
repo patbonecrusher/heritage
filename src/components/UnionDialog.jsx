@@ -6,6 +6,21 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const UNION_TYPES = [
+  { value: 'marriage', label: 'Marriage' },
+  { value: 'civil_union', label: 'Civil Union' },
+  { value: 'common_law', label: 'Common Law' },
+  { value: 'partnership', label: 'Partnership' },
+];
+
+const END_REASONS = [
+  { value: '', label: 'Still together' },
+  { value: 'divorce', label: 'Divorce' },
+  { value: 'separation', label: 'Separation' },
+  { value: 'annulment', label: 'Annulment' },
+  { value: 'death', label: 'Death of spouse' },
+];
+
 // Parse a flexible date string (copied from PersonDialog for consistency)
 function parseDateString(input) {
   if (!input || input.trim() === '') {
@@ -116,12 +131,14 @@ function KeyHint({ children }) {
 export default function UnionDialog({ isOpen, onClose, onSave, initialData, sources = {}, onAddSource }) {
   const firstInputRef = useRef(null);
 
-  const [marriageDateText, setMarriageDateText] = useState('');
-  const [marriageDateParsed, setMarriageDateParsed] = useState({ type: 'unknown', display: 'Unknown' });
-  const [marriagePlace, setMarriagePlace] = useState('');
-  const [divorceDateText, setDivorceDateText] = useState('');
-  const [divorceDateParsed, setDivorceDateParsed] = useState({ type: 'unknown', display: 'Unknown' });
-  const [marriageSources, setMarriageSources] = useState([]);
+  const [unionType, setUnionType] = useState('marriage');
+  const [startDateText, setStartDateText] = useState('');
+  const [startDateParsed, setStartDateParsed] = useState({ type: 'unknown', display: 'Unknown' });
+  const [startPlace, setStartPlace] = useState('');
+  const [endDateText, setEndDateText] = useState('');
+  const [endDateParsed, setEndDateParsed] = useState({ type: 'unknown', display: 'Unknown' });
+  const [endReason, setEndReason] = useState('');
+  const [unionSources, setUnionSources] = useState([]);
 
   useEffect(() => {
     if (isOpen && firstInputRef.current) {
@@ -131,21 +148,29 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
 
   useEffect(() => {
     if (initialData) {
-      const marriageText = dateToInputString(initialData.marriageDate);
-      setMarriageDateText(marriageText);
-      setMarriageDateParsed(parseDateString(marriageText));
-      setMarriagePlace(initialData.marriagePlace || '');
-      const divorceText = dateToInputString(initialData.divorceDate);
-      setDivorceDateText(divorceText);
-      setDivorceDateParsed(parseDateString(divorceText));
-      setMarriageSources(initialData.marriageSources || []);
+      setUnionType(initialData.unionType || 'marriage');
+      // Support both new (startDate) and legacy (marriageDate) fields
+      const startDate = initialData.startDate || initialData.marriageDate;
+      const startText = dateToInputString(startDate);
+      setStartDateText(startText);
+      setStartDateParsed(parseDateString(startText));
+      setStartPlace(initialData.startPlace || initialData.marriagePlace || '');
+      // Support both new (endDate) and legacy (divorceDate) fields
+      const endDate = initialData.endDate || initialData.divorceDate;
+      const endText = dateToInputString(endDate);
+      setEndDateText(endText);
+      setEndDateParsed(parseDateString(endText));
+      setEndReason(initialData.endReason || '');
+      setUnionSources(initialData.unionSources || initialData.marriageSources || []);
     } else {
-      setMarriageDateText('');
-      setMarriageDateParsed({ type: 'unknown', display: 'Unknown' });
-      setMarriagePlace('');
-      setDivorceDateText('');
-      setDivorceDateParsed({ type: 'unknown', display: 'Unknown' });
-      setMarriageSources([]);
+      setUnionType('marriage');
+      setStartDateText('');
+      setStartDateParsed({ type: 'unknown', display: 'Unknown' });
+      setStartPlace('');
+      setEndDateText('');
+      setEndDateParsed({ type: 'unknown', display: 'Unknown' });
+      setEndReason('');
+      setUnionSources([]);
     }
   }, [initialData, isOpen]);
 
@@ -167,29 +192,38 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const handleMarriageDateChange = (e) => {
+  const handleStartDateChange = (e) => {
     const text = e.target.value;
-    setMarriageDateText(text);
-    setMarriageDateParsed(parseDateString(text));
+    setStartDateText(text);
+    setStartDateParsed(parseDateString(text));
   };
 
-  const handleDivorceDateChange = (e) => {
+  const handleEndDateChange = (e) => {
     const text = e.target.value;
-    setDivorceDateText(text);
-    setDivorceDateParsed(parseDateString(text));
+    setEndDateText(text);
+    setEndDateParsed(parseDateString(text));
   };
 
   const handleSubmit = (e) => {
     e?.preventDefault();
     onSave({
-      marriageDate: marriageDateParsed,
-      marriagePlace,
-      divorceDate: divorceDateParsed.type !== 'unknown' ? divorceDateParsed : null,
-      marriageSources,
+      unionType,
+      startDate: startDateParsed,
+      startPlace,
+      endDate: endDateParsed.type !== 'unknown' ? endDateParsed : null,
+      endReason,
+      unionSources,
+      // Keep legacy fields for backwards compatibility
+      marriageDate: startDateParsed,
+      marriagePlace: startPlace,
+      divorceDate: endDateParsed.type !== 'unknown' ? endDateParsed : null,
+      marriageSources: unionSources,
     });
   };
 
   if (!isOpen) return null;
+
+  const typeLabel = UNION_TYPES.find(t => t.value === unionType)?.label || 'Union';
 
   return (
     <div className="dialog-overlay" onClick={onClose}>
@@ -200,7 +234,7 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
         aria-modal="true"
       >
         <div className="dialog-header">
-          <h2>{initialData ? 'Edit Marriage' : 'Add Marriage'}</h2>
+          <h2>{initialData ? `Edit ${typeLabel}` : `Add ${typeLabel}`}</h2>
           <div className="dialog-shortcuts">
             <span><KeyHint>Esc</KeyHint> Close</span>
             <span><KeyHint>⌘↵</KeyHint> Save</span>
@@ -209,58 +243,92 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
 
         <form onSubmit={handleSubmit} className="dialog-content">
           <div className="form-group">
-            <label className="field-label">Marriage Date</label>
+            <label className="field-label">Union Type</label>
+            <select
+              ref={firstInputRef}
+              value={unionType}
+              onChange={(e) => setUnionType(e.target.value)}
+              className="text-input"
+            >
+              {UNION_TYPES.map(type => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="field-label">
+              {unionType === 'marriage' ? 'Marriage Date' : 'Start Date'}
+            </label>
             <div className="smart-date-row">
               <input
-                ref={firstInputRef}
                 type="text"
-                value={marriageDateText}
-                onChange={handleMarriageDateChange}
+                value={startDateText}
+                onChange={handleStartDateChange}
                 className="text-input smart-date-input"
                 placeholder="1875, Jun 1875, 15 Jun 1875"
               />
-              <span className={`date-preview ${marriageDateParsed.type === 'unknown' && marriageDateText ? 'error' : ''}`}>
-                {marriageDateParsed.display || 'Unknown'}
+              <span className={`date-preview ${startDateParsed.type === 'unknown' && startDateText ? 'error' : ''}`}>
+                {startDateParsed.display || 'Unknown'}
               </span>
             </div>
           </div>
 
           <div className="form-group">
-            <label className="field-label">Marriage Place</label>
+            <label className="field-label">
+              {unionType === 'marriage' ? 'Marriage Place' : 'Place'}
+            </label>
             <input
               type="text"
-              value={marriagePlace}
-              onChange={(e) => setMarriagePlace(e.target.value)}
+              value={startPlace}
+              onChange={(e) => setStartPlace(e.target.value)}
               className="text-input"
               placeholder="City, State/Country"
             />
           </div>
 
           <div className="form-group">
-            <label className="field-label">Divorce Date (if applicable)</label>
-            <div className="smart-date-row">
-              <input
-                type="text"
-                value={divorceDateText}
-                onChange={handleDivorceDateChange}
-                className="text-input smart-date-input"
-                placeholder="Leave empty if still married"
-              />
-              {divorceDateText && (
-                <span className={`date-preview ${divorceDateParsed.type === 'unknown' && divorceDateText ? 'error' : ''}`}>
-                  {divorceDateParsed.display}
-                </span>
-              )}
-            </div>
+            <label className="field-label">Status</label>
+            <select
+              value={endReason}
+              onChange={(e) => setEndReason(e.target.value)}
+              className="text-input"
+            >
+              {END_REASONS.map(reason => (
+                <option key={reason.value} value={reason.value}>{reason.label}</option>
+              ))}
+            </select>
           </div>
+
+          {endReason && (
+            <div className="form-group">
+              <label className="field-label">
+                {endReason === 'death' ? 'Date of Death' : `${endReason.charAt(0).toUpperCase() + endReason.slice(1)} Date`}
+              </label>
+              <div className="smart-date-row">
+                <input
+                  type="text"
+                  value={endDateText}
+                  onChange={handleEndDateChange}
+                  className="text-input smart-date-input"
+                  placeholder="Leave empty if unknown"
+                />
+                {endDateText && (
+                  <span className={`date-preview ${endDateParsed.type === 'unknown' && endDateText ? 'error' : ''}`}>
+                    {endDateParsed.display}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="field-label">Sources</label>
             <SourceSelector
               sources={sources}
-              selectedSourceIds={marriageSources}
-              onChange={setMarriageSources}
-              onAddNew={() => onAddSource?.((newId) => setMarriageSources(prev => [...prev, newId]))}
+              selectedSourceIds={unionSources}
+              onChange={setUnionSources}
+              onAddNew={() => onAddSource?.((newId) => setUnionSources(prev => [...prev, newId]))}
             />
           </div>
 

@@ -5,6 +5,7 @@ export default function Sidebar({
   data,
   selectedPersonId,
   onSelectPerson,
+  onEditPerson,
   onAddPerson
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,6 +125,7 @@ export default function Sidebar({
                       key={person.id}
                       className={`sidebar-person ${selectedPersonId === person.id ? 'selected' : ''}`}
                       onClick={() => onSelectPerson(person.id)}
+                      onDoubleClick={() => onEditPerson && onEditPerson(person.id)}
                     >
                       <div className="sidebar-person-name">
                         {person.firstName || 'Unknown'}

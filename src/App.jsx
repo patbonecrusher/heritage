@@ -308,16 +308,26 @@ function App() {
     });
   };
 
-  // Add menu action handler to canvas nodes
+  // Add handlers to canvas nodes
   const nodesWithHandlers = useMemo(() => {
     return nodes.map(node => ({
       ...node,
       data: {
         ...node.data,
         onMenuAction: handleMenuAction,
+        onDoubleClick: node.type === 'person'
+          ? openEditDialog
+          : (unionId) => {
+              const union = data.unions?.find(u => u.id === unionId);
+              if (union) {
+                setEditingUnionId(unionId);
+                setUnionDialogInitialData(union);
+                setUnionDialogOpen(true);
+              }
+            }
       },
     }));
-  }, [nodes, handleMenuAction]);
+  }, [nodes, handleMenuAction, openEditDialog, data.unions]);
 
   // Export functions
   const handleExportPng = useCallback(async () => {
@@ -508,6 +518,7 @@ function App() {
             fitView
             snapToGrid
             snapGrid={[15, 15]}
+            proOptions={{ hideAttribution: true }}
           >
             <Controls />
             <MiniMap
@@ -575,6 +586,7 @@ function App() {
           data={data}
           selectedPersonId={selectedPersonId}
           onSelectPerson={setSelectedPersonId}
+          onEditPerson={openEditDialog}
           onAddPerson={addNode}
         />
 

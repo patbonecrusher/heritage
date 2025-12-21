@@ -11,6 +11,10 @@ const getSharedConfigPath = () => {
 
 // Write current file path to shared config (for MCP server)
 const updateSharedConfig = (filePath) => {
+  // Only write if MCP is enabled
+  if (!secureStore.getMcpEnabled()) {
+    return;
+  }
   const configDir = path.dirname(getSharedConfigPath());
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
@@ -19,30 +23,23 @@ const updateSharedConfig = (filePath) => {
   fs.writeFileSync(getSharedConfigPath(), JSON.stringify(config, null, 2));
 };
 
+// Clear the shared config (when MCP is disabled)
+const clearSharedConfig = () => {
+  const configPath = getSharedConfigPath();
+  if (fs.existsSync(configPath)) {
+    fs.unlinkSync(configPath);
+  }
+};
+
 const isDev = process.env.NODE_ENV !== 'production';
 const isMac = process.platform === 'darwin';
 
 let mainWindow = null;
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    }
-  });
+// Build the application menu (extracted so it can be rebuilt when settings change)
+function buildMenu() {
+  const mcpEnabled = secureStore.getMcpEnabled();
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
-  }
-
-  // Create application menu
   const menuTemplate = [
     // App menu (macOS only)
     ...(isMac ? [{
@@ -153,6 +150,18 @@ function createWindow() {
           label: 'Fit to View',
           accelerator: 'CmdOrCtrl+0',
           click: () => mainWindow.webContents.send('menu-fit-view')
+        },
+        { type: 'separator' },
+        {
+          label: 'Enable Claude Desktop Integration',
+          type: 'checkbox',
+          checked: mcpEnabled,
+          click: (menuItem) => {
+            secureStore.setMcpEnabled(menuItem.checked);
+            if (!menuItem.checked) {
+              clearSharedConfig();
+            }
+          }
         }
       ]
     },
@@ -189,6 +198,27 @@ function createWindow() {
 
   const menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  });
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  buildMenu();
 }
 
 // Handle save file dialog

@@ -1,15 +1,14 @@
 import React, { useMemo, useCallback } from 'react';
 import ReactFlow, {
   Background,
-  Controls,
-  useNodesState,
-  useEdgesState
+  Controls
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
 import PersonNode from './PersonNode';
 import UnionNode from './UnionNode';
 import { computePedigreeLayout } from '../utils/layoutPedigree';
+import { useTheme } from '../contexts/ThemeContext';
 
 const nodeTypes = {
   person: PersonNode,
@@ -24,6 +23,7 @@ export default function PedigreeView({
   onEditUnion,
   onMenuAction
 }) {
+  const { theme } = useTheme();
   // Compute layout whenever data or focus changes
   const { nodes: layoutNodes, edges: layoutEdges } = useMemo(() => {
     if (!focusPersonId) {
@@ -37,25 +37,17 @@ export default function PedigreeView({
     });
   }, [data, focusPersonId]);
 
-  // Add menu action handler to node data
+  // Add handlers to node data
   const nodesWithHandlers = useMemo(() => {
     return layoutNodes.map(node => ({
       ...node,
       data: {
         ...node.data,
-        onMenuAction: onMenuAction
+        onMenuAction: onMenuAction,
+        onDoubleClick: node.type === 'person' ? onEditPerson : onEditUnion
       }
     }));
-  }, [layoutNodes, onMenuAction]);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithHandlers);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
-
-  // Update nodes when layout changes
-  React.useEffect(() => {
-    setNodes(nodesWithHandlers);
-    setEdges(layoutEdges);
-  }, [nodesWithHandlers, layoutEdges, setNodes, setEdges]);
+  }, [layoutNodes, onMenuAction, onEditPerson, onEditUnion]);
 
   // Handle node click - navigate to that person
   const onNodeClick = useCallback((event, node) => {
@@ -63,15 +55,6 @@ export default function PedigreeView({
       onSelectPerson(node.id);
     }
   }, [onSelectPerson]);
-
-  // Handle double-click to edit
-  const onNodeDoubleClick = useCallback((event, node) => {
-    if (node.type === 'person' && onEditPerson) {
-      onEditPerson(node.id);
-    } else if (node.type === 'union' && onEditUnion) {
-      onEditUnion(node.id);
-    }
-  }, [onEditPerson, onEditUnion]);
 
   if (!focusPersonId) {
     return (
@@ -84,12 +67,9 @@ export default function PedigreeView({
   return (
     <div className="pedigree-view">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        nodes={nodesWithHandlers}
+        edges={layoutEdges}
         onNodeClick={onNodeClick}
-        onNodeDoubleClick={onNodeDoubleClick}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.2 }}
@@ -97,10 +77,11 @@ export default function PedigreeView({
         maxZoom={1.5}
         nodesDraggable={false}
         nodesConnectable={false}
-        elementsSelectable={true}
-        selectNodesOnDrag={false}
+        elementsSelectable={false}
+        selectionOnDrag={false}
+        proOptions={{ hideAttribution: true }}
       >
-        <Background color="#e5e7eb" gap={20} />
+        <Background color={theme.colors.border} gap={20} />
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>
