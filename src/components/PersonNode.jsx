@@ -110,7 +110,6 @@ const PersonNode = memo(({ id, data, selected }) => {
           boxShadow: selected
             ? `0 0 0 2px ${nodeColor}, 0 4px 12px rgba(0,0,0,0.15)`
             : '0 2px 8px rgba(0,0,0,0.1)',
-          overflow: 'hidden',
           transition: 'box-shadow 0.2s',
         }}
       >
@@ -122,6 +121,7 @@ const PersonNode = memo(({ id, data, selected }) => {
               height: '120px',
               overflow: 'hidden',
               borderBottom: `3px solid ${nodeColor}`,
+              borderRadius: '8px 8px 0 0',
             }}
           >
             <img
@@ -146,6 +146,7 @@ const PersonNode = memo(({ id, data, selected }) => {
             alignItems: 'flex-start',
             justifyContent: 'space-between',
             gap: '8px',
+            borderRadius: `${data.image ? '0' : '8px'} ${data.image ? '0' : '8px'} ${data.description ? '0' : '8px'} ${data.description ? '0' : '8px'}`,
           }}
         >
           <div style={{ flex: 1 }}>
@@ -272,28 +273,6 @@ const PersonNode = memo(({ id, data, selected }) => {
                   <span style={{ fontSize: '16px' }}>✏️</span>
                   Edit Info
                 </button>
-                <button
-                  onClick={() => handleMenuAction('research')}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: 'none',
-                    background: 'white',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    color: '#374151',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    borderTop: '1px solid #e5e7eb',
-                  }}
-                  onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
-                  onMouseLeave={(e) => e.target.style.background = 'white'}
-                >
-                  <span style={{ fontSize: '16px' }}>🔍</span>
-                  Research
-                </button>
               </div>
             )}
           </div>
@@ -307,6 +286,7 @@ const PersonNode = memo(({ id, data, selected }) => {
               fontSize: '12px',
               color: theme.colors.textMuted,
               borderTop: `1px solid ${theme.colors.border}`,
+              borderRadius: '0 0 8px 8px',
             }}
           >
             {data.description}

@@ -1,0 +1,16 @@
+{
+  "name": "heritage-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Heritage genealogy app",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "heritage-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

@@ -5,10 +5,6 @@ const secureStore = new Store({
   name: 'heritage-secure',
   encryptionKey: 'heritage-genealogy-app-v1', // In production, use a more secure key derivation
   schema: {
-    anthropicApiKey: {
-      type: 'string',
-      default: ''
-    },
     credentials: {
       type: 'object',
       default: {},
@@ -33,10 +29,6 @@ const secureStore = new Store({
 });
 
 module.exports = {
-  // API Key
-  getApiKey: () => secureStore.get('anthropicApiKey', ''),
-  setApiKey: (key) => secureStore.set('anthropicApiKey', key),
-
   // Site credentials
   getCredentials: (site) => {
     const creds = secureStore.get('credentials', {});
@@ -49,8 +41,6 @@ module.exports = {
   },
   getAllCredentials: () => secureStore.get('credentials', {}),
 
-  // Check if configured
-  hasApiKey: () => !!secureStore.get('anthropicApiKey', ''),
   hasCredentials: (site) => {
     const creds = secureStore.get('credentials', {});
     return !!(creds[site]?.username && creds[site]?.password);

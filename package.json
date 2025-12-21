@@ -11,7 +11,6 @@
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\""
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
     "@reactflow/node-resizer": "^2.2.14",
     "electron-store": "^7.0.3",
     "html-to-image": "^1.11.11",

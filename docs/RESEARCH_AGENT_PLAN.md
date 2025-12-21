@@ -1,5 +1,9 @@
 # Genealogical Research Agent - Implementation Plan
 
+> **Update**: Implemented as an MCP server instead of direct API integration.
+> This allows using Claude Desktop with your Claude Pro subscription - no API costs!
+> See `mcp-server/README.md` for setup instructions.
+
 ## Overview
 
 Build an AI-powered research agent integrated into Heritage that can:

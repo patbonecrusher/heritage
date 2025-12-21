@@ -20,7 +20,6 @@ import UnionDialog from './components/UnionDialog';
 import PreferencesDialog from './components/PreferencesDialog';
 import SourceDialog from './components/SourceDialog';
 import Toast from './components/Toast';
-import ResearchPanel from './components/ResearchPanel';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
 
@@ -55,10 +54,6 @@ function App() {
 
   // Preferences Dialog state
   const [preferencesOpen, setPreferencesOpen] = useState(false);
-
-  // Research Panel state
-  const [researchOpen, setResearchOpen] = useState(false);
-  const [researchPerson, setResearchPerson] = useState(null);
 
   // Toast notification
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -328,9 +323,6 @@ function App() {
       setEditingNodeId(nodeId);
       setDialogInitialData(node.data);
       setDialogOpen(true);
-    } else if (action === 'research') {
-      setResearchPerson(node.data);
-      setResearchOpen(true);
     }
   }, [nodes, setNodes]);
 
@@ -510,15 +502,6 @@ function App() {
     };
   }, [handleNew, handleLoad, handleSave, handleExportPng, handleExportSvg, addNode, handleFitView, handleOpenPreferences]);
 
-  // Listen for open-preferences event from ResearchPanel
-  useEffect(() => {
-    const handleOpenPrefsEvent = () => {
-      setPreferencesOpen(true);
-    };
-    window.addEventListener('open-preferences', handleOpenPrefsEvent);
-    return () => window.removeEventListener('open-preferences', handleOpenPrefsEvent);
-  }, []);
-
   return (
     <div className="app">
       <Toolbar
@@ -599,15 +582,6 @@ function App() {
         message={toast.message}
         isVisible={toast.visible}
         onClose={() => setToast({ visible: false, message: '' })}
-      />
-
-      <ResearchPanel
-        isOpen={researchOpen}
-        onClose={() => {
-          setResearchOpen(false);
-          setResearchPerson(null);
-        }}
-        person={researchPerson}
       />
     </div>
   );
