@@ -6,17 +6,21 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-// Get the Heritage data file path from environment or default location
+// Get the Heritage data file path from shared config
 const getHeritageFilePath = () => {
+  // First check environment variable (for testing/override)
   if (process.env.HERITAGE_FILE) {
     return process.env.HERITAGE_FILE;
   }
-  // Try to read from Heritage's last-file storage
-  const configPath = path.join(os.homedir(), "Library", "Application Support", "heritage", "config.json");
+
+  // Read from shared config written by Heritage app
+  const configPath = path.join(os.homedir(), ".heritage", "config.json");
   if (fs.existsSync(configPath)) {
     try {
       const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (config.lastFile) return config.lastFile;
+      if (config.currentFile && fs.existsSync(config.currentFile)) {
+        return config.currentFile;
+      }
     } catch (e) {
       // ignore
     }

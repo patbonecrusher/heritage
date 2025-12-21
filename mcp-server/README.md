@@ -12,6 +12,15 @@ The MCP server provides these tools to Claude:
 - **lookup_place_history** - Look up Quebec historical place names
 - **suggest_records** - Get suggestions for records to search
 
+## How It Works
+
+The Heritage app automatically writes the current file path to `~/.heritage/config.json` whenever you open or save a file. The MCP server reads this config to know which file to use.
+
+This means:
+- No manual configuration of file paths needed
+- Automatically uses whatever file you have open in Heritage
+- Switch files in Heritage and the MCP server uses the new one
+
 ## Setup
 
 ### 1. Install Dependencies
@@ -33,22 +42,21 @@ Add this to your Claude Desktop config file:
   "mcpServers": {
     "heritage": {
       "command": "node",
-      "args": ["/path/to/heritage/mcp-server/index.js"],
-      "env": {
-        "HERITAGE_FILE": "/path/to/your/family-tree.json"
-      }
+      "args": ["/path/to/heritage/mcp-server/index.js"]
     }
   }
 }
 ```
 
-Replace:
-- `/path/to/heritage/mcp-server/index.js` with the actual path to the MCP server
-- `/path/to/your/family-tree.json` with the path to your saved Heritage file
+Replace `/path/to/heritage/mcp-server/index.js` with the actual path.
 
 ### 3. Restart Claude Desktop
 
 After updating the config, restart Claude Desktop. You should see the Heritage tools available.
+
+### 4. Open a file in Heritage
+
+Open Heritage and load a family tree file. The MCP server will automatically detect it.
 
 ## Usage
 
@@ -60,37 +68,13 @@ Once configured, you can ask Claude things like:
 - "What records should I search for Marie Bouchard?"
 - "What's the history of Baie-Saint-Paul as a parish?"
 
-## Example Conversation
+## Future: Database Support
 
-```
-You: What records should I search for Jean Tremblay born around 1845 in Charlevoix?
-
-Claude: [Uses suggest_records and lookup_place_history tools]
-
-Based on the information for Jean Tremblay, here are my recommendations:
-
-Current information:
-- Name: Jean Tremblay
-- Birth: ~1845 in Charlevoix
-
-Suggested records to search:
-- Search for BAPTISM record to confirm exact birth date
-- Look for BAPTISM in Charlevoix parish records (likely Baie-Saint-Paul
-  or La Malbaie - these were the main parishes in that region)
-- Search for MARRIAGE records
-
-Recommended sources for Quebec research:
-- genealogiequebec.com - Best for Catholic parish records
-- FamilySearch.org - Free, good coverage
-- BAnQ - Notarial records, census
-
-Historical context: Charlevoix region includes parishes Baie-Saint-Paul
-(founded 1681), Les Éboulements, La Malbaie, and Petite-Rivière-Saint-François.
-```
+When Heritage moves to a database, the MCP server can be updated to connect directly to the database instead of reading JSON files. The Claude Desktop config won't need to change.
 
 ## Development
 
-To test the server locally:
+To test with a specific file:
 
 ```bash
 HERITAGE_FILE=/path/to/test.json node index.js
