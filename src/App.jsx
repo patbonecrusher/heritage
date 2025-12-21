@@ -13,6 +13,9 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 
 import Toolbar from './components/Toolbar';
+import Sidebar from './components/Sidebar';
+import PedigreeView from './components/PedigreeView';
+import DescendantsView from './components/DescendantsView';
 import PersonNode from './components/PersonNode';
 import UnionNode from './components/UnionNode';
 import PersonDialog from './components/PersonDialog';
@@ -22,24 +25,32 @@ import SourceDialog from './components/SourceDialog';
 import Toast from './components/Toast';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
+import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
+import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
 const nodeTypes = {
   person: PersonNode,
   union: UnionNode,
 };
 
-// Start with empty state - will load last file on mount
-const initialNodes = [];
-const initialEdges = [];
-
 function App() {
   const reactFlowWrapper = useRef(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [reactFlowInstance, setReactFlowInstance] = useState(null);
-  const [currentFilePath, setCurrentFilePath] = useState(null);
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
+
+  // Core data state - using new format
+  const [data, setData] = useState(createEmptyData());
+  const [currentFilePath, setCurrentFilePath] = useState(null);
+
+  // View mode state
+  const [viewMode, setViewMode] = useState('focused'); // 'focused' | 'canvas'
+  const [focusedView, setFocusedView] = useState('pedigree'); // 'pedigree' | 'descendants'
+  const [selectedPersonId, setSelectedPersonId] = useState(null);
+
+  // React Flow state for canvas mode
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [reactFlowInstance, setReactFlowInstance] = useState(null);
 
   // Person Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -50,7 +61,7 @@ function App() {
   const [unionDialogOpen, setUnionDialogOpen] = useState(false);
   const [editingUnionId, setEditingUnionId] = useState(null);
   const [unionDialogInitialData, setUnionDialogInitialData] = useState(null);
-  const [pendingUnion, setPendingUnion] = useState(null); // For creating new unions
+  const [pendingUnion, setPendingUnion] = useState(null);
 
   // Preferences Dialog state
   const [preferencesOpen, setPreferencesOpen] = useState(false);
@@ -61,11 +72,23 @@ function App() {
     setToast({ visible: true, message });
   }, []);
 
-  // Sources library
-  const [sources, setSources] = useState({});
+  // Sources library (stored in data.sources)
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [editingSource, setEditingSource] = useState(null);
   const [pendingSourceCallback, setPendingSourceCallback] = useState(null);
+
+  // Convert data to React Flow format for canvas view
+  const reactFlowData = useMemo(() => {
+    return convertToReactFlow(data);
+  }, [data]);
+
+  // Update React Flow state when data changes (for canvas mode)
+  useEffect(() => {
+    if (viewMode === 'canvas') {
+      setNodes(reactFlowData.nodes || []);
+      setEdges(reactFlowData.edges || []);
+    }
+  }, [reactFlowData, viewMode, setNodes, setEdges]);
 
   // Load last used file on startup
   useEffect(() => {
@@ -73,103 +96,86 @@ function App() {
       const lastFilePath = localStorage.getItem('heritage-last-file');
       if (lastFilePath && window.electronAPI) {
         const result = await window.electronAPI.readFile(lastFilePath);
-        if (result) {
-          setNodes(result.content.nodes || []);
-          setEdges(result.content.edges || []);
-          setSources(result.content.sources || {});
+        if (result && result.content) {
+          // Migrate to new format if needed
+          const migratedData = migrateToNewFormat(result.content);
+          setData(migratedData);
           setCurrentFilePath(result.path);
+
+          // Select first person if available
+          if (migratedData.people?.length > 0) {
+            setSelectedPersonId(migratedData.people[0].id);
+          }
         }
       }
     };
     loadLastFile();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Open edit dialog for a node
-  const openEditDialog = useCallback((nodeId) => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (node) {
-      setEditingNodeId(nodeId);
-      setDialogInitialData(node.data);
+  // Open edit dialog for a person
+  const openEditDialog = useCallback((personId) => {
+    const person = findPersonById(data, personId);
+    if (person) {
+      setEditingNodeId(personId);
+      setDialogInitialData(person);
       setDialogOpen(true);
     }
-  }, [nodes]);
+  }, [data]);
 
-  // Handle double-click on node
+  // Handle double-click on node (for canvas mode)
   const onNodeDoubleClick = useCallback((event, node) => {
     if (node.type === 'union') {
-      // Open union dialog for editing
-      setEditingUnionId(node.id);
-      setUnionDialogInitialData(node.data);
-      setUnionDialogOpen(true);
+      const union = data.unions?.find(u => u.id === node.id);
+      if (union) {
+        setEditingUnionId(node.id);
+        setUnionDialogInitialData(union);
+        setUnionDialogOpen(true);
+      }
     } else {
       openEditDialog(node.id);
     }
-  }, [openEditDialog]);
+  }, [data, openEditDialog]);
 
   // Handle union dialog save
-  const handleUnionDialogSave = useCallback((data) => {
+  const handleUnionDialogSave = useCallback((dialogData) => {
     if (editingUnionId) {
       // Editing existing union
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === editingUnionId) {
-            return { ...n, data: { ...n.data, ...data } };
-          }
-          return n;
-        })
-      );
+      setData(prev => ({
+        ...prev,
+        unions: (prev.unions || []).map(u =>
+          u.id === editingUnionId
+            ? {
+                ...u,
+                type: dialogData.unionType,
+                startDate: dialogData.startDate,
+                startPlace: dialogData.startPlace,
+                endDate: dialogData.endDate,
+                endReason: dialogData.endReason,
+                sources: dialogData.unionSources
+              }
+            : u
+        )
+      }));
     } else if (pendingUnion) {
       // Creating new union
       const unionId = `union-${Date.now()}`;
-
-      // Determine which spouse is on the left vs right based on x position
-      const spouse1IsLeft = pendingUnion.spouse1Pos.x < pendingUnion.spouse2Pos.x;
-      const leftSpouseId = spouse1IsLeft ? pendingUnion.spouse1Id : pendingUnion.spouse2Id;
-      const rightSpouseId = spouse1IsLeft ? pendingUnion.spouse2Id : pendingUnion.spouse1Id;
-      const leftPos = spouse1IsLeft ? pendingUnion.spouse1Pos : pendingUnion.spouse2Pos;
-      const rightPos = spouse1IsLeft ? pendingUnion.spouse2Pos : pendingUnion.spouse1Pos;
-
-      // Calculate position between spouses
-      const midX = (leftPos.x + rightPos.x) / 2 + 70;
-      const midY = (leftPos.y + rightPos.y) / 2 + 20;
-
-      // Create union node
-      const unionNode = {
+      const newUnion = {
         id: unionId,
-        type: 'union',
-        position: { x: midX, y: midY },
-        data: {
-          ...data,
-          spouse1Id: leftSpouseId,
-          spouse2Id: rightSpouseId,
-        },
+        partner1Id: pendingUnion.spouse1Id,
+        partner2Id: pendingUnion.spouse2Id,
+        type: dialogData.unionType || 'marriage',
+        startDate: dialogData.startDate,
+        startPlace: dialogData.startPlace,
+        endDate: dialogData.endDate,
+        endReason: dialogData.endReason,
+        childIds: [],
+        sources: dialogData.unionSources || []
       };
 
-      // Create edges from spouses to union
-      // Left spouse connects via their right handle to union's left
-      const leftSpouseEdge = {
-        id: `e-${leftSpouseId}-${unionId}`,
-        source: leftSpouseId,
-        sourceHandle: 'spouse-right',
-        target: unionId,
-        targetHandle: 'left',
-        type: 'straight',
-        className: 'spouse-edge',
-      };
-
-      // Right spouse connects via their left handle to union's right
-      const rightSpouseEdge = {
-        id: `e-${rightSpouseId}-${unionId}`,
-        source: rightSpouseId,
-        sourceHandle: 'spouse-left',
-        target: unionId,
-        targetHandle: 'right',
-        type: 'straight',
-        className: 'spouse-edge',
-      };
-
-      setNodes((nds) => [...nds, unionNode]);
-      setEdges((eds) => [...eds, leftSpouseEdge, rightSpouseEdge]);
+      setData(prev => ({
+        ...prev,
+        unions: [...(prev.unions || []), newUnion]
+      }));
     }
 
     setUnionDialogOpen(false);
@@ -177,36 +183,32 @@ function App() {
     setUnionDialogInitialData(null);
     setPendingUnion(null);
     showToast('Saved');
-  }, [editingUnionId, pendingUnion, setNodes, setEdges, showToast]);
+  }, [editingUnionId, pendingUnion, showToast]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't trigger if dialog is open or if typing in an input
-      if (dialogOpen) return;
+      if (dialogOpen || unionDialogOpen) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-      // Press 'e' to edit selected node
       if (e.key === 'e' || e.key === 'E') {
-        const selectedNode = nodes.find(n => n.selected);
-        if (selectedNode) {
+        if (selectedPersonId) {
           e.preventDefault();
-          openEditDialog(selectedNode.id);
+          openEditDialog(selectedPersonId);
         }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [nodes, dialogOpen, openEditDialog]);
+  }, [selectedPersonId, dialogOpen, unionDialogOpen, openEditDialog]);
 
+  // Handle connection in canvas mode
   const onConnect = useCallback(
     (params) => {
       const sourceNode = nodes.find(n => n.id === params.source);
       const targetNode = nodes.find(n => n.id === params.target);
 
-      // Check if this is a spouse connection (spouse handles between two person nodes)
-      // With connectionMode="loose", we might connect to a source handle, so check both
       const isSpouseHandle = (handle) => handle?.startsWith('spouse-');
       const isSpouseConnection =
         sourceNode?.type === 'person' &&
@@ -214,7 +216,6 @@ function App() {
         isSpouseHandle(params.sourceHandle);
 
       if (isSpouseConnection) {
-        // Store pending union info and open dialog
         setPendingUnion({
           spouse1Id: params.source,
           spouse2Id: params.target,
@@ -222,63 +223,71 @@ function App() {
           spouse2Pos: targetNode.position,
         });
         setUnionDialogOpen(true);
-        return; // Don't add edge yet, will be done after dialog save
+        return;
       }
 
-      // Regular parent-child connection
-      setEdges((eds) => addEdge({
-        ...params,
-        type: 'smoothstep',
-        markerEnd: { type: MarkerType.ArrowClosed },
-      }, eds));
+      // For child connections, we need to find the union and add the child
+      const sourceUnion = data.unions?.find(u => u.id === params.source);
+      if (sourceUnion && targetNode?.type === 'person') {
+        setData(prev => ({
+          ...prev,
+          unions: (prev.unions || []).map(u =>
+            u.id === params.source
+              ? { ...u, childIds: [...(u.childIds || []), params.target] }
+              : u
+          )
+        }));
+      }
     },
-    [nodes, setEdges]
+    [nodes, data]
   );
 
+  // Add new person
   const addNode = useCallback(() => {
     setEditingNodeId(null);
     setDialogInitialData(null);
     setDialogOpen(true);
   }, []);
 
-  const handleDialogSave = useCallback((data) => {
+  // Handle person dialog save
+  const handleDialogSave = useCallback((personData) => {
     if (editingNodeId) {
-      // Editing existing node
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === editingNodeId) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                ...data,
-              },
-            };
-          }
-          return n;
-        })
-      );
+      // Editing existing person
+      setData(prev => updatePerson(prev, editingNodeId, personData));
     } else {
-      // Adding new node
-      const id = `${Date.now()}`;
-      const newNode = {
-        id,
-        type: 'person',
-        position: {
-          x: Math.random() * 400 + 100,
-          y: Math.random() * 300 + 100
-        },
-        data: {
-          ...data,
-        },
-      };
-      setNodes((nds) => [...nds, newNode]);
+      // Adding new person
+      const newData = addPerson(data, personData);
+      setData(newData);
+
+      // Select the new person
+      const newPerson = newData.people[newData.people.length - 1];
+      setSelectedPersonId(newPerson.id);
     }
     setDialogOpen(false);
     setEditingNodeId(null);
     setDialogInitialData(null);
     showToast('Saved');
-  }, [editingNodeId, setNodes, showToast]);
+  }, [editingNodeId, data, showToast]);
+
+  // Handle menu actions from person node
+  const handleMenuAction = useCallback(async (nodeId, action) => {
+    const person = findPersonById(data, nodeId);
+    if (!person) return;
+
+    if (action === 'add-photo' || action === 'remove-photo') {
+      let image = null;
+      if (action === 'add-photo') {
+        if (window.electronAPI) {
+          image = await window.electronAPI.selectImage();
+        } else {
+          image = await selectImageWeb();
+        }
+      }
+      setData(prev => updatePerson(prev, nodeId, { image }));
+    } else if (action === 'edit-info') {
+      openEditDialog(nodeId);
+    }
+  }, [data, openEditDialog]);
 
   const selectImageWeb = () => {
     return new Promise((resolve) => {
@@ -299,34 +308,7 @@ function App() {
     });
   };
 
-  const handleMenuAction = useCallback(async (nodeId, action) => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return;
-
-    if (action === 'add-photo') {
-      let image = null;
-      if (window.electronAPI) {
-        image = await window.electronAPI.selectImage();
-      } else {
-        image = await selectImageWeb();
-      }
-      if (image) {
-        setNodes((nds) =>
-          nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, image } } : n)
-        );
-      }
-    } else if (action === 'remove-photo') {
-      setNodes((nds) =>
-        nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, image: null } } : n)
-      );
-    } else if (action === 'edit-info') {
-      setEditingNodeId(nodeId);
-      setDialogInitialData(node.data);
-      setDialogOpen(true);
-    }
-  }, [nodes, setNodes]);
-
-  // Add the menu action handler to all nodes
+  // Add menu action handler to canvas nodes
   const nodesWithHandlers = useMemo(() => {
     return nodes.map(node => ({
       ...node,
@@ -337,6 +319,7 @@ function App() {
     }));
   }, [nodes, handleMenuAction]);
 
+  // Export functions
   const handleExportPng = useCallback(async () => {
     if (reactFlowWrapper.current) {
       const dataUrl = await exportToImage(reactFlowWrapper.current, theme);
@@ -377,23 +360,17 @@ function App() {
     }
   }, [theme]);
 
+  // File operations
   const handleNew = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
-    setSources({});
+    setData(createEmptyData());
     setCurrentFilePath(null);
-  }, [setNodes, setEdges]);
+    setSelectedPersonId(null);
+  }, []);
 
   const handleSave = useCallback(async (forceNewFile = false) => {
-    const data = {
-      nodes,
-      edges,
-      sources,
-    };
     const jsonString = JSON.stringify(data, null, 2);
 
     if (window.electronAPI) {
-      // If we have a current file and not forcing new file, save directly
       if (currentFilePath && !forceNewFile) {
         const result = await window.electronAPI.writeFile({
           filePath: currentFilePath,
@@ -401,38 +378,43 @@ function App() {
         });
         if (result) {
           localStorage.setItem('heritage-last-file', result);
+          showToast('Saved');
         }
       } else {
-        // Show save dialog for new files or Save As
         const result = await window.electronAPI.saveFile({
           data: jsonString,
-          defaultName: 'chart.json',
+          defaultName: 'family.json',
           filters: [{ name: 'JSON', extensions: ['json'] }]
         });
         if (result) {
           setCurrentFilePath(result);
           localStorage.setItem('heritage-last-file', result);
+          showToast('Saved');
         }
       }
     } else {
       const blob = new Blob([jsonString], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.download = 'chart.json';
+      link.download = 'family.json';
       link.href = url;
       link.click();
+      showToast('Downloaded');
     }
-  }, [nodes, edges, sources, currentFilePath]);
+  }, [data, currentFilePath, showToast]);
 
   const handleLoad = useCallback(async () => {
     if (window.electronAPI) {
       const result = await window.electronAPI.openFile();
-      if (result) {
-        setNodes(result.content.nodes || []);
-        setEdges(result.content.edges || []);
-        setSources(result.content.sources || {});
+      if (result && result.content) {
+        const migratedData = migrateToNewFormat(result.content);
+        setData(migratedData);
         setCurrentFilePath(result.path);
         localStorage.setItem('heritage-last-file', result.path);
+
+        if (migratedData.people?.length > 0) {
+          setSelectedPersonId(migratedData.people[0].id);
+        }
       }
     } else {
       const input = document.createElement('input');
@@ -442,16 +424,19 @@ function App() {
         const file = e.target.files[0];
         const reader = new FileReader();
         reader.onload = (event) => {
-          const data = JSON.parse(event.target.result);
-          setNodes(data.nodes || []);
-          setEdges(data.edges || []);
-          setSources(data.sources || {});
+          const content = JSON.parse(event.target.result);
+          const migratedData = migrateToNewFormat(content);
+          setData(migratedData);
+
+          if (migratedData.people?.length > 0) {
+            setSelectedPersonId(migratedData.people[0].id);
+          }
         };
         reader.readAsText(file);
       };
       input.click();
     }
-  }, [setNodes, setEdges]);
+  }, []);
 
   // Source management
   const handleAddSource = useCallback((callback) => {
@@ -461,9 +446,12 @@ function App() {
   }, []);
 
   const handleSourceSave = useCallback((source) => {
-    setSources(prev => ({
+    setData(prev => ({
       ...prev,
-      [source.id]: source,
+      sources: {
+        ...prev.sources,
+        [source.id]: source
+      }
     }));
     setSourceDialogOpen(false);
     if (pendingSourceCallback) {
@@ -502,6 +490,76 @@ function App() {
     };
   }, [handleNew, handleLoad, handleSave, handleExportPng, handleExportSvg, addNode, handleFitView, handleOpenPreferences]);
 
+  // Render main view based on mode
+  const renderMainView = () => {
+    if (viewMode === 'canvas') {
+      return (
+        <div className="chart-container" ref={reactFlowWrapper}>
+          <ReactFlow
+            nodes={nodesWithHandlers}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeDoubleClick={onNodeDoubleClick}
+            onInit={setReactFlowInstance}
+            nodeTypes={nodeTypes}
+            connectionMode="loose"
+            fitView
+            snapToGrid
+            snapGrid={[15, 15]}
+          >
+            <Controls />
+            <MiniMap
+              nodeColor={(node) => node.data.color || '#6366f1'}
+              maskColor="rgba(0,0,0,0.1)"
+            />
+            <Background variant="dots" gap={20} size={1} />
+          </ReactFlow>
+        </div>
+      );
+    }
+
+    // Focused view mode
+    if (focusedView === 'pedigree') {
+      return (
+        <PedigreeView
+          data={data}
+          focusPersonId={selectedPersonId}
+          onSelectPerson={setSelectedPersonId}
+          onEditPerson={openEditDialog}
+          onEditUnion={(unionId) => {
+            const union = data.unions?.find(u => u.id === unionId);
+            if (union) {
+              setEditingUnionId(unionId);
+              setUnionDialogInitialData(union);
+              setUnionDialogOpen(true);
+            }
+          }}
+          onMenuAction={handleMenuAction}
+        />
+      );
+    }
+
+    return (
+      <DescendantsView
+        data={data}
+        focusPersonId={selectedPersonId}
+        onSelectPerson={setSelectedPersonId}
+        onEditPerson={openEditDialog}
+        onEditUnion={(unionId) => {
+          const union = data.unions?.find(u => u.id === unionId);
+          if (union) {
+            setEditingUnionId(unionId);
+            setUnionDialogInitialData(union);
+            setUnionDialogOpen(true);
+          }
+        }}
+        onMenuAction={handleMenuAction}
+      />
+    );
+  };
+
   return (
     <div className="app">
       <Toolbar
@@ -511,28 +569,53 @@ function App() {
         onSave={handleSave}
         onLoad={handleLoad}
       />
-      <div className="chart-container" ref={reactFlowWrapper}>
-        <ReactFlow
-          nodes={nodesWithHandlers}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeDoubleClick={onNodeDoubleClick}
-          onInit={setReactFlowInstance}
-          nodeTypes={nodeTypes}
-          connectionMode="loose"
-          fitView
-          snapToGrid
-          snapGrid={[15, 15]}
-        >
-          <Controls />
-          <MiniMap
-            nodeColor={(node) => node.data.color || '#6366f1'}
-            maskColor="rgba(0,0,0,0.1)"
-          />
-          <Background variant="dots" gap={20} size={1} />
-        </ReactFlow>
+
+      <div className="app-content">
+        <Sidebar
+          data={data}
+          selectedPersonId={selectedPersonId}
+          onSelectPerson={setSelectedPersonId}
+          onAddPerson={addNode}
+        />
+
+        <div className="main-view">
+          {/* View mode toggle */}
+          <div className="view-toggle">
+            <span className="view-toggle-label">View:</span>
+            <button
+              className={`view-toggle-btn ${viewMode === 'focused' ? 'active' : ''}`}
+              onClick={() => setViewMode('focused')}
+            >
+              Focused
+            </button>
+            <button
+              className={`view-toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`}
+              onClick={() => setViewMode('canvas')}
+            >
+              Canvas
+            </button>
+
+            {viewMode === 'focused' && (
+              <>
+                <div className="view-toggle-separator" />
+                <button
+                  className={`view-toggle-btn ${focusedView === 'pedigree' ? 'active' : ''}`}
+                  onClick={() => setFocusedView('pedigree')}
+                >
+                  Pedigree
+                </button>
+                <button
+                  className={`view-toggle-btn ${focusedView === 'descendants' ? 'active' : ''}`}
+                  onClick={() => setFocusedView('descendants')}
+                >
+                  Descendants
+                </button>
+              </>
+            )}
+          </div>
+
+          {renderMainView()}
+        </div>
       </div>
 
       <PersonDialog
@@ -544,7 +627,7 @@ function App() {
         }}
         onSave={handleDialogSave}
         initialData={dialogInitialData}
-        sources={sources}
+        sources={data.sources || {}}
         onAddSource={handleAddSource}
       />
 
@@ -558,7 +641,7 @@ function App() {
         }}
         onSave={handleUnionDialogSave}
         initialData={unionDialogInitialData}
-        sources={sources}
+        sources={data.sources || {}}
         onAddSource={handleAddSource}
       />
 
