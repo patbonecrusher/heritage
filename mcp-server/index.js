@@ -1,13 +1,7 @@
 #!/usr/bin/env node
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -82,107 +76,17 @@ const PLACE_HISTORY = {
 };
 
 // Create the MCP server
-const server = new Server(
-  {
-    name: "heritage-mcp-server",
-    version: "1.0.0",
-  },
-  {
-    capabilities: {
-      tools: {},
-      resources: {},
-    },
-  }
-);
-
-// List available tools
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      {
-        name: "get_family_tree",
-        description: "Get an overview of the entire family tree, listing all people with their basic info",
-        inputSchema: {
-          type: "object",
-          properties: {},
-        },
-      },
-      {
-        name: "get_person",
-        description: "Get detailed information about a specific person by their name",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: {
-              type: "string",
-              description: "The name (or partial name) of the person to find",
-            },
-          },
-          required: ["name"],
-        },
-      },
-      {
-        name: "search_people",
-        description: "Search for people in the family tree by various criteria",
-        inputSchema: {
-          type: "object",
-          properties: {
-            surname: {
-              type: "string",
-              description: "Last name to search for",
-            },
-            given_name: {
-              type: "string",
-              description: "First name to search for",
-            },
-            birth_place: {
-              type: "string",
-              description: "Birth place to search for",
-            },
-            birth_year: {
-              type: "string",
-              description: "Birth year to search for",
-            },
-          },
-        },
-      },
-      {
-        name: "lookup_place_history",
-        description: "Look up historical information about a Quebec place name, including old names, parish history, and regional context",
-        inputSchema: {
-          type: "object",
-          properties: {
-            place_name: {
-              type: "string",
-              description: "The place name to look up",
-            },
-          },
-          required: ["place_name"],
-        },
-      },
-      {
-        name: "suggest_records",
-        description: "Get suggestions for which records to search for a person based on their known information",
-        inputSchema: {
-          type: "object",
-          properties: {
-            person_name: {
-              type: "string",
-              description: "Name of the person to get record suggestions for",
-            },
-          },
-          required: ["person_name"],
-        },
-      },
-    ],
-  };
+const server = new McpServer({
+  name: "heritage-mcp-server",
+  version: "1.0.0",
 });
 
-// Handle tool calls
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
-  if (name === "get_family_tree") {
+// Register tools
+server.tool(
+  "get_family_tree",
+  "Get an overview of the entire family tree, listing all people with their basic info",
+  {},
+  async () => {
     const data = loadHeritageData();
     if (!data) {
       return {
@@ -208,8 +112,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [{ type: "text", text: `Family Tree (${people.length} people):\n\n${summary}` }],
     };
   }
+);
 
-  if (name === "get_person") {
+server.tool(
+  "get_person",
+  "Get detailed information about a specific person by their name",
+  {
+    name: {
+      type: "string",
+      description: "The name (or partial name) of the person to find",
+    },
+  },
+  async ({ name: searchName }) => {
     const data = loadHeritageData();
     if (!data) {
       return {
@@ -217,7 +131,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    const searchName = (args.name || "").toLowerCase();
     const person = (data.nodes || []).find((n) => {
       if (n.type !== "person") return false;
       const d = n.data;
@@ -225,12 +138,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      return fullName.includes(searchName);
+      return fullName.includes((searchName || "").toLowerCase());
     });
 
     if (!person) {
       return {
-        content: [{ type: "text", text: `No person found matching "${args.name}"` }],
+        content: [{ type: "text", text: `No person found matching "${searchName}"` }],
       };
     }
 
@@ -238,8 +151,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [{ type: "text", text: formatPerson(person) }],
     };
   }
+);
 
-  if (name === "search_people") {
+server.tool(
+  "search_people",
+  "Search for people in the family tree by various criteria",
+  {
+    surname: {
+      type: "string",
+      description: "Last name to search for",
+    },
+    given_name: {
+      type: "string",
+      description: "First name to search for",
+    },
+    birth_place: {
+      type: "string",
+      description: "Birth place to search for",
+    },
+    birth_year: {
+      type: "string",
+      description: "Birth year to search for",
+    },
+  },
+  async (args) => {
     const data = loadHeritageData();
     if (!data) {
       return {
@@ -277,14 +212,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [{ type: "text", text: `Found ${matches.length} matching people:\n\n${results}` }],
     };
   }
+);
 
-  if (name === "lookup_place_history") {
-    const placeName = (args.place_name || "").toLowerCase().trim();
+server.tool(
+  "lookup_place_history",
+  "Look up historical information about a Quebec place name, including old names, parish history, and regional context",
+  {
+    place_name: {
+      type: "string",
+      description: "The place name to look up",
+    },
+  },
+  async ({ place_name }) => {
+    const placeName = (place_name || "").toLowerCase().trim();
     const info = PLACE_HISTORY[placeName];
 
     if (info) {
       return {
-        content: [{ type: "text", text: `${args.place_name}:\n${info}` }],
+        content: [{ type: "text", text: `${place_name}:\n${info}` }],
       };
     }
 
@@ -302,7 +247,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     return {
       content: [{
         type: "text",
-        text: `No specific historical information found for "${args.place_name}". This place may be:\n` +
+        text: `No specific historical information found for "${place_name}". This place may be:\n` +
           `- A smaller parish within a larger region\n` +
           `- Known by a different spelling\n` +
           `- A more recent municipality\n\n` +
@@ -310,8 +255,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }],
     };
   }
+);
 
-  if (name === "suggest_records") {
+server.tool(
+  "suggest_records",
+  "Get suggestions for which records to search for a person based on their known information",
+  {
+    person_name: {
+      type: "string",
+      description: "Name of the person to get record suggestions for",
+    },
+  },
+  async ({ person_name }) => {
     const data = loadHeritageData();
     if (!data) {
       return {
@@ -319,7 +274,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    const searchName = (args.person_name || "").toLowerCase();
+    const searchName = (person_name || "").toLowerCase();
     const person = (data.nodes || []).find((n) => {
       if (n.type !== "person") return false;
       const d = n.data;
@@ -329,7 +284,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (!person) {
       return {
-        content: [{ type: "text", text: `No person found matching "${args.person_name}"` }],
+        content: [{ type: "text", text: `No person found matching "${person_name}"` }],
       };
     }
 
@@ -378,52 +333,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }],
     };
   }
-
-  return {
-    content: [{ type: "text", text: `Unknown tool: ${name}` }],
-  };
-});
-
-// List resources (the family tree file)
-server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  const filePath = getHeritageFilePath();
-  if (!filePath) {
-    return { resources: [] };
-  }
-
-  return {
-    resources: [
-      {
-        uri: `file://${filePath}`,
-        name: "Heritage Family Tree",
-        description: "The currently loaded family tree data",
-        mimeType: "application/json",
-      },
-    ],
-  };
-});
-
-// Read resource
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  const filePath = getHeritageFilePath();
-  if (!filePath || !request.params.uri.includes(filePath)) {
-    return {
-      contents: [{ uri: request.params.uri, text: "Resource not found" }],
-    };
-  }
-
-  const data = loadHeritageData();
-  return {
-    contents: [
-      {
-        uri: request.params.uri,
-        mimeType: "application/json",
-        text: JSON.stringify(data, null, 2),
-      },
-    ],
-  };
-});
+);
 
 // Start the server
 const transport = new StdioServerTransport();
 await server.connect(transport);
+
+console.error("Heritage MCP Server running");
