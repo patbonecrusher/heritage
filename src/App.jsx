@@ -46,6 +46,46 @@ function App() {
   const [viewMode, setViewMode] = useState('focused'); // 'focused' | 'canvas'
   const [focusedView, setFocusedView] = useState('pedigree'); // 'pedigree' | 'descendants' | 'person'
   const [selectedPersonId, setSelectedPersonId] = useState(null);
+  const [navigationHistory, setNavigationHistory] = useState([]);
+
+  // Navigation functions
+  const navigateToPerson = useCallback((personId) => {
+    if (personId && personId !== selectedPersonId) {
+      const doNavigation = () => {
+        // Push current person to history before navigating
+        if (selectedPersonId) {
+          setNavigationHistory(prev => [...prev, selectedPersonId]);
+        }
+        setSelectedPersonId(personId);
+      };
+
+      // Use View Transitions API if available for smooth crossfade
+      if (document.startViewTransition) {
+        document.startViewTransition(doNavigation);
+      } else {
+        doNavigation();
+      }
+    }
+  }, [selectedPersonId]);
+
+  const navigateBack = useCallback(() => {
+    if (navigationHistory.length > 0) {
+      const doNavigation = () => {
+        const prevPersonId = navigationHistory[navigationHistory.length - 1];
+        setNavigationHistory(prev => prev.slice(0, -1));
+        setSelectedPersonId(prevPersonId);
+      };
+
+      // Use View Transitions API if available for smooth crossfade
+      if (document.startViewTransition) {
+        document.startViewTransition(doNavigation);
+      } else {
+        doNavigation();
+      }
+    }
+  }, [navigationHistory]);
+
+  const canNavigateBack = navigationHistory.length > 0;
 
   // React Flow state for canvas mode
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -370,6 +410,7 @@ function App() {
     setData(createEmptyData());
     setCurrentFilePath(null);
     setSelectedPersonId(null);
+    setNavigationHistory([]);
   }, []);
 
   const handleSave = useCallback(async (forceNewFile = false) => {
@@ -416,6 +457,7 @@ function App() {
         setData(migratedData);
         setCurrentFilePath(result.path);
         localStorage.setItem('heritage-last-file', result.path);
+        setNavigationHistory([]);
 
         if (migratedData.people?.length > 0) {
           setSelectedPersonId(migratedData.people[0].id);
@@ -432,6 +474,7 @@ function App() {
           const content = JSON.parse(event.target.result);
           const migratedData = migrateToNewFormat(content);
           setData(migratedData);
+          setNavigationHistory([]);
 
           if (migratedData.people?.length > 0) {
             setSelectedPersonId(migratedData.people[0].id);
@@ -564,7 +607,9 @@ function App() {
           onCancel={() => {
             setFocusedView('pedigree');
           }}
-          onSelectPerson={setSelectedPersonId}
+          onSelectPerson={navigateToPerson}
+          onNavigateBack={navigateBack}
+          canNavigateBack={canNavigateBack}
           onParentsChange={({ personId, fatherId, motherId }) => {
             setData(prev => {
               // Find existing union where this person is a child
@@ -674,7 +719,7 @@ function App() {
         <PedigreeView
           data={data}
           focusPersonId={selectedPersonId}
-          onSelectPerson={setSelectedPersonId}
+          onSelectPerson={navigateToPerson}
           onEditPerson={(personId) => {
             setSelectedPersonId(personId);
             setFocusedView('person');
@@ -696,7 +741,7 @@ function App() {
       <DescendantsView
         data={data}
         focusPersonId={selectedPersonId}
-        onSelectPerson={setSelectedPersonId}
+        onSelectPerson={navigateToPerson}
         onEditPerson={(personId) => {
           setSelectedPersonId(personId);
           setFocusedView('person');
@@ -728,7 +773,7 @@ function App() {
         <Sidebar
           data={data}
           selectedPersonId={selectedPersonId}
-          onSelectPerson={setSelectedPersonId}
+          onSelectPerson={navigateToPerson}
           onEditPerson={(personId) => {
             setSelectedPersonId(personId);
             setViewMode('focused');

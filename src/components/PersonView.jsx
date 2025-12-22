@@ -620,7 +620,7 @@ function UnionEntry({ union, onChange, onRemove, allPeople, currentPersonId, sou
   );
 }
 
-export default function PersonView({ person, onSave, onCancel, sources = {}, onAddSource, allPeople = [], existingUnions = [], onUnionsChange, onSelectPerson, onParentsChange, onCreatePerson }) {
+export default function PersonView({ person, onSave, onCancel, sources = {}, onAddSource, allPeople = [], existingUnions = [], onUnionsChange, onSelectPerson, onParentsChange, onCreatePerson, onNavigateBack, canNavigateBack }) {
   const { theme } = useTheme();
   const firstInputRef = useRef(null);
 
@@ -876,6 +876,15 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
         return; // Don't process other shortcuts when dialog is open
       }
 
+      // Navigate back: Alt+Left or Cmd+[
+      if (canNavigateBack && !isEditing) {
+        if ((e.altKey && e.key === 'ArrowLeft') || ((e.ctrlKey || e.metaKey) && e.key === '[')) {
+          e.preventDefault();
+          onNavigateBack?.();
+          return;
+        }
+      }
+
       // Cmd+E to toggle edit mode
       if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
         e.preventDefault();
@@ -944,7 +953,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleSubmit, isEditing, person, existingUnions, showNewParentDialog, newParentFirstName, newParentLastName, onCreatePerson, showNewFamilyDialog, newFamilyFirstName, newFamilyLastName, newFamilyGender, unions, onUnionsChange]);
+  }, [handleSubmit, isEditing, person, existingUnions, showNewParentDialog, newParentFirstName, newParentLastName, onCreatePerson, showNewFamilyDialog, newFamilyFirstName, newFamilyLastName, newFamilyGender, unions, onUnionsChange, canNavigateBack, onNavigateBack]);
 
   const formatDatesDisplay = (birth, death) => {
     let birthStr = formatSingleDate(birth);
@@ -1045,10 +1054,22 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
     return (
       <div className="person-view">
         <div className="person-view-header">
-          <div className="person-view-title">
-            <h2>{displayName}</h2>
-            {nickname && <span className="person-nickname">"{nickname}"</span>}
-            {maidenName && <span className="person-maiden-name">(née {maidenName})</span>}
+          <div className="person-view-header-left">
+            {canNavigateBack && (
+              <button
+                type="button"
+                className="btn-back"
+                onClick={onNavigateBack}
+                title="Go back"
+              >
+                ←
+              </button>
+            )}
+            <div className="person-view-title">
+              <h2>{displayName}</h2>
+              {nickname && <span className="person-nickname">"{nickname}"</span>}
+              {maidenName && <span className="person-maiden-name">(née {maidenName})</span>}
+            </div>
           </div>
           <button
             type="button"
@@ -1313,7 +1334,19 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
   return (
     <div className="person-view person-view-editing">
       <div className="person-view-header">
-        <h2>{displayName || 'New Person'}</h2>
+        <div className="person-view-header-left">
+          {canNavigateBack && (
+            <button
+              type="button"
+              className="btn-back"
+              onClick={onNavigateBack}
+              title="Go back"
+            >
+              ←
+            </button>
+          )}
+          <h2>{displayName || 'New Person'}</h2>
+        </div>
         <div className="person-view-shortcuts">
           <span><KeyHint>Esc</KeyHint> Cancel</span>
           <span><KeyHint>⌘↵</KeyHint> Save</span>
