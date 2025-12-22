@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTheme } from '../contexts/ThemeContext';
 
 export default function Toolbar({
   onAddNode,
@@ -8,8 +7,6 @@ export default function Toolbar({
   onSave,
   onLoad,
 }) {
-  const { themeName, setTheme, themes } = useTheme();
-
   return (
     <div className="toolbar">
       <div className="toolbar-brand">
@@ -30,20 +27,6 @@ export default function Toolbar({
       <div className="toolbar-group">
         <button onClick={onExportPng}>Export PNG</button>
         <button onClick={onExportSvg}>Export SVG</button>
-      </div>
-
-      <div className="toolbar-group">
-        <select
-          value={themeName}
-          onChange={(e) => setTheme(e.target.value)}
-          className="theme-selector"
-        >
-          {Object.entries(themes).map(([key, theme]) => (
-            <option key={key} value={key}>
-              {theme.name}
-            </option>
-          ))}
-        </select>
       </div>
 
       <div style={{ marginLeft: 'auto', color: 'var(--color-textMuted)', fontSize: '12px' }}>

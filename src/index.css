@@ -647,6 +647,71 @@ html, body, #root {
   text-decoration: underline;
 }
 
+/* Theme Selector */
+.theme-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: transparent;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-option:hover {
+  border-color: var(--color-textMuted);
+}
+
+.theme-option.active {
+  border-color: var(--color-primary);
+  background: var(--color-background);
+}
+
+.theme-preview {
+  width: 60px;
+  height: 40px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-text);
+  opacity: 0.3;
+}
+
+.theme-preview-header {
+  height: 10px;
+  background: var(--theme-primary);
+}
+
+.theme-preview-content {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+}
+
+.theme-preview-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--theme-primary);
+}
+
+.theme-name {
+  font-size: 11px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
 .api-key-input {
   display: flex;
   gap: 8px;

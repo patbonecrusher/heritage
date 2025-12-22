@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTheme, themes } from '../contexts/ThemeContext';
 
 const SITES = [
   { id: 'genealogieQuebec', name: 'Genealogie Quebec', url: 'genealogiequebec.com' },
@@ -6,6 +7,7 @@ const SITES = [
 ];
 
 function PreferencesDialog({ isOpen, onClose }) {
+  const { themeName, setTheme } = useTheme();
   const [credentials, setCredentials] = useState({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -74,6 +76,34 @@ function PreferencesDialog({ isOpen, onClose }) {
         </div>
 
         <div className="dialog-content preferences-content">
+          <div className="preferences-section">
+            <h3>Appearance</h3>
+            <div className="theme-selector">
+              {Object.entries(themes).map(([key, theme]) => (
+                <button
+                  key={key}
+                  className={`theme-option ${themeName === key ? 'active' : ''}`}
+                  onClick={() => setTheme(key)}
+                  style={{
+                    '--theme-bg': theme.colors.background,
+                    '--theme-surface': theme.colors.surface,
+                    '--theme-primary': theme.colors.primary,
+                    '--theme-text': theme.colors.text,
+                  }}
+                >
+                  <div className="theme-preview">
+                    <div className="theme-preview-header" />
+                    <div className="theme-preview-content">
+                      <div className="theme-preview-dot" />
+                      <div className="theme-preview-dot" />
+                    </div>
+                  </div>
+                  <span className="theme-name">{theme.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="preferences-section">
             <h3>Genealogy Site Credentials</h3>
             <p className="preferences-hint">

@@ -133,6 +133,28 @@ const themes = {
       genderFemaleBorder: '#9876aa',
     },
   },
+  forestDark: {
+    name: 'Forest Dark',
+    colors: {
+      primary: '#4a9c4a',
+      secondary: '#6bb86b',
+      accent: '#8fbc8f',
+      background: '#0d1a0d',
+      surface: '#1a2e1a',
+      toolbar: '#0a140a',
+      toolbarBorder: '#1e3a1e',
+      toolbarButton: '#2d4a2d',
+      toolbarButtonHover: '#3d5a3d',
+      text: '#c8e6c8',
+      textMuted: '#7ba87b',
+      border: '#2d4a2d',
+      nodeColors: ['#4a9c4a', '#6bb86b', '#8fbc8f', '#6b8e23', '#228b22', '#32cd32', '#7ba87b'],
+      genderMale: '#1a3a2a',
+      genderMaleBorder: '#4a9c4a',
+      genderFemale: '#2a2a1a',
+      genderFemaleBorder: '#9c8a4a',
+    },
+  },
 };
 
 const ThemeContext = createContext();

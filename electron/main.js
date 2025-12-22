@@ -31,7 +31,7 @@ const clearSharedConfig = () => {
   }
 };
 
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = !app.isPackaged;
 const isMac = process.platform === 'darwin';
 
 let mainWindow = null;
@@ -204,6 +204,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    icon: path.join(__dirname, '../assets/icon.icns'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
