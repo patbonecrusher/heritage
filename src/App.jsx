@@ -16,9 +16,9 @@ import Toolbar from './components/Toolbar';
 import Sidebar from './components/Sidebar';
 import PedigreeView from './components/PedigreeView';
 import DescendantsView from './components/DescendantsView';
+import PersonView from './components/PersonView';
 import PersonNode from './components/PersonNode';
 import UnionNode from './components/UnionNode';
-import PersonDialog from './components/PersonDialog';
 import UnionDialog from './components/UnionDialog';
 import PreferencesDialog from './components/PreferencesDialog';
 import SourceDialog from './components/SourceDialog';
@@ -44,18 +44,13 @@ function App() {
 
   // View mode state
   const [viewMode, setViewMode] = useState('focused'); // 'focused' | 'canvas'
-  const [focusedView, setFocusedView] = useState('pedigree'); // 'pedigree' | 'descendants'
+  const [focusedView, setFocusedView] = useState('pedigree'); // 'pedigree' | 'descendants' | 'person'
   const [selectedPersonId, setSelectedPersonId] = useState(null);
 
   // React Flow state for canvas mode
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
-
-  // Person Dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingNodeId, setEditingNodeId] = useState(null);
-  const [dialogInitialData, setDialogInitialData] = useState(null);
 
   // Union Dialog state
   const [unionDialogOpen, setUnionDialogOpen] = useState(false);
@@ -112,16 +107,6 @@ function App() {
     loadLastFile();
   }, []);
 
-  // Open edit dialog for a person
-  const openEditDialog = useCallback((personId) => {
-    const person = findPersonById(data, personId);
-    if (person) {
-      setEditingNodeId(personId);
-      setDialogInitialData(person);
-      setDialogOpen(true);
-    }
-  }, [data]);
-
   // Handle double-click on node (for canvas mode)
   const onNodeDoubleClick = useCallback((event, node) => {
     if (node.type === 'union') {
@@ -132,9 +117,11 @@ function App() {
         setUnionDialogOpen(true);
       }
     } else {
-      openEditDialog(node.id);
+      // Navigate to person view
+      setSelectedPersonId(node.id);
+      setFocusedView('person');
     }
-  }, [data, openEditDialog]);
+  }, [data]);
 
   // Handle union dialog save
   const handleUnionDialogSave = useCallback((dialogData) => {
@@ -188,20 +175,20 @@ function App() {
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (dialogOpen || unionDialogOpen) return;
+      if (unionDialogOpen) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       if (e.key === 'e' || e.key === 'E') {
         if (selectedPersonId) {
           e.preventDefault();
-          openEditDialog(selectedPersonId);
+          setFocusedView('person');
         }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedPersonId, dialogOpen, unionDialogOpen, openEditDialog]);
+  }, [selectedPersonId, unionDialogOpen]);
 
   // Handle connection in canvas mode
   const onConnect = useCallback(
@@ -244,30 +231,34 @@ function App() {
 
   // Add new person
   const addNode = useCallback(() => {
-    setEditingNodeId(null);
-    setDialogInitialData(null);
-    setDialogOpen(true);
+    // Create a new person with default values
+    const newId = String(Date.now());
+    const newPerson = {
+      id: newId,
+      firstName: '',
+      lastName: '',
+      middleName: '',
+      maidenName: '',
+      nickname: '',
+      title: '',
+      gender: 'male',
+      birthDate: { type: 'unknown' },
+      deathDate: { type: 'unknown' },
+      birthPlace: '',
+      deathPlace: '',
+      notes: '',
+      image: '',
+      events: [],
+      birthSources: [],
+      deathSources: []
+    };
+    setData(prev => ({
+      ...prev,
+      people: [...(prev.people || []), newPerson]
+    }));
+    setSelectedPersonId(newId);
+    setFocusedView('person');
   }, []);
-
-  // Handle person dialog save
-  const handleDialogSave = useCallback((personData) => {
-    if (editingNodeId) {
-      // Editing existing person
-      setData(prev => updatePerson(prev, editingNodeId, personData));
-    } else {
-      // Adding new person
-      const newData = addPerson(data, personData);
-      setData(newData);
-
-      // Select the new person
-      const newPerson = newData.people[newData.people.length - 1];
-      setSelectedPersonId(newPerson.id);
-    }
-    setDialogOpen(false);
-    setEditingNodeId(null);
-    setDialogInitialData(null);
-    showToast('Saved');
-  }, [editingNodeId, data, showToast]);
 
   // Handle menu actions from person node
   const handleMenuAction = useCallback(async (nodeId, action) => {
@@ -285,9 +276,10 @@ function App() {
       }
       setData(prev => updatePerson(prev, nodeId, { image }));
     } else if (action === 'edit-info') {
-      openEditDialog(nodeId);
+      setSelectedPersonId(nodeId);
+      setFocusedView('person');
     }
-  }, [data, openEditDialog]);
+  }, [data]);
 
   const selectImageWeb = () => {
     return new Promise((resolve) => {
@@ -316,7 +308,10 @@ function App() {
         ...node.data,
         onMenuAction: handleMenuAction,
         onDoubleClick: node.type === 'person'
-          ? openEditDialog
+          ? (personId) => {
+              setSelectedPersonId(personId);
+              setFocusedView('person');
+            }
           : (unionId) => {
               const union = data.unions?.find(u => u.id === unionId);
               if (union) {
@@ -327,7 +322,7 @@ function App() {
             }
       },
     }));
-  }, [nodes, handleMenuAction, openEditDialog, data.unions]);
+  }, [nodes, handleMenuAction, data.unions]);
 
   // Export functions
   const handleExportPng = useCallback(async () => {
@@ -531,14 +526,159 @@ function App() {
       );
     }
 
-    // Focused view mode
+    // Person view mode (read-only with edit capability)
+    if (focusedView === 'person') {
+      const selectedPerson = findPersonById(data, selectedPersonId);
+      return (
+        <PersonView
+          person={selectedPerson}
+          sources={data.sources || {}}
+          onAddSource={handleAddSource}
+          allPeople={data.people || []}
+          existingUnions={data.unions || []}
+          onUnionsChange={(updatedUnions) => {
+            // Remove old unions for this person and add the updated ones
+            setData(prev => {
+              const otherUnions = (prev.unions || []).filter(u =>
+                u.partner1Id !== selectedPersonId && u.partner2Id !== selectedPersonId
+              );
+              return {
+                ...prev,
+                unions: [...otherUnions, ...updatedUnions]
+              };
+            });
+          }}
+          onSave={(updatedData) => {
+            if (selectedPersonId) {
+              setData(prev => ({
+                ...prev,
+                people: (prev.people || []).map(p =>
+                  p.id === selectedPersonId
+                    ? { ...p, ...updatedData }
+                    : p
+                )
+              }));
+              showToast('Saved');
+            }
+          }}
+          onCancel={() => {
+            setFocusedView('pedigree');
+          }}
+          onSelectPerson={setSelectedPersonId}
+          onParentsChange={({ personId, fatherId, motherId }) => {
+            setData(prev => {
+              // Find existing union where this person is a child
+              const existingParentUnion = (prev.unions || []).find(u =>
+                (u.childIds || []).includes(personId)
+              );
+
+              // If no parents selected, remove person from any parent union
+              if (!fatherId && !motherId) {
+                if (existingParentUnion) {
+                  return {
+                    ...prev,
+                    unions: prev.unions.map(u =>
+                      u.id === existingParentUnion.id
+                        ? { ...u, childIds: (u.childIds || []).filter(id => id !== personId) }
+                        : u
+                    ).filter(u => (u.childIds || []).length > 0 || u.partner1Id || u.partner2Id)
+                  };
+                }
+                return prev;
+              }
+
+              // Check if there's already a union between these two parents
+              const parentsUnion = (prev.unions || []).find(u =>
+                (u.partner1Id === fatherId && u.partner2Id === motherId) ||
+                (u.partner1Id === motherId && u.partner2Id === fatherId) ||
+                (fatherId && !motherId && (u.partner1Id === fatherId || u.partner2Id === fatherId)) ||
+                (motherId && !fatherId && (u.partner1Id === motherId || u.partner2Id === motherId))
+              );
+
+              if (parentsUnion) {
+                // Add person to existing parents union, remove from old union if different
+                let updatedUnions = prev.unions.map(u => {
+                  if (u.id === parentsUnion.id) {
+                    const newChildIds = (u.childIds || []).includes(personId)
+                      ? u.childIds
+                      : [...(u.childIds || []), personId];
+                    return { ...u, childIds: newChildIds };
+                  }
+                  if (existingParentUnion && u.id === existingParentUnion.id && u.id !== parentsUnion.id) {
+                    return { ...u, childIds: (u.childIds || []).filter(id => id !== personId) };
+                  }
+                  return u;
+                });
+                return { ...prev, unions: updatedUnions };
+              }
+
+              // Create new union for parents
+              const newUnion = {
+                id: `union-${Date.now()}`,
+                partner1Id: fatherId || '',
+                partner2Id: motherId || '',
+                type: 'marriage',
+                startDate: null,
+                startPlace: '',
+                endDate: null,
+                endReason: '',
+                childIds: [personId],
+                sources: []
+              };
+
+              // Remove from old parent union if exists
+              let updatedUnions = existingParentUnion
+                ? prev.unions.map(u =>
+                    u.id === existingParentUnion.id
+                      ? { ...u, childIds: (u.childIds || []).filter(id => id !== personId) }
+                      : u
+                  )
+                : prev.unions || [];
+
+              return { ...prev, unions: [...updatedUnions, newUnion] };
+            });
+          }}
+          onCreatePerson={({ firstName, lastName, gender }) => {
+            const newId = String(Date.now());
+            const newPerson = {
+              id: newId,
+              firstName: firstName || '',
+              lastName: lastName || '',
+              middleName: '',
+              maidenName: '',
+              nickname: '',
+              title: '',
+              gender: gender || 'male',
+              birthDate: { type: 'unknown' },
+              deathDate: { type: 'unknown' },
+              birthPlace: '',
+              deathPlace: '',
+              notes: '',
+              image: '',
+              events: [],
+              birthSources: [],
+              deathSources: []
+            };
+            setData(prev => ({
+              ...prev,
+              people: [...(prev.people || []), newPerson]
+            }));
+            return newId;
+          }}
+        />
+      );
+    }
+
     if (focusedView === 'pedigree') {
       return (
         <PedigreeView
           data={data}
           focusPersonId={selectedPersonId}
           onSelectPerson={setSelectedPersonId}
-          onEditPerson={openEditDialog}
+          onEditPerson={(personId) => {
+            setSelectedPersonId(personId);
+            setFocusedView('person');
+          }}
           onEditUnion={(unionId) => {
             const union = data.unions?.find(u => u.id === unionId);
             if (union) {
@@ -557,7 +697,10 @@ function App() {
         data={data}
         focusPersonId={selectedPersonId}
         onSelectPerson={setSelectedPersonId}
-        onEditPerson={openEditDialog}
+        onEditPerson={(personId) => {
+          setSelectedPersonId(personId);
+          setFocusedView('person');
+        }}
         onEditUnion={(unionId) => {
           const union = data.unions?.find(u => u.id === unionId);
           if (union) {
@@ -586,7 +729,11 @@ function App() {
           data={data}
           selectedPersonId={selectedPersonId}
           onSelectPerson={setSelectedPersonId}
-          onEditPerson={openEditDialog}
+          onEditPerson={(personId) => {
+            setSelectedPersonId(personId);
+            setViewMode('focused');
+            setFocusedView('person');
+          }}
           onAddPerson={addNode}
         />
 
@@ -622,6 +769,14 @@ function App() {
                 >
                   Descendants
                 </button>
+                <button
+                  className={`view-toggle-btn ${focusedView === 'person' ? 'active' : ''}`}
+                  onClick={() => setFocusedView('person')}
+                  disabled={!selectedPersonId}
+                  title={selectedPersonId ? 'View selected person' : 'Select a person first'}
+                >
+                  Person
+                </button>
               </>
             )}
           </div>
@@ -629,19 +784,6 @@ function App() {
           {renderMainView()}
         </div>
       </div>
-
-      <PersonDialog
-        isOpen={dialogOpen}
-        onClose={() => {
-          setDialogOpen(false);
-          setEditingNodeId(null);
-          setDialogInitialData(null);
-        }}
-        onSave={handleDialogSave}
-        initialData={dialogInitialData}
-        sources={data.sources || {}}
-        onAddSource={handleAddSource}
-      />
 
       <UnionDialog
         isOpen={unionDialogOpen}
