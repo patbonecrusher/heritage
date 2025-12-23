@@ -1938,6 +1938,20 @@ html, body, #root {
   color: var(--color-textMuted);
 }
 
+.person-source-badge {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-primary);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.person-sources-group {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
 .person-view-shortcuts {
   display: flex;
   gap: 16px;

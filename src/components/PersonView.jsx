@@ -638,6 +638,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
   const [deathPlace, setDeathPlace] = useState('');
   const [notes, setNotes] = useState('');
   const [colorIndex, setColorIndex] = useState(0);
+  const [personSources, setPersonSources] = useState([]);
   const [birthSources, setBirthSources] = useState([]);
   const [deathSources, setDeathSources] = useState([]);
   const [events, setEvents] = useState([]);
@@ -672,6 +673,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
       setDeathPlace(person.deathPlace || '');
       setNotes(person.notes || '');
       setColorIndex(person.colorIndex ?? 0);
+      setPersonSources(person.sources || []);
       setBirthSources(person.birthSources || []);
       setDeathSources(person.deathSources || []);
       setEvents(person.events || []);
@@ -774,13 +776,14 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
       description: notes,
       dates,
       colorIndex,
+      sources: personSources,
       birthSources,
       deathSources,
       events,
     });
 
     setIsEditing(false);
-  }, [title, firstName, middleName, lastName, maidenName, nickname, gender, birthDate, deathDate, birthPlace, deathPlace, notes, colorIndex, birthSources, deathSources, events, unions, person, onSave, onUnionsChange, selectedFatherId, selectedMotherId, onParentsChange]);
+  }, [title, firstName, middleName, lastName, maidenName, nickname, gender, birthDate, deathDate, birthPlace, deathPlace, notes, colorIndex, personSources, birthSources, deathSources, events, unions, person, onSave, onUnionsChange, selectedFatherId, selectedMotherId, onParentsChange]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -919,6 +922,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
             setDeathPlace(person.deathPlace || '');
             setNotes(person.notes || '');
             setColorIndex(person.colorIndex ?? 0);
+            setPersonSources(person.sources || []);
             setBirthSources(person.birthSources || []);
             setDeathSources(person.deathSources || []);
             setEvents(person.events || []);
@@ -1066,7 +1070,14 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
               </button>
             )}
             <div className="person-view-title">
-              <h2>{displayName}</h2>
+              <h2>
+                {displayName}
+                {personSources.length > 0 && (
+                  <span className="person-source-badge" title={`${personSources.length} source${personSources.length > 1 ? 's' : ''}`}>
+                    [{personSources.length}]
+                  </span>
+                )}
+              </h2>
               {nickname && <span className="person-nickname">"{nickname}"</span>}
               {maidenName && <span className="person-maiden-name">(née {maidenName})</span>}
             </div>
@@ -1519,6 +1530,20 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Person Sources */}
+            <div className="form-group person-sources-group">
+              <label className="field-label">
+                Sources
+                {personSources.length > 0 && ` [${personSources.length}]`}
+              </label>
+              <SourceSelector
+                sources={sources}
+                selectedSourceIds={personSources}
+                onChange={setPersonSources}
+                onAddNew={() => onAddSource?.((newId) => setPersonSources(prev => [...prev, newId]))}
+              />
             </div>
           </div>
 
