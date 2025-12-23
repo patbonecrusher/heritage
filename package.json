@@ -24,7 +24,18 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "database/schema.sql"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "heritage",
+        "name": "Heritage Family Tree",
+        "description": "Heritage genealogy database bundle",
+        "mimeType": "application/x-heritage",
+        "role": "Editor",
+        "icon": "assets/icon.icns"
+      }
     ],
     "mac": {
       "category": "public.app-category.lifestyle",
@@ -32,7 +43,28 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "extendInfo": {
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "com.heritage.familytree",
+            "UTTypeDescription": "Heritage Family Tree",
+            "UTTypeConformsTo": ["com.apple.package"],
+            "UTTypeTagSpecification": {
+              "public.filename-extension": ["heritage"]
+            }
+          }
+        ],
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Heritage Family Tree",
+            "CFBundleTypeRole": "Editor",
+            "LSHandlerRank": "Owner",
+            "LSItemContentTypes": ["com.heritage.familytree"],
+            "CFBundleTypeIconFile": "icon.icns"
+          }
+        ]
+      }
     },
     "win": {
       "icon": "assets/icon.png",
@@ -56,11 +88,14 @@
   },
   "dependencies": {
     "@reactflow/node-resizer": "^2.2.14",
+    "better-sqlite3": "^11.6.0",
     "electron-store": "^7.0.3",
     "html-to-image": "^1.11.11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "reactflow": "^11.11.4"
+    "reactflow": "^11.11.4",
+    "sharp": "^0.33.5",
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
