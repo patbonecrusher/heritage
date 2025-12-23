@@ -74,15 +74,20 @@ CREATE TABLE person (
     surname TEXT,
     surname_at_birth TEXT,  -- maiden name
     gender TEXT,  -- 'male', 'female', 'unknown'
+    primary_photo_id TEXT,  -- references media(id), defined later
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     deleted_at TEXT
 );
 
+-- Add foreign key constraint after media table is created
+-- (handled via trigger or application logic since SQLite doesn't support deferred FK creation)
+
 CREATE INDEX idx_person_surname ON person(surname);
 CREATE INDEX idx_person_given_names ON person(given_names);
 CREATE INDEX idx_person_surname_at_birth ON person(surname_at_birth);
+CREATE INDEX idx_person_primary_photo ON person(primary_photo_id);
 
 -- Alternate names (dit names, spelling variations, aliases)
 CREATE TABLE person_name (
