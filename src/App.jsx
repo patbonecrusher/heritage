@@ -23,8 +23,10 @@ import UnionDialog from './components/UnionDialog';
 import PreferencesDialog from './components/PreferencesDialog';
 import SourceDialog from './components/SourceDialog';
 import Toast from './components/Toast';
+import WelcomeScreen from './components/WelcomeScreen';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
+import { useDatabase } from './data';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -37,10 +39,14 @@ function App() {
   const reactFlowWrapper = useRef(null);
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
+  const { isOpen, bundleInfo, createBundle, openBundle, openBundlePath, closeBundle, isLoading } = useDatabase();
 
-  // Core data state - using new format
+  // Core data state - using new format (legacy JSON mode)
   const [data, setData] = useState(createEmptyData());
   const [currentFilePath, setCurrentFilePath] = useState(null);
+
+  // Mode: 'legacy' for JSON files, 'bundle' for .heritage bundles
+  const [storageMode, setStorageMode] = useState(null); // null = welcome screen
 
   // View mode state
   const [viewMode, setViewMode] = useState('focused'); // 'focused' | 'canvas'
@@ -125,15 +131,17 @@ function App() {
     }
   }, [reactFlowData, viewMode, setNodes, setEdges]);
 
-  // Load last used file on startup
+  // Load last used file on startup (only for legacy JSON files)
   useEffect(() => {
     const loadLastFile = async () => {
       const lastFilePath = localStorage.getItem('heritage-last-file');
-      if (lastFilePath && window.electronAPI) {
+      // Only auto-load legacy JSON files, not bundles
+      if (lastFilePath && lastFilePath.endsWith('.json') && window.electronAPI) {
         const result = await window.electronAPI.readFile(lastFilePath);
         if (result && result.content) {
           // Migrate to new format if needed
           const migratedData = migrateToNewFormat(result.content);
+          setStorageMode('legacy');
           setData(migratedData);
           setCurrentFilePath(result.path);
 
@@ -406,7 +414,21 @@ function App() {
   }, [theme]);
 
   // File operations
-  const handleNew = useCallback(() => {
+  const handleNew = useCallback(async () => {
+    // Create a new .heritage bundle
+    const result = await createBundle('Family Tree');
+    if (result) {
+      setStorageMode('bundle');
+      setData(createEmptyData());
+      setCurrentFilePath(null);
+      setSelectedPersonId(null);
+      setNavigationHistory([]);
+    }
+  }, [createBundle]);
+
+  const handleNewLegacy = useCallback(() => {
+    // Create a new JSON file (legacy mode)
+    setStorageMode('legacy');
     setData(createEmptyData());
     setCurrentFilePath(null);
     setSelectedPersonId(null);
@@ -450,10 +472,25 @@ function App() {
   }, [data, currentFilePath, showToast]);
 
   const handleLoad = useCallback(async () => {
+    // Open a .heritage bundle
+    const result = await openBundle();
+    if (result) {
+      setStorageMode('bundle');
+      setData(createEmptyData()); // Will be loaded from database
+      setCurrentFilePath(null);
+      setNavigationHistory([]);
+      setSelectedPersonId(null);
+      // TODO: Load persons from database and select first one
+    }
+  }, [openBundle]);
+
+  const handleLoadLegacy = useCallback(async () => {
+    // Open a JSON file (legacy mode)
     if (window.electronAPI) {
       const result = await window.electronAPI.openFile();
       if (result && result.content) {
         const migratedData = migrateToNewFormat(result.content);
+        setStorageMode('legacy');
         setData(migratedData);
         setCurrentFilePath(result.path);
         localStorage.setItem('heritage-last-file', result.path);
@@ -473,6 +510,7 @@ function App() {
         reader.onload = (event) => {
           const content = JSON.parse(event.target.result);
           const migratedData = migrateToNewFormat(content);
+          setStorageMode('legacy');
           setData(migratedData);
           setNavigationHistory([]);
 
@@ -759,6 +797,19 @@ function App() {
     );
   };
 
+  // Show welcome screen if no file/bundle is open
+  if (storageMode === null) {
+    return (
+      <WelcomeScreen
+        onNewBundle={handleNew}
+        onOpenBundle={handleLoad}
+        onNewLegacy={handleNewLegacy}
+        onOpenLegacy={handleLoadLegacy}
+        isLoading={isLoading}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <Toolbar
@@ -767,6 +818,8 @@ function App() {
         onExportSvg={handleExportSvg}
         onSave={handleSave}
         onLoad={handleLoad}
+        bundleInfo={bundleInfo}
+        storageMode={storageMode}
       />
 
       <div className="app-content">

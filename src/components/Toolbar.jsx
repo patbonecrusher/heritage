@@ -6,11 +6,21 @@ export default function Toolbar({
   onExportSvg,
   onSave,
   onLoad,
+  bundleInfo,
+  storageMode,
 }) {
+  const fileName = bundleInfo?.info?.name || (storageMode === 'legacy' ? 'Untitled' : null);
+
   return (
     <div className="toolbar">
       <div className="toolbar-brand">
         Heritage
+        {fileName && (
+          <span className="toolbar-filename">
+            — {fileName}
+            {storageMode === 'bundle' && <span className="toolbar-badge">.heritage</span>}
+          </span>
+        )}
       </div>
 
       <div className="toolbar-group">
@@ -20,8 +30,8 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-group">
-        <button onClick={onSave}>Save Tree</button>
-        <button onClick={onLoad}>Open Tree</button>
+        <button onClick={onSave}>Save</button>
+        <button onClick={onLoad}>Open</button>
       </div>
 
       <div className="toolbar-group">
@@ -30,7 +40,7 @@ export default function Toolbar({
       </div>
 
       <div style={{ marginLeft: 'auto', color: 'var(--color-textMuted)', fontSize: '12px' }}>
-        Drag side handles to marry | Drag from union to add children
+        {storageMode === 'bundle' ? 'Database mode' : 'Legacy JSON mode'}
       </div>
     </div>
   );

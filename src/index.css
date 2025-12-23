@@ -41,6 +41,9 @@ html, body, #root {
 }
 
 .toolbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 18px;
   font-weight: 700;
   color: var(--color-primary);
@@ -48,6 +51,23 @@ html, body, #root {
   margin-right: 8px;
   border-right: 1px solid var(--color-toolbarBorder);
   letter-spacing: 0.5px;
+}
+
+.toolbar-filename {
+  font-weight: 400;
+  font-size: 14px;
+  color: #a0a0b0;
+}
+
+.toolbar-badge {
+  font-size: 10px;
+  background: var(--color-primary);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: 500;
+  vertical-align: middle;
 }
 
 .toolbar-group {
@@ -2471,4 +2491,187 @@ html, body, #root {
   border-top: 1px dashed var(--color-border);
   padding-top: 12px;
   margin-top: 8px;
+}
+
+/* ==========================================
+   Welcome Screen
+   ========================================== */
+
+.welcome-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24px;
+}
+
+.welcome-content {
+  max-width: 480px;
+  width: 100%;
+}
+
+.welcome-logo {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.welcome-icon {
+  width: 80px;
+  height: 80px;
+  color: var(--color-primary);
+  margin-bottom: 16px;
+}
+
+.welcome-logo h1 {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 8px;
+}
+
+.welcome-tagline {
+  font-size: 16px;
+  color: var(--color-textMuted);
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.welcome-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-textMuted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+.welcome-section h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-textMuted);
+  margin-bottom: 8px;
+}
+
+.welcome-btn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  margin-bottom: 12px;
+}
+
+.welcome-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.welcome-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.welcome-btn.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.welcome-btn.primary:hover:not(:disabled) {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
+.welcome-btn .btn-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.welcome-btn:not(.primary) .btn-icon {
+  background: var(--color-background);
+}
+
+.welcome-btn .btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.welcome-btn .btn-text strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: inherit;
+}
+
+.welcome-btn:not(.primary) .btn-text strong {
+  color: var(--color-text);
+}
+
+.welcome-btn .btn-text small {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.welcome-btn:not(.primary) .btn-text small {
+  color: var(--color-textMuted);
+}
+
+.welcome-section.legacy {
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.legacy-note {
+  font-size: 13px;
+  color: var(--color-textMuted);
+  margin-bottom: 12px;
+}
+
+.legacy-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.welcome-btn-small {
+  padding: 10px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text);
+  transition: all 0.15s ease;
+}
+
+.welcome-btn-small:hover:not(:disabled) {
+  border-color: var(--color-textMuted);
+}
+
+.welcome-btn-small:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.welcome-loading {
+  text-align: center;
+  margin-top: 24px;
+  color: var(--color-textMuted);
+  font-size: 14px;
 }
