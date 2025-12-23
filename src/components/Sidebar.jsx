@@ -1,18 +1,41 @@
 import React, { useState, useMemo } from 'react';
 import { groupBySurname } from '../utils/dataModel';
+import { useDatabase, usePersons } from '../data';
 
 export default function Sidebar({
   data,
   selectedPersonId,
   onSelectPerson,
   onEditPerson,
-  onAddPerson
+  onAddPerson,
+  storageMode,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
 
-  // Group people by surname
-  const groups = useMemo(() => groupBySurname(data), [data]);
+  // Use database hook when in bundle mode
+  const { isOpen } = useDatabase();
+  const { persons, getPersonsBySurname, loading: dbLoading } = usePersons();
+
+  // Group people by surname - use database or props based on mode
+  const groups = useMemo(() => {
+    if (storageMode === 'bundle' && isOpen) {
+      // Convert database format to display format
+      return getPersonsBySurname().map(group => ({
+        surname: group.surname,
+        people: group.persons.map(p => ({
+          id: p.id,
+          firstName: p.given_names,
+          lastName: p.surname,
+          nickname: null, // TODO: get from person_name table
+          birthDate: null, // TODO: get from events
+          deathDate: null, // TODO: get from events
+        }))
+      }));
+    }
+    // Legacy mode - use props
+    return groupBySurname(data);
+  }, [storageMode, isOpen, getPersonsBySurname, data]);
 
   // Filter by search query
   const filteredGroups = useMemo(() => {
@@ -73,12 +96,15 @@ export default function Sidebar({
   };
 
   const totalPeople = groups.reduce((sum, g) => sum + g.people.length, 0);
+  const isLoading = storageMode === 'bundle' && dbLoading;
 
   return (
     <div className="sidebar">
       <div className="sidebar-header">
         <h2>People</h2>
-        <span className="sidebar-count">{totalPeople}</span>
+        <span className="sidebar-count">
+          {isLoading ? '...' : totalPeople}
+        </span>
       </div>
 
       <div className="sidebar-search">

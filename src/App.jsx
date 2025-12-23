@@ -26,7 +26,7 @@ import Toast from './components/Toast';
 import WelcomeScreen from './components/WelcomeScreen';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
-import { useDatabase } from './data';
+import { useDatabase, usePersons } from './data';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -40,6 +40,7 @@ function App() {
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
   const { isOpen, bundleInfo, createBundle, openBundle, openBundlePath, closeBundle, isLoading } = useDatabase();
+  const { createPerson, fetchPersons } = usePersons();
 
   // Core data state - using new format (legacy JSON mode)
   const [data, setData] = useState(createEmptyData());
@@ -278,35 +279,48 @@ function App() {
   );
 
   // Add new person
-  const addNode = useCallback(() => {
-    // Create a new person with default values
-    const newId = String(Date.now());
-    const newPerson = {
-      id: newId,
-      firstName: '',
-      lastName: '',
-      middleName: '',
-      maidenName: '',
-      nickname: '',
-      title: '',
-      gender: 'male',
-      birthDate: { type: 'unknown' },
-      deathDate: { type: 'unknown' },
-      birthPlace: '',
-      deathPlace: '',
-      notes: '',
-      image: '',
-      events: [],
-      birthSources: [],
-      deathSources: []
-    };
-    setData(prev => ({
-      ...prev,
-      people: [...(prev.people || []), newPerson]
-    }));
-    setSelectedPersonId(newId);
-    setFocusedView('person');
-  }, []);
+  const addNode = useCallback(async () => {
+    if (storageMode === 'bundle') {
+      // Create in database
+      const newId = await createPerson({
+        given_names: '',
+        surname: '',
+        gender: 'unknown',
+      });
+      if (newId) {
+        setSelectedPersonId(newId);
+        setFocusedView('person');
+      }
+    } else {
+      // Legacy mode - create in local state
+      const newId = String(Date.now());
+      const newPerson = {
+        id: newId,
+        firstName: '',
+        lastName: '',
+        middleName: '',
+        maidenName: '',
+        nickname: '',
+        title: '',
+        gender: 'male',
+        birthDate: { type: 'unknown' },
+        deathDate: { type: 'unknown' },
+        birthPlace: '',
+        deathPlace: '',
+        notes: '',
+        image: '',
+        events: [],
+        birthSources: [],
+        deathSources: []
+      };
+      setData(prev => ({
+        ...prev,
+        people: [...(prev.people || []), newPerson]
+      }));
+      setSelectedPersonId(newId);
+      setFocusedView('person');
+    }
+  }, [storageMode, createPerson]);
 
   // Handle menu actions from person node
   const handleMenuAction = useCallback(async (nodeId, action) => {
@@ -833,6 +847,7 @@ function App() {
             setFocusedView('person');
           }}
           onAddPerson={addNode}
+          storageMode={storageMode}
         />
 
         <div className="main-view">
