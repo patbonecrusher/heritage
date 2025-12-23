@@ -3,6 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const secureStore = require('./secureStore');
+const { BundleManager, BUNDLE_EXTENSION } = require('./bundle-manager');
+
+// Active bundle manager instance
+let bundleManager = null;
 
 // Shared config path for MCP server to read
 const getSharedConfigPath = () => {
@@ -332,3 +336,243 @@ ipcMain.handle('set-credentials', (event, { site, credentials }) => {
 });
 ipcMain.handle('get-all-credentials', () => secureStore.getAllCredentials());
 ipcMain.handle('has-credentials', (event, site) => secureStore.hasCredentials(site));
+
+// ============================================
+// Bundle Management Handlers
+// ============================================
+
+// Create a new .heritage bundle
+ipcMain.handle('bundle-create', async (event, name) => {
+  const { filePath } = await dialog.showSaveDialog({
+    defaultPath: name || 'Family Tree',
+    filters: [{ name: 'Heritage Family Tree', extensions: ['heritage'] }],
+    properties: ['createDirectory']
+  });
+
+  if (filePath) {
+    try {
+      bundleManager = new BundleManager();
+      const bundlePath = await bundleManager.create(filePath, path.basename(filePath, BUNDLE_EXTENSION));
+      updateSharedConfig(bundlePath);
+      return { path: bundlePath, info: bundleManager.getInfo() };
+    } catch (error) {
+      console.error('Error creating bundle:', error);
+      return { error: error.message };
+    }
+  }
+  return null;
+});
+
+// Open an existing .heritage bundle
+ipcMain.handle('bundle-open', async () => {
+  // macOS bundles can be opened as either files or directories depending on context
+  let result = await dialog.showOpenDialog({
+    filters: [{ name: 'Heritage Family Tree', extensions: ['heritage'] }],
+    properties: ['openFile']
+  });
+
+  // If that didn't work, try as directory (for when user navigates into bundle)
+  if (!result.filePaths || result.filePaths.length === 0) {
+    result = await dialog.showOpenDialog({
+      filters: [{ name: 'Heritage Family Tree', extensions: ['heritage'] }],
+      properties: ['openDirectory']
+    });
+  }
+
+  if (result.filePaths && result.filePaths.length > 0) {
+    try {
+      bundleManager = new BundleManager();
+      await bundleManager.open(result.filePaths[0]);
+      updateSharedConfig(result.filePaths[0]);
+      return { path: result.filePaths[0], info: bundleManager.getInfo() };
+    } catch (error) {
+      console.error('Error opening bundle:', error);
+      return { error: error.message };
+    }
+  }
+  return null;
+});
+
+// Open a specific bundle path (for double-click or recent files)
+ipcMain.handle('bundle-open-path', async (event, bundlePath) => {
+  try {
+    bundleManager = new BundleManager();
+    await bundleManager.open(bundlePath);
+    updateSharedConfig(bundlePath);
+    return { path: bundlePath, info: bundleManager.getInfo() };
+  } catch (error) {
+    console.error('Error opening bundle:', error);
+    return { error: error.message };
+  }
+});
+
+// Close current bundle
+ipcMain.handle('bundle-close', async () => {
+  if (bundleManager) {
+    bundleManager.close();
+    bundleManager = null;
+  }
+  return true;
+});
+
+// Get current bundle info
+ipcMain.handle('bundle-info', async () => {
+  if (bundleManager) {
+    return bundleManager.getInfo();
+  }
+  return null;
+});
+
+// Import media into bundle
+ipcMain.handle('bundle-import-media', async (event, { type }) => {
+  if (!bundleManager) {
+    return { error: 'No bundle open' };
+  }
+
+  const extensions = type === 'documents'
+    ? ['pdf', 'doc', 'docx', 'txt']
+    : ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+  const { filePaths } = await dialog.showOpenDialog({
+    filters: [{ name: type === 'documents' ? 'Documents' : 'Images', extensions }],
+    properties: ['openFile', 'multiSelections']
+  });
+
+  if (filePaths && filePaths.length > 0) {
+    try {
+      const results = [];
+      for (const filePath of filePaths) {
+        const media = await bundleManager.importMedia(filePath, type);
+        results.push(media);
+      }
+      bundleManager.updateLastModified();
+      return { media: results };
+    } catch (error) {
+      console.error('Error importing media:', error);
+      return { error: error.message };
+    }
+  }
+  return null;
+});
+
+// Resolve media path to full filesystem path
+ipcMain.handle('bundle-resolve-media', async (event, relativePath) => {
+  if (!bundleManager) {
+    return null;
+  }
+  return bundleManager.resolveMediaPath(relativePath);
+});
+
+// Delete media from bundle
+ipcMain.handle('bundle-delete-media', async (event, relativePath) => {
+  if (!bundleManager) {
+    return { error: 'No bundle open' };
+  }
+  try {
+    bundleManager.deleteMedia(relativePath);
+    bundleManager.updateLastModified();
+    return { success: true };
+  } catch (error) {
+    return { error: error.message };
+  }
+});
+
+// ============================================
+// Database Query Handlers
+// ============================================
+
+// Execute a SELECT query
+ipcMain.handle('db-query', async (event, { sql, params }) => {
+  if (!bundleManager) {
+    return { error: 'No bundle open' };
+  }
+  try {
+    const db = bundleManager.getDatabase();
+    const stmt = db.prepare(sql);
+    const rows = params ? stmt.all(...params) : stmt.all();
+    db.close();
+    return { rows };
+  } catch (error) {
+    console.error('Database query error:', error);
+    return { error: error.message };
+  }
+});
+
+// Execute a single row SELECT query
+ipcMain.handle('db-get', async (event, { sql, params }) => {
+  if (!bundleManager) {
+    return { error: 'No bundle open' };
+  }
+  try {
+    const db = bundleManager.getDatabase();
+    const stmt = db.prepare(sql);
+    const row = params ? stmt.get(...params) : stmt.get();
+    db.close();
+    return { row };
+  } catch (error) {
+    console.error('Database get error:', error);
+    return { error: error.message };
+  }
+});
+
+// Execute an INSERT/UPDATE/DELETE statement
+ipcMain.handle('db-run', async (event, { sql, params }) => {
+  if (!bundleManager) {
+    return { error: 'No bundle open' };
+  }
+  try {
+    const db = bundleManager.getDatabase();
+    const stmt = db.prepare(sql);
+    const result = params ? stmt.run(...params) : stmt.run();
+    db.close();
+    bundleManager.updateLastModified();
+    return { changes: result.changes, lastInsertRowid: result.lastInsertRowid };
+  } catch (error) {
+    console.error('Database run error:', error);
+    return { error: error.message };
+  }
+});
+
+// Execute multiple statements in a transaction
+ipcMain.handle('db-transaction', async (event, { statements }) => {
+  if (!bundleManager) {
+    return { error: 'No bundle open' };
+  }
+  try {
+    const db = bundleManager.getDatabase();
+    const results = [];
+
+    const transaction = db.transaction(() => {
+      for (const { sql, params } of statements) {
+        const stmt = db.prepare(sql);
+        const result = params ? stmt.run(...params) : stmt.run();
+        results.push({ changes: result.changes, lastInsertRowid: result.lastInsertRowid });
+      }
+    });
+
+    transaction();
+    db.close();
+    bundleManager.updateLastModified();
+    return { results };
+  } catch (error) {
+    console.error('Database transaction error:', error);
+    return { error: error.message };
+  }
+});
+
+// Handle file open events (double-click on .heritage file)
+app.on('open-file', async (event, filePath) => {
+  event.preventDefault();
+  if (filePath.endsWith(BUNDLE_EXTENSION)) {
+    if (mainWindow) {
+      try {
+        bundleManager = new BundleManager();
+        await bundleManager.open(filePath);
+        updateSharedConfig(filePath);
+        mainWindow.webContents.send('bundle-opened', { path: filePath, info: bundleManager.getInfo() });
+      } catch (error) {
+        console.error('Error opening bundle from file event:', error);
+      }
+    }
+  }
+});
