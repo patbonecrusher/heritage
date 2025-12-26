@@ -26,7 +26,7 @@ import Toast from './components/Toast';
 import WelcomeScreen from './components/WelcomeScreen';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
-import { useDatabase, usePersons } from './data';
+import { useDatabase, usePersons, useUnions, useEvents, generateId } from './data';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -35,12 +35,114 @@ const nodeTypes = {
   union: UnionNode,
 };
 
+// Helper to convert database event to PersonView date format
+function dbEventToDateFormat(event) {
+  if (!event || !event.date) {
+    return { type: 'unknown' };
+  }
+
+  // Parse the date string (expected format: YYYY-MM-DD or YYYY-MM or YYYY)
+  const dateParts = event.date.split('-');
+  const year = dateParts[0] || '';
+  const month = dateParts[1] || '';
+  const day = dateParts[2] || '';
+
+  // Handle qualifiers
+  if (event.date_qualifier === 'about') {
+    return {
+      type: 'approximate',
+      year,
+      variance: 5,
+      display: `c. ${year}`,
+    };
+  }
+
+  // Build display string
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  let display = '';
+  if (day && month && year) {
+    display = `${parseInt(day)} ${MONTHS[parseInt(month) - 1]?.substring(0, 3)} ${year}`;
+  } else if (month && year) {
+    display = `${MONTHS[parseInt(month) - 1]} ${year}`;
+  } else if (year) {
+    display = year;
+  }
+
+  return {
+    type: 'exact',
+    year,
+    month,
+    day,
+    display,
+  };
+}
+
+// Helper to convert PersonView date format to database event format
+function dateFormatToDbEvent(dateObj) {
+  if (!dateObj || dateObj.type === 'unknown') {
+    return { date: null, date_qualifier: 'exact' };
+  }
+
+  if (dateObj.type === 'alive') {
+    return { date: null, date_qualifier: 'exact', is_living: true };
+  }
+
+  // Build date string
+  let dateStr = '';
+  if (dateObj.year) {
+    dateStr = dateObj.year;
+    if (dateObj.month) {
+      dateStr += `-${dateObj.month.padStart(2, '0')}`;
+      if (dateObj.day) {
+        dateStr += `-${dateObj.day.padStart(2, '0')}`;
+      }
+    }
+  }
+
+  // Handle approximate dates
+  if (dateObj.type === 'approximate') {
+    return { date: dateStr || null, date_qualifier: 'about' };
+  }
+
+  return { date: dateStr || null, date_qualifier: 'exact' };
+}
+
+// Helper to convert database union to PersonView union format
+function dbUnionToPersonViewFormat(dbUnion, currentPersonId) {
+  const partnerId = dbUnion.person1_id === currentPersonId
+    ? dbUnion.person2_id
+    : dbUnion.person1_id;
+
+  return {
+    id: dbUnion.id,
+    partner1Id: currentPersonId,
+    partner2Id: partnerId,
+    partnerId: partnerId,
+    type: dbUnion.type || 'marriage',
+    startDate: dbUnion.marriageEvent ? dbEventToDateFormat(dbUnion.marriageEvent) : { type: 'unknown' },
+    startPlace: dbUnion.marriageEvent?.place_name || '',
+    endDate: null,
+    endReason: dbUnion.status || '',
+    childIds: (dbUnion.children || []).map(c => c.id),
+    sources: [],
+    isExisting: true,
+  };
+}
+
 function App() {
   const reactFlowWrapper = useRef(null);
   const { fitView } = useReactFlow();
   const { theme } = useTheme();
   const { isOpen, bundleInfo, createBundle, openBundle, openBundlePath, closeBundle, isLoading } = useDatabase();
-  const { createPerson, fetchPersons } = usePersons();
+  const { persons, createPerson, updatePerson: updatePersonDb, getPerson, getPersonFull, fetchPersons } = usePersons();
+  const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, findOrCreateUnion } = useUnions();
+  const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent } = useEvents();
+
+  // Loaded events for selected person (bundle mode)
+  const [loadedBirthEvent, setLoadedBirthEvent] = useState(null);
+  const [loadedDeathEvent, setLoadedDeathEvent] = useState(null);
+  const [loadedUnions, setLoadedUnions] = useState([]);
 
   // Core data state - using new format (legacy JSON mode)
   const [data, setData] = useState(createEmptyData());
@@ -48,6 +150,71 @@ function App() {
 
   // Mode: 'legacy' for JSON files, 'bundle' for .heritage bundles
   const [storageMode, setStorageMode] = useState(null); // null = welcome screen
+
+  // Helper to convert database date to legacy format
+  const dbDateToLegacy = (dateStr, qualifier, isLiving) => {
+    if (isLiving) return { type: 'alive' };
+    if (!dateStr) return { type: 'unknown' };
+
+    const parts = dateStr.split('-');
+    const year = parts[0] || '';
+    const month = parts[1] || '';
+    const day = parts[2] || '';
+
+    if (qualifier === 'about') {
+      return { type: 'approximate', year, variance: 5, display: `c. ${year}` };
+    }
+
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    let display = year;
+    if (month && day) {
+      display = `${parseInt(day)} ${MONTHS[parseInt(month) - 1]} ${year}`;
+    } else if (month) {
+      display = `${MONTHS[parseInt(month) - 1]} ${year}`;
+    }
+
+    return { type: 'exact', year, month, day, display };
+  };
+
+  // Helper to convert database event to legacy format
+  const dbEventToLegacy = (event) => ({
+    id: event.id,
+    type: event.type,
+    date: dbDateToLegacy(event.date, event.date_qualifier, false),
+    place: event.place_detail || event.place_name || '',
+    description: event.description || '',
+  });
+
+  // Combined view data for pedigree/descendants views (works in both modes)
+  const viewData = useMemo(() => {
+    if (storageMode === 'bundle') {
+      // Convert database format to legacy format for views
+      return {
+        people: persons.map(p => ({
+          id: p.id,
+          firstName: p.given_names || '',
+          lastName: p.surname || '',
+          maidenName: p.surname_at_birth || '',
+          gender: p.gender || 'unknown',
+          notes: p.notes || '',
+          birthDate: dbDateToLegacy(p.birth_date, p.birth_date_qualifier, false),
+          birthPlace: p.birth_place || '',
+          deathDate: dbDateToLegacy(p.death_date, p.death_date_qualifier, p.is_living),
+          deathPlace: p.death_place || '',
+          events: (p.events || []).map(dbEventToLegacy),
+        })),
+        unions: dbUnions.map(u => ({
+          id: u.id,
+          partner1Id: u.person1_id,
+          partner2Id: u.person2_id,
+          type: u.type || 'marriage',
+          childIds: u.childIds || [],
+        })),
+        sources: {},
+      };
+    }
+    return data;
+  }, [storageMode, persons, dbUnions, data]);
 
   // View mode state
   const [viewMode, setViewMode] = useState('focused'); // 'focused' | 'canvas'
@@ -119,6 +286,28 @@ function App() {
   const [editingSource, setEditingSource] = useState(null);
   const [pendingSourceCallback, setPendingSourceCallback] = useState(null);
 
+  // Load events and unions for selected person in bundle mode
+  useEffect(() => {
+    const loadPersonData = async () => {
+      if (storageMode === 'bundle' && selectedPersonId && isOpen) {
+        // Load birth and death events
+        const [birth, death, unions] = await Promise.all([
+          getBirthEvent(selectedPersonId),
+          getDeathEvent(selectedPersonId),
+          getUnionsForPerson(selectedPersonId),
+        ]);
+        setLoadedBirthEvent(birth);
+        setLoadedDeathEvent(death);
+        setLoadedUnions(unions || []);
+      } else {
+        setLoadedBirthEvent(null);
+        setLoadedDeathEvent(null);
+        setLoadedUnions([]);
+      }
+    };
+    loadPersonData();
+  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getUnionsForPerson]);
+
   // Convert data to React Flow format for canvas view
   const reactFlowData = useMemo(() => {
     return convertToReactFlow(data);
@@ -132,29 +321,25 @@ function App() {
     }
   }, [reactFlowData, viewMode, setNodes, setEdges]);
 
-  // Load last used file on startup (only for legacy JSON files)
+  // Sync storageMode with database state (handles bundle opened via double-click etc)
   useEffect(() => {
-    const loadLastFile = async () => {
-      const lastFilePath = localStorage.getItem('heritage-last-file');
-      // Only auto-load legacy JSON files, not bundles
-      if (lastFilePath && lastFilePath.endsWith('.json') && window.electronAPI) {
-        const result = await window.electronAPI.readFile(lastFilePath);
-        if (result && result.content) {
-          // Migrate to new format if needed
-          const migratedData = migrateToNewFormat(result.content);
-          setStorageMode('legacy');
-          setData(migratedData);
-          setCurrentFilePath(result.path);
+    if (isOpen && storageMode !== 'bundle') {
+      setStorageMode('bundle');
+      setData(createEmptyData());
+      setCurrentFilePath(null);
+      setNavigationHistory([]);
+    }
+  }, [isOpen, storageMode]);
 
-          // Select first person if available
-          if (migratedData.people?.length > 0) {
-            setSelectedPersonId(migratedData.people[0].id);
-          }
-        }
-      }
-    };
-    loadLastFile();
-  }, []);
+  // Select first person when persons load in bundle mode
+  useEffect(() => {
+    if (storageMode === 'bundle' && isOpen && persons.length > 0 && !selectedPersonId) {
+      setSelectedPersonId(persons[0].id);
+    }
+  }, [storageMode, isOpen, persons, selectedPersonId]);
+
+  // Disabled: auto-loading last file on startup
+  // The app now starts fresh each time
 
   // Handle double-click on node (for canvas mode)
   const onNodeDoubleClick = useCallback((event, node) => {
@@ -623,37 +808,184 @@ function App() {
 
     // Person view mode (read-only with edit capability)
     if (focusedView === 'person') {
-      const selectedPerson = findPersonById(data, selectedPersonId);
+      // In bundle mode, use database persons; in legacy mode, use local data
+      const selectedPerson = storageMode === 'bundle'
+        ? persons.find(p => p.id === selectedPersonId)
+        : findPersonById(data, selectedPersonId);
+
+      // Convert database person to legacy format for PersonView
+      const personForView = storageMode === 'bundle' && selectedPerson
+        ? {
+            id: selectedPerson.id,
+            firstName: selectedPerson.given_names || '',
+            lastName: selectedPerson.surname || '',
+            maidenName: selectedPerson.surname_at_birth || '',
+            gender: selectedPerson.gender || '',
+            notes: selectedPerson.notes || '',
+            // Convert database events to PersonView format
+            birthDate: dbEventToDateFormat(loadedBirthEvent),
+            deathDate: selectedPerson.is_living
+              ? { type: 'alive', display: 'Living' }
+              : dbEventToDateFormat(loadedDeathEvent),
+            birthPlace: loadedBirthEvent?.place_name || '',
+            deathPlace: loadedDeathEvent?.place_name || '',
+            // Convert other events from database format
+            events: (selectedPerson.events || []).map(e => ({
+              id: e.id,
+              type: e.type,
+              date: dbEventToDateFormat(e),
+              place: e.place_detail || e.place_name || '',
+              description: e.description || '',
+            })),
+            sources: [],
+            birthSources: [],
+            deathSources: [],
+          }
+        : selectedPerson;
+
+      // Convert database unions to PersonView format for bundle mode
+      const unionsForView = storageMode === 'bundle'
+        ? loadedUnions.map(u => dbUnionToPersonViewFormat(u, selectedPersonId))
+        : (data.unions || []).filter(u =>
+            u.partner1Id === selectedPersonId || u.partner2Id === selectedPersonId
+          );
+
       return (
         <PersonView
-          person={selectedPerson}
+          person={personForView}
           sources={data.sources || {}}
           onAddSource={handleAddSource}
-          allPeople={data.people || []}
-          existingUnions={data.unions || []}
-          onUnionsChange={(updatedUnions) => {
-            // Remove old unions for this person and add the updated ones
-            setData(prev => {
-              const otherUnions = (prev.unions || []).filter(u =>
-                u.partner1Id !== selectedPersonId && u.partner2Id !== selectedPersonId
-              );
-              return {
-                ...prev,
-                unions: [...otherUnions, ...updatedUnions]
-              };
-            });
+          allPeople={storageMode === 'bundle'
+            ? persons.map(p => ({
+                id: p.id,
+                firstName: p.given_names || '',
+                lastName: p.surname || '',
+                gender: p.gender || '',
+                // Note: birthDate/deathDate would require loading events for all persons
+                // For now, we skip them in bundle mode's allPeople list
+              }))
+            : (data.people || [])}
+          existingUnions={unionsForView}
+          onUnionsChange={async (updatedUnions) => {
+            if (storageMode === 'bundle') {
+              // Handle unions in bundle mode via database
+              const existingUnionIds = new Set(loadedUnions.map(u => u.id));
+              const updatedUnionIds = new Set(updatedUnions.map(u => u.id));
+
+              // Delete removed unions
+              for (const existing of loadedUnions) {
+                if (!updatedUnionIds.has(existing.id)) {
+                  await deleteUnion(existing.id);
+                }
+              }
+
+              // Create or update unions
+              for (const union of updatedUnions) {
+                if (!existingUnionIds.has(union.id) || union.id.startsWith('union-new-')) {
+                  // Create new union
+                  const newUnionId = await createUnion({
+                    person1_id: selectedPersonId,
+                    person2_id: union.partnerId || union.partner2Id,
+                    type: union.type || 'marriage',
+                  });
+                  // Add children to new union
+                  for (const childId of (union.childIds || [])) {
+                    await addChild(newUnionId, childId);
+                  }
+                  // Create marriage event if date provided
+                  if (union.startDate && union.startDate.type !== 'unknown') {
+                    const eventData = dateFormatToDbEvent(union.startDate);
+                    await createEvent({
+                      union_id: newUnionId,
+                      type: 'marriage',
+                      date: eventData.date,
+                      date_qualifier: eventData.date_qualifier,
+                      place_detail: union.startPlace || null,
+                    });
+                  }
+                } else {
+                  // Update existing union
+                  await updateUnion(union.id, {
+                    type: union.type,
+                    status: union.endReason || null,
+                  });
+                }
+              }
+
+              // Reload unions
+              const reloadedUnions = await getUnionsForPerson(selectedPersonId);
+              setLoadedUnions(reloadedUnions || []);
+            } else {
+              // Legacy mode - update local state
+              setData(prev => {
+                const otherUnions = (prev.unions || []).filter(u =>
+                  u.partner1Id !== selectedPersonId && u.partner2Id !== selectedPersonId
+                );
+                return {
+                  ...prev,
+                  unions: [...otherUnions, ...updatedUnions]
+                };
+              });
+            }
           }}
-          onSave={(updatedData) => {
+          onSave={async (updatedData) => {
             if (selectedPersonId) {
-              setData(prev => ({
-                ...prev,
-                people: (prev.people || []).map(p =>
-                  p.id === selectedPersonId
-                    ? { ...p, ...updatedData }
-                    : p
-                )
-              }));
-              showToast('Saved');
+              if (storageMode === 'bundle') {
+                // Save person to database
+                const isLiving = updatedData.deathDate?.type === 'alive';
+                await updatePersonDb(selectedPersonId, {
+                  given_names: updatedData.firstName,
+                  surname: updatedData.lastName,
+                  surname_at_birth: updatedData.maidenName,
+                  gender: updatedData.gender,
+                  notes: updatedData.notes,
+                  is_living: isLiving ? 1 : 0,
+                });
+
+                // Save birth event to database
+                if (updatedData.birthDate && updatedData.birthDate.type !== 'unknown') {
+                  const birthEventData = dateFormatToDbEvent(updatedData.birthDate);
+                  await upsertBirthEvent(selectedPersonId, {
+                    date: birthEventData.date,
+                    date_qualifier: birthEventData.date_qualifier,
+                    place_detail: updatedData.birthPlace || null,
+                  });
+                }
+
+                // Save death event to database (only if not living)
+                if (!isLiving && updatedData.deathDate && updatedData.deathDate.type !== 'unknown') {
+                  const deathEventData = dateFormatToDbEvent(updatedData.deathDate);
+                  await upsertDeathEvent(selectedPersonId, {
+                    date: deathEventData.date,
+                    date_qualifier: deathEventData.date_qualifier,
+                    place_detail: updatedData.deathPlace || null,
+                  });
+                }
+
+                // Reload events after save
+                const [birth, death] = await Promise.all([
+                  getBirthEvent(selectedPersonId),
+                  getDeathEvent(selectedPersonId),
+                ]);
+                setLoadedBirthEvent(birth);
+                setLoadedDeathEvent(death);
+
+                // Refresh persons list to reflect changes
+                await fetchPersons();
+
+                showToast('Saved');
+              } else {
+                // Legacy mode - update local state
+                setData(prev => ({
+                  ...prev,
+                  people: (prev.people || []).map(p =>
+                    p.id === selectedPersonId
+                      ? { ...p, ...updatedData }
+                      : p
+                  )
+                }));
+                showToast('Saved');
+              }
             }
           }}
           onCancel={() => {
@@ -662,105 +994,144 @@ function App() {
           onSelectPerson={navigateToPerson}
           onNavigateBack={navigateBack}
           canNavigateBack={canNavigateBack}
-          onParentsChange={({ personId, fatherId, motherId }) => {
-            setData(prev => {
+          onParentsChange={async ({ personId, fatherId, motherId }) => {
+            if (storageMode === 'bundle') {
+              // Handle parent changes in bundle mode via database
               // Find existing union where this person is a child
-              const existingParentUnion = (prev.unions || []).find(u =>
-                (u.childIds || []).includes(personId)
-              );
+              // This requires querying the database for unions containing this person as child
+              // For now, use findOrCreateUnion and addChild
 
-              // If no parents selected, remove person from any parent union
-              if (!fatherId && !motherId) {
-                if (existingParentUnion) {
-                  return {
-                    ...prev,
-                    unions: prev.unions.map(u =>
+              if (fatherId || motherId) {
+                // Find or create union for parents
+                const unionId = await findOrCreateUnion(
+                  fatherId || motherId,
+                  fatherId && motherId ? (fatherId === (fatherId || motherId) ? motherId : fatherId) : null
+                );
+                // Add this person as child
+                await addChild(unionId, personId);
+              }
+              // Reload unions
+              const reloadedUnions = await getUnionsForPerson(selectedPersonId);
+              setLoadedUnions(reloadedUnions || []);
+            } else {
+              // Legacy mode
+              setData(prev => {
+                // Find existing union where this person is a child
+                const existingParentUnion = (prev.unions || []).find(u =>
+                  (u.childIds || []).includes(personId)
+                );
+
+                // If no parents selected, remove person from any parent union
+                if (!fatherId && !motherId) {
+                  if (existingParentUnion) {
+                    return {
+                      ...prev,
+                      unions: prev.unions.map(u =>
+                        u.id === existingParentUnion.id
+                          ? { ...u, childIds: (u.childIds || []).filter(id => id !== personId) }
+                          : u
+                      ).filter(u => (u.childIds || []).length > 0 || u.partner1Id || u.partner2Id)
+                    };
+                  }
+                  return prev;
+                }
+
+                // Check if there's already a union between these two parents
+                const parentsUnion = (prev.unions || []).find(u =>
+                  (u.partner1Id === fatherId && u.partner2Id === motherId) ||
+                  (u.partner1Id === motherId && u.partner2Id === fatherId) ||
+                  (fatherId && !motherId && (u.partner1Id === fatherId || u.partner2Id === fatherId)) ||
+                  (motherId && !fatherId && (u.partner1Id === motherId || u.partner2Id === motherId))
+                );
+
+                if (parentsUnion) {
+                  // Add person to existing parents union, remove from old union if different
+                  let updatedUnions = prev.unions.map(u => {
+                    if (u.id === parentsUnion.id) {
+                      const newChildIds = (u.childIds || []).includes(personId)
+                        ? u.childIds
+                        : [...(u.childIds || []), personId];
+                      return { ...u, childIds: newChildIds };
+                    }
+                    if (existingParentUnion && u.id === existingParentUnion.id && u.id !== parentsUnion.id) {
+                      return { ...u, childIds: (u.childIds || []).filter(id => id !== personId) };
+                    }
+                    return u;
+                  });
+                  return { ...prev, unions: updatedUnions };
+                }
+
+                // Create new union for parents
+                const newUnion = {
+                  id: `union-${Date.now()}`,
+                  partner1Id: fatherId || '',
+                  partner2Id: motherId || '',
+                  type: 'marriage',
+                  startDate: null,
+                  startPlace: '',
+                  endDate: null,
+                  endReason: '',
+                  childIds: [personId],
+                  sources: []
+                };
+
+                // Remove from old parent union if exists
+                let updatedUnions = existingParentUnion
+                  ? prev.unions.map(u =>
                       u.id === existingParentUnion.id
                         ? { ...u, childIds: (u.childIds || []).filter(id => id !== personId) }
                         : u
-                    ).filter(u => (u.childIds || []).length > 0 || u.partner1Id || u.partner2Id)
-                  };
-                }
-                return prev;
-              }
+                    )
+                  : prev.unions || [];
 
-              // Check if there's already a union between these two parents
-              const parentsUnion = (prev.unions || []).find(u =>
-                (u.partner1Id === fatherId && u.partner2Id === motherId) ||
-                (u.partner1Id === motherId && u.partner2Id === fatherId) ||
-                (fatherId && !motherId && (u.partner1Id === fatherId || u.partner2Id === fatherId)) ||
-                (motherId && !fatherId && (u.partner1Id === motherId || u.partner2Id === motherId))
-              );
-
-              if (parentsUnion) {
-                // Add person to existing parents union, remove from old union if different
-                let updatedUnions = prev.unions.map(u => {
-                  if (u.id === parentsUnion.id) {
-                    const newChildIds = (u.childIds || []).includes(personId)
-                      ? u.childIds
-                      : [...(u.childIds || []), personId];
-                    return { ...u, childIds: newChildIds };
-                  }
-                  if (existingParentUnion && u.id === existingParentUnion.id && u.id !== parentsUnion.id) {
-                    return { ...u, childIds: (u.childIds || []).filter(id => id !== personId) };
-                  }
-                  return u;
-                });
-                return { ...prev, unions: updatedUnions };
-              }
-
-              // Create new union for parents
-              const newUnion = {
-                id: `union-${Date.now()}`,
-                partner1Id: fatherId || '',
-                partner2Id: motherId || '',
-                type: 'marriage',
-                startDate: null,
-                startPlace: '',
-                endDate: null,
-                endReason: '',
-                childIds: [personId],
-                sources: []
-              };
-
-              // Remove from old parent union if exists
-              let updatedUnions = existingParentUnion
-                ? prev.unions.map(u =>
-                    u.id === existingParentUnion.id
-                      ? { ...u, childIds: (u.childIds || []).filter(id => id !== personId) }
-                      : u
-                  )
-                : prev.unions || [];
-
-              return { ...prev, unions: [...updatedUnions, newUnion] };
-            });
+                return { ...prev, unions: [...updatedUnions, newUnion] };
+              });
+            }
           }}
           onCreatePerson={({ firstName, lastName, gender }) => {
-            const newId = String(Date.now());
-            const newPerson = {
-              id: newId,
-              firstName: firstName || '',
-              lastName: lastName || '',
-              middleName: '',
-              maidenName: '',
-              nickname: '',
-              title: '',
-              gender: gender || 'male',
-              birthDate: { type: 'unknown' },
-              deathDate: { type: 'unknown' },
-              birthPlace: '',
-              deathPlace: '',
-              notes: '',
-              image: '',
-              events: [],
-              birthSources: [],
-              deathSources: []
-            };
-            setData(prev => ({
-              ...prev,
-              people: [...(prev.people || []), newPerson]
-            }));
-            return newId;
+            if (storageMode === 'bundle') {
+              // Generate ID upfront so we can return it immediately
+              // The person will be created asynchronously in the database
+              const newId = generateId();
+              // Create person in database asynchronously
+              createPerson({
+                id: newId,
+                given_names: firstName || '',
+                surname: lastName || '',
+                gender: gender || 'unknown',
+              }).then(() => {
+                // Refresh persons list after creation
+                fetchPersons();
+              });
+              return newId;
+            } else {
+              // Legacy mode
+              const newId = String(Date.now());
+              const newPerson = {
+                id: newId,
+                firstName: firstName || '',
+                lastName: lastName || '',
+                middleName: '',
+                maidenName: '',
+                nickname: '',
+                title: '',
+                gender: gender || 'male',
+                birthDate: { type: 'unknown' },
+                deathDate: { type: 'unknown' },
+                birthPlace: '',
+                deathPlace: '',
+                notes: '',
+                image: '',
+                events: [],
+                birthSources: [],
+                deathSources: []
+              };
+              setData(prev => ({
+                ...prev,
+                people: [...(prev.people || []), newPerson]
+              }));
+              return newId;
+            }
           }}
         />
       );
@@ -769,7 +1140,7 @@ function App() {
     if (focusedView === 'pedigree') {
       return (
         <PedigreeView
-          data={data}
+          data={viewData}
           focusPersonId={selectedPersonId}
           onSelectPerson={navigateToPerson}
           onEditPerson={(personId) => {
@@ -791,7 +1162,7 @@ function App() {
 
     return (
       <DescendantsView
-        data={data}
+        data={viewData}
         focusPersonId={selectedPersonId}
         onSelectPerson={navigateToPerson}
         onEditPerson={(personId) => {

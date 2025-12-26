@@ -26,6 +26,8 @@ const INFO_PLIST_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
     <string>BNDL</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
+    <key>CFBundleIconFile</key>
+    <string>Icon.icns</string>
     <key>HeritageFormatVersion</key>
     <string>${CURRENT_FORMAT_VERSION}</string>
     <key>HeritageCreatedAt</key>
@@ -71,6 +73,12 @@ class BundleManager {
 
     // Create version file
     fs.writeFileSync(path.join(bundlePath, '.heritage-version'), String(CURRENT_FORMAT_VERSION));
+
+    // Create PkgInfo file (helps macOS recognize as bundle)
+    fs.writeFileSync(path.join(bundlePath, 'PkgInfo'), 'BNDL????');
+
+    // Copy icon into bundle
+    this.copyIcon(bundlePath);
 
     // Create database
     await this.initializeDatabase(bundlePath);
@@ -240,8 +248,10 @@ class BundleManager {
       version = parseInt(fs.readFileSync(versionFile, 'utf8').trim(), 10);
     }
 
+    // Always run migrations to ensure schema is up to date
+    await this.migrate(bundlePath, version, CURRENT_FORMAT_VERSION);
+
     if (version < CURRENT_FORMAT_VERSION) {
-      await this.migrate(bundlePath, version, CURRENT_FORMAT_VERSION);
       fs.writeFileSync(versionFile, String(CURRENT_FORMAT_VERSION));
     }
   }
@@ -251,11 +261,24 @@ class BundleManager {
    */
   async migrate(bundlePath, fromVersion, toVersion) {
     console.log(`Migrating bundle from version ${fromVersion} to ${toVersion}`);
+    const Database = require('better-sqlite3');
+    const dbPath = path.join(bundlePath, 'database.sqlite');
+    const db = new Database(dbPath);
 
-    // Migration logic will go here as schema evolves
-    // Example:
-    // if (fromVersion < 2) { await this.migrateToV2(bundlePath); }
-    // if (fromVersion < 3) { await this.migrateToV3(bundlePath); }
+    try {
+      // Always ensure is_living column exists (added in v1.1)
+      const columns = db.pragma('table_info(person)');
+      const hasIsLiving = columns.some(col => col.name === 'is_living');
+      if (!hasIsLiving) {
+        console.log('Adding is_living column to person table');
+        db.exec('ALTER TABLE person ADD COLUMN is_living INTEGER DEFAULT 0');
+      }
+
+      // Future migrations go here:
+      // if (fromVersion < 2) { ... }
+    } finally {
+      db.close();
+    }
   }
 
   /**
@@ -272,6 +295,53 @@ class BundleManager {
         // SetFile not available, rely on Info.plist
         console.warn('Could not set bundle bit (SetFile not available)');
       }
+    }
+  }
+
+  /**
+   * Copy the app icon into the bundle and set it as the folder icon
+   */
+  copyIcon(bundlePath) {
+    try {
+      const { app } = require('electron');
+      const { execSync } = require('child_process');
+
+      // Find the icon file - check multiple locations
+      const possiblePaths = [
+        path.join(__dirname, '..', 'assets', 'icon.icns'),
+        path.join(app.getAppPath(), 'assets', 'icon.icns'),
+        path.join(process.resourcesPath || '', 'assets', 'icon.icns'),
+      ];
+
+      let iconSource = null;
+      for (const p of possiblePaths) {
+        if (fs.existsSync(p)) {
+          iconSource = p;
+          break;
+        }
+      }
+
+      if (iconSource) {
+        // Copy icon into bundle for Info.plist reference
+        fs.copyFileSync(iconSource, path.join(bundlePath, 'Icon.icns'));
+
+        // Also set the folder's custom icon using NSWorkspace via JavaScript for Automation
+        // This makes the icon visible in Finder even during development
+        try {
+          const script = `
+            ObjC.import('AppKit');
+            var icon = $.NSImage.alloc.initWithContentsOfFile('${iconSource}');
+            $.NSWorkspace.sharedWorkspace.setIconForFileOptions(icon, '${bundlePath}', 0);
+          `;
+          execSync(`osascript -l JavaScript -e "${script.replace(/"/g, '\\"')}"`, { stdio: 'ignore' });
+        } catch (iconErr) {
+          console.warn('Could not set folder icon:', iconErr.message);
+        }
+      } else {
+        console.warn('Icon file not found, bundle will not have custom icon');
+      }
+    } catch (e) {
+      console.warn('Could not copy icon:', e.message);
     }
   }
 

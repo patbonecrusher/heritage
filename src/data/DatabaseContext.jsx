@@ -14,6 +14,7 @@ export function DatabaseProvider({ children }) {
   const [bundleInfo, setBundleInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Check if a bundle is open
   const isOpen = bundleInfo !== null;
@@ -184,9 +185,26 @@ export function DatabaseProvider({ children }) {
     };
   }, []);
 
+  // Listen for database changes (from MCP server or external tools)
+  useEffect(() => {
+    if (!window.electronAPI?.onDatabaseChanged) return;
+
+    const handleDatabaseChanged = () => {
+      console.log('Database changed externally, triggering refresh...');
+      setRefreshTrigger(prev => prev + 1);
+    };
+
+    window.electronAPI.onDatabaseChanged(handleDatabaseChanged);
+
+    return () => {
+      // Cleanup handled by removeMenuListeners
+    };
+  }, []);
+
   const value = {
     // State
     bundleInfo,
+    refreshTrigger,
     isOpen,
     isLoading,
     error,

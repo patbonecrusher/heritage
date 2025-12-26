@@ -8,6 +8,44 @@ const { BundleManager, BUNDLE_EXTENSION } = require('./bundle-manager');
 // Active bundle manager instance
 let bundleManager = null;
 
+// Database file watcher
+let dbWatcher = null;
+let dbWatchDebounce = null;
+
+// Start watching the database file for external changes
+const startDbWatcher = (bundlePath) => {
+  stopDbWatcher();
+
+  const dbPath = path.join(bundlePath, 'database.sqlite');
+  if (!fs.existsSync(dbPath)) return;
+
+  try {
+    dbWatcher = fs.watch(dbPath, { persistent: false }, (eventType) => {
+      // Debounce to avoid multiple rapid notifications
+      if (dbWatchDebounce) clearTimeout(dbWatchDebounce);
+      dbWatchDebounce = setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('database-changed');
+        }
+      }, 500); // Wait 500ms for writes to settle
+    });
+  } catch (e) {
+    console.warn('Could not watch database file:', e.message);
+  }
+};
+
+// Stop watching the database file
+const stopDbWatcher = () => {
+  if (dbWatchDebounce) {
+    clearTimeout(dbWatchDebounce);
+    dbWatchDebounce = null;
+  }
+  if (dbWatcher) {
+    dbWatcher.close();
+    dbWatcher = null;
+  }
+};
+
 // Shared config path for MCP server to read
 const getSharedConfigPath = () => {
   return path.join(os.homedir(), '.heritage', 'config.json');
@@ -354,6 +392,7 @@ ipcMain.handle('bundle-create', async (event, name) => {
       bundleManager = new BundleManager();
       const bundlePath = await bundleManager.create(filePath, path.basename(filePath, BUNDLE_EXTENSION));
       updateSharedConfig(bundlePath);
+      startDbWatcher(bundlePath);
       return { path: bundlePath, info: bundleManager.getInfo() };
     } catch (error) {
       console.error('Error creating bundle:', error);
@@ -384,6 +423,7 @@ ipcMain.handle('bundle-open', async () => {
       bundleManager = new BundleManager();
       await bundleManager.open(result.filePaths[0]);
       updateSharedConfig(result.filePaths[0]);
+      startDbWatcher(result.filePaths[0]);
       return { path: result.filePaths[0], info: bundleManager.getInfo() };
     } catch (error) {
       console.error('Error opening bundle:', error);
@@ -399,6 +439,7 @@ ipcMain.handle('bundle-open-path', async (event, bundlePath) => {
     bundleManager = new BundleManager();
     await bundleManager.open(bundlePath);
     updateSharedConfig(bundlePath);
+    startDbWatcher(bundlePath);
     return { path: bundlePath, info: bundleManager.getInfo() };
   } catch (error) {
     console.error('Error opening bundle:', error);
@@ -408,6 +449,7 @@ ipcMain.handle('bundle-open-path', async (event, bundlePath) => {
 
 // Close current bundle
 ipcMain.handle('bundle-close', async () => {
+  stopDbWatcher();
   if (bundleManager) {
     bundleManager.close();
     bundleManager = null;
@@ -569,6 +611,7 @@ app.on('open-file', async (event, filePath) => {
         bundleManager = new BundleManager();
         await bundleManager.open(filePath);
         updateSharedConfig(filePath);
+        startDbWatcher(filePath);
         mainWindow.webContents.send('bundle-opened', { path: filePath, info: bundleManager.getInfo() });
       } catch (error) {
         console.error('Error opening bundle from file event:', error);

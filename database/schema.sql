@@ -74,6 +74,7 @@ CREATE TABLE person (
     surname TEXT,
     surname_at_birth TEXT,  -- maiden name
     gender TEXT,  -- 'male', 'female', 'unknown'
+    is_living INTEGER DEFAULT 0,  -- 1 if person is still alive
     primary_photo_id TEXT,  -- references media(id), defined later
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),

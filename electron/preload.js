@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Bundle opened event (for double-click open)
   onBundleOpened: (callback) => ipcRenderer.on('bundle-opened', (event, data) => callback(data)),
 
+  // Database changed event (for MCP server updates)
+  onDatabaseChanged: (callback) => ipcRenderer.on('database-changed', () => callback()),
+
   // Cleanup
   removeMenuListeners: () => {
     ipcRenderer.removeAllListeners('menu-new');
@@ -34,6 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('menu-add-person');
     ipcRenderer.removeAllListeners('menu-fit-view');
     ipcRenderer.removeAllListeners('bundle-opened');
+    ipcRenderer.removeAllListeners('database-changed');
   },
 
   // Secure store - site credentials

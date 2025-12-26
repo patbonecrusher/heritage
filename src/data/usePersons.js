@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useDatabase, generateId } from './DatabaseContext';
 
 export function usePersons() {
-  const { query, get, run, transaction, isOpen } = useDatabase();
+  const { query, get, run, transaction, isOpen, refreshTrigger } = useDatabase();
   const [persons, setPersons] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -18,12 +18,46 @@ export function usePersons() {
       const rows = await query(`
         SELECT p.*,
                m.path as photo_path,
-               m.thumbnail_path
+               m.thumbnail_path,
+               birth.date as birth_date,
+               birth.place_detail as birth_place,
+               birth.date_qualifier as birth_date_qualifier,
+               death.date as death_date,
+               death.place_detail as death_place,
+               death.date_qualifier as death_date_qualifier
         FROM person p
         LEFT JOIN media m ON p.primary_photo_id = m.id
+        LEFT JOIN event birth ON birth.person_id = p.id AND birth.type = 'birth' AND birth.deleted_at IS NULL
+        LEFT JOIN event death ON death.person_id = p.id AND death.type = 'death' AND death.deleted_at IS NULL
         WHERE p.deleted_at IS NULL
         ORDER BY p.surname, p.given_names
       `);
+
+      // Fetch other events (not birth/death) for all persons
+      const otherEvents = await query(`
+        SELECT e.*, pl.name as place_name
+        FROM event e
+        LEFT JOIN place pl ON e.place_id = pl.id
+        WHERE e.person_id IS NOT NULL
+          AND e.type NOT IN ('birth', 'death')
+          AND e.deleted_at IS NULL
+        ORDER BY e.date
+      `);
+
+      // Group events by person_id
+      const eventsByPerson = {};
+      for (const event of otherEvents) {
+        if (!eventsByPerson[event.person_id]) {
+          eventsByPerson[event.person_id] = [];
+        }
+        eventsByPerson[event.person_id].push(event);
+      }
+
+      // Attach events to each person
+      for (const person of rows) {
+        person.events = eventsByPerson[person.id] || [];
+      }
+
       setPersons(rows);
     } catch (err) {
       console.error('Error fetching persons:', err);
@@ -32,14 +66,14 @@ export function usePersons() {
     }
   }, [query, isOpen]);
 
-  // Load persons when bundle opens
+  // Load persons when bundle opens or database changes externally
   useEffect(() => {
     if (isOpen) {
       fetchPersons();
     } else {
       setPersons([]);
     }
-  }, [isOpen, fetchPersons]);
+  }, [isOpen, fetchPersons, refreshTrigger]);
 
   // Get a single person by ID
   const getPerson = useCallback(async (id) => {
@@ -135,12 +169,13 @@ export function usePersons() {
 
   // Create a new person
   const createPerson = useCallback(async (data) => {
-    const id = generateId();
+    // Use provided id or generate a new one
+    const id = data.id || generateId();
     const now = new Date().toISOString();
 
     await run(`
-      INSERT INTO person (id, given_names, surname, surname_at_birth, gender, notes, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO person (id, given_names, surname, surname_at_birth, gender, notes, is_living, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id,
       data.given_names || null,
@@ -148,6 +183,7 @@ export function usePersons() {
       data.surname_at_birth || null,
       data.gender || 'unknown',
       data.notes || null,
+      data.is_living || 0,
       now,
       now,
     ]);
@@ -185,6 +221,10 @@ export function usePersons() {
     if (data.notes !== undefined) {
       fields.push('notes = ?');
       values.push(data.notes);
+    }
+    if (data.is_living !== undefined) {
+      fields.push('is_living = ?');
+      values.push(data.is_living);
     }
 
     fields.push('updated_at = ?');

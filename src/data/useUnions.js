@@ -2,11 +2,48 @@
  * useUnions - Hook for union and children CRUD operations
  */
 
-import { useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDatabase, generateId } from './DatabaseContext';
 
 export function useUnions() {
-  const { query, get, run, transaction } = useDatabase();
+  const { query, get, run, transaction, isOpen, refreshTrigger } = useDatabase();
+  const [unions, setUnions] = useState([]);
+
+  // Fetch all unions with their children
+  const fetchAllUnions = useCallback(async () => {
+    if (!isOpen) return;
+    try {
+      const rows = await query(`
+        SELECT u.*
+        FROM union_ u
+        WHERE u.deleted_at IS NULL
+      `);
+
+      // Get children for each union
+      for (const union of rows) {
+        const children = await query(`
+          SELECT uc.person_id
+          FROM union_child uc
+          WHERE uc.union_id = ? AND uc.deleted_at IS NULL
+          ORDER BY uc.birth_order
+        `, [union.id]);
+        union.childIds = children.map(c => c.person_id);
+      }
+
+      setUnions(rows);
+    } catch (err) {
+      console.error('Error fetching unions:', err);
+    }
+  }, [query, isOpen]);
+
+  // Load unions when bundle opens or data changes
+  useEffect(() => {
+    if (isOpen) {
+      fetchAllUnions();
+    } else {
+      setUnions([]);
+    }
+  }, [isOpen, fetchAllUnions, refreshTrigger]);
 
   // Get a union by ID
   const getUnion = useCallback(async (id) => {
@@ -305,6 +342,8 @@ export function useUnions() {
   }, [get, createUnion]);
 
   return {
+    unions,
+    fetchAllUnions,
     getUnion,
     getUnionFull,
     getUnionsForPerson,
