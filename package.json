@@ -49,9 +49,13 @@
           {
             "UTTypeIdentifier": "com.heritage.familytree",
             "UTTypeDescription": "Heritage Family Tree",
-            "UTTypeConformsTo": ["com.apple.package"],
+            "UTTypeConformsTo": [
+              "com.apple.package"
+            ],
             "UTTypeTagSpecification": {
-              "public.filename-extension": ["heritage"]
+              "public.filename-extension": [
+                "heritage"
+              ]
             }
           }
         ],
@@ -60,7 +64,9 @@
             "CFBundleTypeName": "Heritage Family Tree",
             "CFBundleTypeRole": "Editor",
             "LSHandlerRank": "Owner",
-            "LSItemContentTypes": ["com.heritage.familytree"],
+            "LSItemContentTypes": [
+              "com.heritage.familytree"
+            ],
             "CFBundleTypeIconFile": "icon.icns"
           }
         ]
@@ -90,6 +96,7 @@
     "@reactflow/node-resizer": "^2.2.14",
     "better-sqlite3": "^11.6.0",
     "electron-store": "^7.0.3",
+    "face-api.js": "^0.22.2",
     "html-to-image": "^1.11.11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

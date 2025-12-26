@@ -1,0 +1,35 @@
+/* PersonPhoto styles */
+
+.person-photo {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-tertiary, #333);
+  flex-shrink: 0;
+}
+
+.person-photo img {
+  display: block;
+}
+
+.person-photo-loading {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+.person-photo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border-color, #444);
+}
+
+.person-photo-placeholder {
+  font-size: 2em;
+  color: var(--text-secondary, #888);
+  font-weight: 300;
+}

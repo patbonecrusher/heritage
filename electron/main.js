@@ -1,9 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const secureStore = require('./secureStore');
 const { BundleManager, BUNDLE_EXTENSION } = require('./bundle-manager');
+const { pathToFileURL } = require('url');
 
 // Active bundle manager instance
 let bundleManager = null;
@@ -352,7 +353,46 @@ ipcMain.handle('select-image', async () => {
   return null;
 });
 
-app.whenReady().then(createWindow);
+// Register custom protocol for serving media files from bundles
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'heritage-media',
+    privileges: {
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      stream: true,
+    }
+  }
+]);
+
+app.whenReady().then(() => {
+  // Register protocol handler for heritage-media://
+  protocol.handle('heritage-media', (request) => {
+    // URL format: heritage-media://media/path/to/file.jpg
+    const url = new URL(request.url);
+    const relativePath = decodeURIComponent(url.pathname.slice(1)); // Remove leading /
+
+    if (!bundleManager || !bundleManager.bundlePath) {
+      return new Response('No bundle open', { status: 404 });
+    }
+
+    const fullPath = path.join(bundleManager.bundlePath, relativePath);
+
+    // Security check: ensure path is within bundle
+    if (!fullPath.startsWith(bundleManager.bundlePath)) {
+      return new Response('Access denied', { status: 403 });
+    }
+
+    if (!fs.existsSync(fullPath)) {
+      return new Response('File not found', { status: 404 });
+    }
+
+    return net.fetch(pathToFileURL(fullPath).toString());
+  });
+
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -503,6 +543,26 @@ ipcMain.handle('bundle-resolve-media', async (event, relativePath) => {
     return null;
   }
   return bundleManager.resolveMediaPath(relativePath);
+});
+
+// Read media file as base64 data URL (for canvas operations that need same-origin)
+ipcMain.handle('bundle-read-media-base64', async (event, relativePath) => {
+  if (!bundleManager) {
+    return null;
+  }
+  try {
+    const fullPath = bundleManager.resolveMediaPath(relativePath);
+    if (!fs.existsSync(fullPath)) {
+      return null;
+    }
+    const buffer = fs.readFileSync(fullPath);
+    const ext = path.extname(relativePath).toLowerCase().slice(1);
+    const mimeType = ext === 'jpg' ? 'jpeg' : ext;
+    return `data:image/${mimeType};base64,${buffer.toString('base64')}`;
+  } catch (e) {
+    console.error('Error reading media as base64:', e);
+    return null;
+  }
 });
 
 // Delete media from bundle

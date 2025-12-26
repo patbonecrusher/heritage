@@ -152,10 +152,11 @@ export function DatabaseProvider({ children }) {
     return result?.media || null;
   }, [isOpen]);
 
-  // Resolve media path
+  // Resolve media path (returns heritage-media:// URL for use in img src)
   const resolveMediaPath = useCallback(async (relativePath) => {
     if (!isOpen || !relativePath) return null;
-    return await window.electronAPI.bundle.resolveMedia(relativePath);
+    // Use custom protocol that's registered in main.js
+    return `heritage-media://media/${encodeURIComponent(relativePath)}`;
   }, [isOpen]);
 
   // Delete media
@@ -169,6 +170,11 @@ export function DatabaseProvider({ children }) {
     }
     return true;
   }, [isOpen]);
+
+  // Manually trigger a refresh (for internal updates that bypass file watcher)
+  const triggerRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   // Listen for bundle opened events (double-click)
   useEffect(() => {
@@ -228,6 +234,7 @@ export function DatabaseProvider({ children }) {
 
     // Utilities
     generateId,
+    triggerRefresh,
   };
 
   return (

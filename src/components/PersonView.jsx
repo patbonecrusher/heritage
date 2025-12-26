@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import SourceSelector from './SourceSelector';
+import MediaGallery from './MediaGallery';
+import PersonPhoto from './PersonPhoto';
 import { getParentIds, getChildrenIds } from '../utils/dataModel';
 
 // Get all descendants of a person (to prevent circular relationships)
@@ -1069,6 +1071,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                 ←
               </button>
             )}
+            <PersonPhoto personId={person?.id} width={70} height={90} />
             <div className="person-view-title">
               <h2>
                 {displayName}
@@ -1253,6 +1256,11 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
               <div className="person-view-notes">{notes}</div>
             </div>
           )}
+
+          {/* Photos Section */}
+          <div className="person-view-section">
+            <MediaGallery personId={person?.id} />
+          </div>
         </div>
 
         {/* Family Panel - Spouses and Children */}
