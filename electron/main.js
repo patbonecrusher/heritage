@@ -1,10 +1,48 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, protocol, net, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const Store = require('electron-store');
 const secureStore = require('./secureStore');
 const { BundleManager, BUNDLE_EXTENSION } = require('./bundle-manager');
 const { pathToFileURL } = require('url');
+
+// Store for window settings
+const windowStore = new Store({
+  name: 'window-state',
+  defaults: {
+    bounds: { width: 1400, height: 900 }
+  }
+});
+
+// Store for recent files
+const recentStore = new Store({
+  name: 'recent-files',
+  defaults: {
+    files: [] // Array of { path, name, lastOpened }
+  }
+});
+
+// Add a file to recent files list
+const addToRecentFiles = (filePath, name) => {
+  const files = recentStore.get('files') || [];
+  // Remove if already exists
+  const filtered = files.filter(f => f.path !== filePath);
+  // Add to front
+  filtered.unshift({
+    path: filePath,
+    name: name || path.basename(filePath, BUNDLE_EXTENSION),
+    lastOpened: Date.now()
+  });
+  // Keep only last 10
+  recentStore.set('files', filtered.slice(0, 10));
+};
+
+// Get recent files (filter out non-existent ones)
+const getRecentFiles = () => {
+  const files = recentStore.get('files') || [];
+  return files.filter(f => fs.existsSync(f.path));
+};
 
 // Active bundle manager instance
 let bundleManager = null;
@@ -244,9 +282,26 @@ function buildMenu() {
 }
 
 function createWindow() {
+  // Load saved window bounds
+  const savedBounds = windowStore.get('bounds');
+
+  // Validate that saved position is on a visible screen
+  let bounds = { width: savedBounds.width || 1400, height: savedBounds.height || 900 };
+  if (savedBounds.x !== undefined && savedBounds.y !== undefined) {
+    const displays = screen.getAllDisplays();
+    const isOnScreen = displays.some(display => {
+      const { x, y, width, height } = display.bounds;
+      return savedBounds.x >= x && savedBounds.x < x + width &&
+             savedBounds.y >= y && savedBounds.y < y + height;
+    });
+    if (isOnScreen) {
+      bounds.x = savedBounds.x;
+      bounds.y = savedBounds.y;
+    }
+  }
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    ...bounds,
     icon: path.join(__dirname, '../assets/icon.icns'),
     webPreferences: {
       nodeIntegration: false,
@@ -255,9 +310,18 @@ function createWindow() {
     }
   });
 
+  // Save window bounds when moved or resized
+  const saveBounds = () => {
+    if (!mainWindow.isMaximized() && !mainWindow.isMinimized()) {
+      windowStore.set('bounds', mainWindow.getBounds());
+    }
+  };
+  mainWindow.on('resize', saveBounds);
+  mainWindow.on('move', saveBounds);
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    // mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -442,6 +506,11 @@ ipcMain.handle('bundle-create', async (event, name) => {
   return null;
 });
 
+// Get recent files
+ipcMain.handle('get-recent-files', async () => {
+  return getRecentFiles();
+});
+
 // Open an existing .heritage bundle
 ipcMain.handle('bundle-open', async () => {
   // macOS bundles can be opened as either files or directories depending on context
@@ -464,6 +533,7 @@ ipcMain.handle('bundle-open', async () => {
       await bundleManager.open(result.filePaths[0]);
       updateSharedConfig(result.filePaths[0]);
       startDbWatcher(result.filePaths[0]);
+      addToRecentFiles(result.filePaths[0], bundleManager.getInfo()?.name);
       return { path: result.filePaths[0], info: bundleManager.getInfo() };
     } catch (error) {
       console.error('Error opening bundle:', error);
@@ -480,6 +550,7 @@ ipcMain.handle('bundle-open-path', async (event, bundlePath) => {
     await bundleManager.open(bundlePath);
     updateSharedConfig(bundlePath);
     startDbWatcher(bundlePath);
+    addToRecentFiles(bundlePath, bundleManager.getInfo()?.name);
     return { path: bundlePath, info: bundleManager.getInfo() };
   } catch (error) {
     console.error('Error opening bundle:', error);

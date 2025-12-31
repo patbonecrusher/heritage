@@ -4,9 +4,26 @@
 
 import React from 'react';
 
+// Format relative time
+const formatRelativeTime = (timestamp) => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+};
+
 export default function WelcomeScreen({
   onNewBundle,
   onOpenBundle,
+  onOpenRecentFile,
+  recentFiles = [],
   onNewLegacy,
   onOpenLegacy,
   isLoading,
@@ -55,6 +72,29 @@ export default function WelcomeScreen({
               </span>
             </button>
           </div>
+
+          {recentFiles.length > 0 && (
+            <div className="welcome-section recent">
+              <h3>Recent</h3>
+              <div className="recent-files">
+                {recentFiles.map((file) => (
+                  <button
+                    key={file.path}
+                    className="recent-file-btn"
+                    onClick={() => onOpenRecentFile(file.path)}
+                    disabled={isLoading}
+                    title={file.path}
+                  >
+                    <span className="recent-file-icon">📄</span>
+                    <span className="recent-file-info">
+                      <span className="recent-file-name">{file.name}</span>
+                      <span className="recent-file-time">{formatRelativeTime(file.lastOpened)}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="welcome-section legacy">
             <h3>Legacy Format</h3>

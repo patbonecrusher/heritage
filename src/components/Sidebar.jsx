@@ -35,7 +35,7 @@ export default function Sidebar({
     }
     // Legacy mode - use props
     return groupBySurname(data);
-  }, [storageMode, isOpen, getPersonsBySurname, data]);
+  }, [storageMode, isOpen, persons, getPersonsBySurname, data]);
 
   // Filter by search query
   const filteredGroups = useMemo(() => {

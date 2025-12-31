@@ -704,7 +704,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
       setSelectedFatherId(father?.id || '');
       setSelectedMotherId(mother?.id || '');
     }
-  }, [person?.id]); // Only reset when person ID changes, not on every existingUnions change
+  }, [person?.id, person?.events, person?.birthDate, person?.deathDate]); // Reset when person data changes
 
   // Update unions when existingUnions changes (but don't reset edit mode)
   useEffect(() => {

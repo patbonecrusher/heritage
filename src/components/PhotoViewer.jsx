@@ -26,6 +26,12 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
   // Resizing state
   const [resizing, setResizing] = useState(null); // { index, isSaved, handle, startX, startY, startBox }
 
+  // Zoom and pan state
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
   const { getFaceTags, createFaceTag, updateFaceTag, deleteFaceTag } = useMedia();
   const { persons } = usePersons();
   const { triggerRefresh } = useDatabase();
@@ -266,6 +272,70 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
     };
   }, [resizing, savedFaceTags, updateFaceTag, triggerRefresh]);
 
+  // Handle wheel event for zoom (trackpad pinch gesture)
+  const handleWheel = useCallback((e) => {
+    // Trackpad pinch gestures send wheel events with ctrlKey
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.01;
+      setScale(prev => Math.min(Math.max(0.5, prev + delta), 5));
+    } else if (scale > 1) {
+      // When zoomed in, use wheel for panning
+      e.preventDefault();
+      setTranslate(prev => ({
+        x: prev.x - e.deltaX,
+        y: prev.y - e.deltaY,
+      }));
+    }
+  }, [scale]);
+
+  // Add wheel listener to photo container
+  useEffect(() => {
+    const container = photoContainerRef.current;
+    if (!container) return;
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
+
+  // Handle pan start (drag to pan when zoomed)
+  const handlePanStart = useCallback((e) => {
+    if (scale > 1 && e.button === 0 && !resizing) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - translate.x, y: e.clientY - translate.y });
+    }
+  }, [scale, translate, resizing]);
+
+  // Handle pan move
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleMouseMove = (e) => {
+      setTranslate({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y,
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsPanning(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isPanning, panStart]);
+
+  // Reset zoom
+  const resetZoom = () => {
+    setScale(1);
+    setTranslate({ x: 0, y: 0 });
+  };
+
   // Render resize handles for a face box
   const renderResizeHandles = (index, isSaved) => (
     <>
@@ -298,12 +368,20 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
         </div>
 
         <div className="photo-viewer-content">
-          <div className="photo-container" ref={photoContainerRef}>
+          <div
+            className={`photo-container ${isPanning ? 'panning' : ''} ${scale > 1 ? 'zoomed' : ''}`}
+            ref={photoContainerRef}
+            onMouseDown={handlePanStart}
+            style={{
+              transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+            }}
+          >
             <img
               ref={imageRef}
               src={imageSrc}
               alt="Photo"
               onLoad={handleImageLoad}
+              draggable={false}
             />
 
             {/* Render saved face tags */}
@@ -384,6 +462,14 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
         </div>
 
         <div className="photo-viewer-footer">
+          <div className="zoom-controls">
+            <span className="zoom-level">{Math.round(scale * 100)}%</span>
+            {scale !== 1 && (
+              <button className="reset-zoom-btn" onClick={resetZoom}>
+                Reset
+              </button>
+            )}
+          </div>
           <div className="face-count">
             {savedFaceTags.length > 0 && (
               <span>{savedFaceTags.length} tagged</span>

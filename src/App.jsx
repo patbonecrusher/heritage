@@ -24,6 +24,7 @@ import PreferencesDialog from './components/PreferencesDialog';
 import SourceDialog from './components/SourceDialog';
 import Toast from './components/Toast';
 import WelcomeScreen from './components/WelcomeScreen';
+import MediaLibrary from './components/MediaLibrary';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
 import { useDatabase, usePersons, useUnions, useEvents, generateId } from './data';
@@ -137,12 +138,14 @@ function App() {
   const { isOpen, bundleInfo, createBundle, openBundle, openBundlePath, closeBundle, isLoading } = useDatabase();
   const { persons, createPerson, updatePerson: updatePersonDb, getPerson, getPersonFull, fetchPersons } = usePersons();
   const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, findOrCreateUnion } = useUnions();
-  const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent } = useEvents();
+  const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent } = useEvents();
 
   // Loaded events for selected person (bundle mode)
   const [loadedBirthEvent, setLoadedBirthEvent] = useState(null);
   const [loadedDeathEvent, setLoadedDeathEvent] = useState(null);
+  const [loadedOtherEvents, setLoadedOtherEvents] = useState([]);
   const [loadedUnions, setLoadedUnions] = useState([]);
+  const [loadedDataForPersonId, setLoadedDataForPersonId] = useState(null); // Track which person data belongs to
 
   // Core data state - using new format (legacy JSON mode)
   const [data, setData] = useState(createEmptyData());
@@ -150,6 +153,9 @@ function App() {
 
   // Mode: 'legacy' for JSON files, 'bundle' for .heritage bundles
   const [storageMode, setStorageMode] = useState(null); // null = welcome screen
+
+  // Recent files for welcome screen
+  const [recentFiles, setRecentFiles] = useState([]);
 
   // Helper to convert database date to legacy format
   const dbDateToLegacy = (dateStr, qualifier, isLiving) => {
@@ -286,27 +292,39 @@ function App() {
   const [editingSource, setEditingSource] = useState(null);
   const [pendingSourceCallback, setPendingSourceCallback] = useState(null);
 
+  // Media library
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+
   // Load events and unions for selected person in bundle mode
   useEffect(() => {
+    // Clear previous person's data immediately and mark as not-yet-loaded
+    setLoadedBirthEvent(null);
+    setLoadedDeathEvent(null);
+    setLoadedOtherEvents([]);
+    setLoadedUnions([]);
+    setLoadedDataForPersonId(null);
+
     const loadPersonData = async () => {
       if (storageMode === 'bundle' && selectedPersonId && isOpen) {
         // Load birth and death events
-        const [birth, death, unions] = await Promise.all([
+        const [birth, death, allEvents, unions] = await Promise.all([
           getBirthEvent(selectedPersonId),
           getDeathEvent(selectedPersonId),
+          getEventsForPerson(selectedPersonId),
           getUnionsForPerson(selectedPersonId),
         ]);
         setLoadedBirthEvent(birth);
         setLoadedDeathEvent(death);
+        // Filter out birth/death events from other events
+        const otherEvents = (allEvents || []).filter(e => e.type !== 'birth' && e.type !== 'death');
+        setLoadedOtherEvents(otherEvents);
         setLoadedUnions(unions || []);
-      } else {
-        setLoadedBirthEvent(null);
-        setLoadedDeathEvent(null);
-        setLoadedUnions([]);
+        // Mark that data is loaded for this specific person
+        setLoadedDataForPersonId(selectedPersonId);
       }
     };
     loadPersonData();
-  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getUnionsForPerson]);
+  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getEventsForPerson, getUnionsForPerson]);
 
   // Convert data to React Flow format for canvas view
   const reactFlowData = useMemo(() => {
@@ -330,6 +348,15 @@ function App() {
       setNavigationHistory([]);
     }
   }, [isOpen, storageMode]);
+
+  // Fetch recent files for welcome screen
+  useEffect(() => {
+    if (storageMode === null && window.electronAPI?.bundle?.getRecentFiles) {
+      window.electronAPI.bundle.getRecentFiles().then(files => {
+        setRecentFiles(files || []);
+      });
+    }
+  }, [storageMode]);
 
   // Select first person when persons load in bundle mode
   useEffect(() => {
@@ -683,6 +710,18 @@ function App() {
     }
   }, [openBundle]);
 
+  const handleOpenRecentFile = useCallback(async (filePath) => {
+    // Open a recent .heritage bundle by path
+    const result = await openBundlePath(filePath);
+    if (result) {
+      setStorageMode('bundle');
+      setData(createEmptyData());
+      setCurrentFilePath(null);
+      setNavigationHistory([]);
+      setSelectedPersonId(null);
+    }
+  }, [openBundlePath]);
+
   const handleLoadLegacy = useCallback(async () => {
     // Open a JSON file (legacy mode)
     if (window.electronAPI) {
@@ -813,7 +852,33 @@ function App() {
         ? persons.find(p => p.id === selectedPersonId)
         : findPersonById(data, selectedPersonId);
 
+      // If no valid person is selected, render pedigree view instead
+      if (!selectedPerson) {
+        return (
+          <PedigreeView
+            data={viewData}
+            focusPersonId={selectedPersonId}
+            onSelectPerson={navigateToPerson}
+            onEditPerson={(personId) => {
+              setSelectedPersonId(personId);
+              setFocusedView('person');
+            }}
+            onEditUnion={(unionId) => {
+              const union = data.unions?.find(u => u.id === unionId);
+              if (union) {
+                setEditingUnionId(unionId);
+                setUnionDialogInitialData(union);
+                setUnionDialogOpen(true);
+              }
+            }}
+            onMenuAction={handleMenuAction}
+          />
+        );
+      }
+
       // Convert database person to legacy format for PersonView
+      // Only use loaded events if they belong to the currently selected person
+      const eventsReady = loadedDataForPersonId === selectedPersonId;
       const personForView = storageMode === 'bundle' && selectedPerson
         ? {
             id: selectedPerson.id,
@@ -822,30 +887,30 @@ function App() {
             maidenName: selectedPerson.surname_at_birth || '',
             gender: selectedPerson.gender || '',
             notes: selectedPerson.notes || '',
-            // Convert database events to PersonView format
-            birthDate: dbEventToDateFormat(loadedBirthEvent),
+            // Convert database events to PersonView format (only if loaded for this person)
+            birthDate: eventsReady ? dbEventToDateFormat(loadedBirthEvent) : { type: 'unknown' },
             deathDate: selectedPerson.is_living
               ? { type: 'alive', display: 'Living' }
-              : dbEventToDateFormat(loadedDeathEvent),
-            birthPlace: loadedBirthEvent?.place_name || '',
-            deathPlace: loadedDeathEvent?.place_name || '',
-            // Convert other events from database format
-            events: (selectedPerson.events || []).map(e => ({
+              : (eventsReady ? dbEventToDateFormat(loadedDeathEvent) : { type: 'unknown' }),
+            birthPlace: eventsReady ? (loadedBirthEvent?.place_name || '') : '',
+            deathPlace: eventsReady ? (loadedDeathEvent?.place_name || '') : '',
+            // Convert other events from database format (only if loaded for this person)
+            events: eventsReady ? loadedOtherEvents.map(e => ({
               id: e.id,
               type: e.type,
               date: dbEventToDateFormat(e),
               place: e.place_detail || e.place_name || '',
               description: e.description || '',
-            })),
+            })) : [],
             sources: [],
             birthSources: [],
             deathSources: [],
           }
         : selectedPerson;
 
-      // Convert database unions to PersonView format for bundle mode
+      // Convert database unions to PersonView format for bundle mode (only if loaded for this person)
       const unionsForView = storageMode === 'bundle'
-        ? loadedUnions.map(u => dbUnionToPersonViewFormat(u, selectedPersonId))
+        ? (eventsReady ? loadedUnions.map(u => dbUnionToPersonViewFormat(u, selectedPersonId)) : [])
         : (data.unions || []).filter(u =>
             u.partner1Id === selectedPersonId || u.partner2Id === selectedPersonId
           );
@@ -962,13 +1027,53 @@ function App() {
                   });
                 }
 
+                // Handle other events (non-birth/death)
+                const updatedEvents = updatedData.events || [];
+                const updatedEventIds = new Set(updatedEvents.filter(e => e.id).map(e => e.id));
+                const loadedEventIds = new Set(loadedOtherEvents.map(e => e.id));
+
+                // Delete removed events
+                for (const loadedEvent of loadedOtherEvents) {
+                  if (!updatedEventIds.has(loadedEvent.id)) {
+                    await deleteEvent(loadedEvent.id);
+                  }
+                }
+
+                // Create or update events
+                for (const event of updatedEvents) {
+                  const eventData = dateFormatToDbEvent(event.date);
+                  if (!event.id || !loadedEventIds.has(event.id)) {
+                    // Create new event
+                    await createEvent({
+                      person_id: selectedPersonId,
+                      type: event.type,
+                      date: eventData.date,
+                      date_qualifier: eventData.date_qualifier,
+                      place_detail: event.place || null,
+                      description: event.description || null,
+                    });
+                  } else {
+                    // Update existing event
+                    await updateEvent(event.id, {
+                      type: event.type,
+                      date: eventData.date,
+                      date_qualifier: eventData.date_qualifier,
+                      place_detail: event.place || null,
+                      description: event.description || null,
+                    });
+                  }
+                }
+
                 // Reload events after save
-                const [birth, death] = await Promise.all([
+                const [birth, death, allEvents] = await Promise.all([
                   getBirthEvent(selectedPersonId),
                   getDeathEvent(selectedPersonId),
+                  getEventsForPerson(selectedPersonId),
                 ]);
                 setLoadedBirthEvent(birth);
                 setLoadedDeathEvent(death);
+                const otherEvents = (allEvents || []).filter(e => e.type !== 'birth' && e.type !== 'death');
+                setLoadedOtherEvents(otherEvents);
 
                 // Refresh persons list to reflect changes
                 await fetchPersons();
@@ -1188,6 +1293,8 @@ function App() {
       <WelcomeScreen
         onNewBundle={handleNew}
         onOpenBundle={handleLoad}
+        onOpenRecentFile={handleOpenRecentFile}
+        recentFiles={recentFiles}
         onNewLegacy={handleNewLegacy}
         onOpenLegacy={handleLoadLegacy}
         isLoading={isLoading}
@@ -1203,6 +1310,7 @@ function App() {
         onExportSvg={handleExportSvg}
         onSave={handleSave}
         onLoad={handleLoad}
+        onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
         bundleInfo={bundleInfo}
         storageMode={storageMode}
       />
@@ -1298,6 +1406,10 @@ function App() {
         onSave={handleSourceSave}
         initialData={editingSource}
       />
+
+      {mediaLibraryOpen && (
+        <MediaLibrary onClose={() => setMediaLibraryOpen(false)} />
+      )}
 
       <Toast
         message={toast.message}

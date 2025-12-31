@@ -33,6 +33,37 @@ export function useMedia() {
     return media;
   }, [get, resolveMediaPath]);
 
+  // Get all media in the database
+  const getAllMedia = useCallback(async () => {
+    const rows = await query(`
+      SELECT m.*,
+        (SELECT COUNT(*) FROM face_tag ft WHERE ft.media_id = m.id AND ft.deleted_at IS NULL) as face_count,
+        (SELECT GROUP_CONCAT(p.given_names || ' ' || p.surname, ', ')
+         FROM media_link ml
+         JOIN person p ON ml.person_id = p.id
+         WHERE ml.media_id = m.id AND ml.deleted_at IS NULL) as linked_persons,
+        (SELECT GROUP_CONCAT(p.given_names || ' ' || p.surname, ', ')
+         FROM face_tag ft
+         JOIN person p ON ft.person_id = p.id
+         WHERE ft.media_id = m.id AND ft.deleted_at IS NULL AND ft.person_id IS NOT NULL) as tagged_faces
+      FROM media m
+      WHERE m.deleted_at IS NULL
+      ORDER BY m.created_at DESC
+    `, []);
+
+    // Resolve paths
+    for (const media of rows) {
+      if (media.path) {
+        media.fullPath = await resolveMediaPath(media.path);
+      }
+      if (media.thumbnail_path) {
+        media.thumbnailFullPath = await resolveMediaPath(media.thumbnail_path);
+      }
+    }
+
+    return rows;
+  }, [query, resolveMediaPath]);
+
   // Get all media for a person
   const getMediaForPerson = useCallback(async (personId) => {
     const rows = await query(`
@@ -338,6 +369,7 @@ export function useMedia() {
   return {
     // Core operations
     getMedia,
+    getAllMedia,
     getMediaForPerson,
     getMediaForEvent,
     importAndCreateMedia,

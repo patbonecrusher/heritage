@@ -6,6 +6,7 @@ export default function Toolbar({
   onExportSvg,
   onSave,
   onLoad,
+  onOpenMediaLibrary,
   bundleInfo,
   storageMode,
 }) {
@@ -38,6 +39,12 @@ export default function Toolbar({
         <button onClick={onExportPng}>Export PNG</button>
         <button onClick={onExportSvg}>Export SVG</button>
       </div>
+
+      {storageMode === 'bundle' && (
+        <div className="toolbar-group">
+          <button onClick={onOpenMediaLibrary}>Media</button>
+        </div>
+      )}
 
       <div style={{ marginLeft: 'auto', color: 'var(--color-textMuted)', fontSize: '12px' }}>
         {storageMode === 'bundle' ? 'Database mode' : 'Legacy JSON mode'}
