@@ -7,6 +7,7 @@ export default function Toolbar({
   onSave,
   onLoad,
   onOpenMediaLibrary,
+  onOpenPlacesLibrary,
   bundleInfo,
   storageMode,
 }) {
@@ -43,6 +44,7 @@ export default function Toolbar({
       {storageMode === 'bundle' && (
         <div className="toolbar-group">
           <button onClick={onOpenMediaLibrary}>Media</button>
+          <button onClick={onOpenPlacesLibrary}>Places</button>
         </div>
       )}
 

@@ -25,6 +25,7 @@ import SourceDialog from './components/SourceDialog';
 import Toast from './components/Toast';
 import WelcomeScreen from './components/WelcomeScreen';
 import MediaLibrary from './components/MediaLibrary';
+import PlacesLibrary from './components/PlacesLibrary';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
 import { useDatabase, usePersons, useUnions, useEvents, generateId } from './data';
@@ -294,6 +295,9 @@ function App() {
 
   // Media library
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+
+  // Places library
+  const [placesLibraryOpen, setPlacesLibraryOpen] = useState(false);
 
   // Load events and unions for selected person in bundle mode
   useEffect(() => {
@@ -1311,6 +1315,7 @@ function App() {
         onSave={handleSave}
         onLoad={handleLoad}
         onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
+        onOpenPlacesLibrary={() => setPlacesLibraryOpen(true)}
         bundleInfo={bundleInfo}
         storageMode={storageMode}
       />
@@ -1409,6 +1414,10 @@ function App() {
 
       {mediaLibraryOpen && (
         <MediaLibrary onClose={() => setMediaLibraryOpen(false)} />
+      )}
+
+      {placesLibraryOpen && (
+        <PlacesLibrary onClose={() => setPlacesLibraryOpen(false)} />
       )}
 
       <Toast
