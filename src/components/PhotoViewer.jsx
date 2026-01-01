@@ -351,7 +351,7 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
   );
 
   return (
-    <div className="photo-viewer-overlay" onClick={onClose}>
+    <div className="photo-viewer-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
       <div className="photo-viewer-container" onClick={e => e.stopPropagation()} ref={containerRef}>
         <div className="photo-viewer-header">
           <div className="photo-viewer-title">Photo Viewer</div>

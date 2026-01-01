@@ -9,8 +9,8 @@ import PhotoViewer from './PhotoViewer';
 import './MediaGallery.css';
 
 export function MediaGallery({ personId }) {
-  const { isOpen } = useDatabase();
-  const { getMediaForPerson, importAndCreateMedia, linkMedia } = useMedia();
+  const { isOpen, refreshTrigger } = useDatabase();
+  const { getMediaForPerson, importAndCreateMedia, linkMedia, unlinkMedia } = useMedia();
 
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,24 @@ export function MediaGallery({ personId }) {
       })
       .catch(err => console.error('Error loading photos:', err))
       .finally(() => setLoading(false));
-  }, [personId, isOpen, getMediaForPerson]);
+  }, [personId, isOpen, getMediaForPerson, refreshTrigger]);
+
+  // Unlink photo from person
+  const handleUnlink = async (e, photo) => {
+    e.stopPropagation(); // Don't open the photo viewer
+    try {
+      await unlinkMedia(photo.id, 'person', personId);
+      // Refresh the list
+      const media = await getMediaForPerson(personId);
+      const photoMedia = media.filter(m =>
+        m.type === 'photo' ||
+        m.mime_type?.startsWith('image/')
+      );
+      setPhotos(photoMedia);
+    } catch (err) {
+      console.error('Error unlinking photo:', err);
+    }
+  };
 
   // Import new photos
   const handleImportPhotos = async () => {
@@ -97,21 +114,30 @@ export function MediaGallery({ personId }) {
       ) : (
         <div className="media-gallery-grid">
           {photos.map(photo => (
-            <button
-              key={photo.id}
-              type="button"
-              className="media-gallery-item"
-              onClick={() => openPhotoViewer(photo)}
-            >
-              <img
-                src={photo.thumbnailFullPath || photo.fullPath}
-                alt={photo.title || 'Photo'}
-                loading="lazy"
-              />
-              {photo.face_count > 0 && (
-                <span className="face-count-badge">{photo.face_count}</span>
-              )}
-            </button>
+            <div key={photo.id} className="media-gallery-item-wrapper">
+              <button
+                type="button"
+                className="media-gallery-item"
+                onClick={() => openPhotoViewer(photo)}
+              >
+                <img
+                  src={photo.thumbnailFullPath || photo.fullPath}
+                  alt={photo.title || 'Photo'}
+                  loading="lazy"
+                />
+                {photo.face_count > 0 && (
+                  <span className="face-count-badge">{photo.face_count}</span>
+                )}
+              </button>
+              <button
+                type="button"
+                className="media-gallery-unlink"
+                onClick={(e) => handleUnlink(e, photo)}
+                title="Unlink from person"
+              >
+                ×
+              </button>
+            </div>
           ))}
         </div>
       )}

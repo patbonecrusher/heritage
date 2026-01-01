@@ -440,7 +440,7 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
   };
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
+    <div className="dialog-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
       <div className="dialog source-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>{initialData ? 'Edit Source' : 'Add Source'}</h2>

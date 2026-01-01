@@ -62,6 +62,19 @@ export function PlacesLibrary({ onClose }) {
   const [mapKey, setMapKey] = useState(0); // Force map remount when needed
   const [searchSource, setSearchSource] = useState('osm'); // 'osm' or 'wikipedia'
 
+  // Handle Escape key to close
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Search for place using OpenStreetMap Nominatim
   const searchGeocode = async () => {
     if (!formData.name.trim()) return;
@@ -391,8 +404,8 @@ export function PlacesLibrary({ onClose }) {
   }
 
   return (
-    <div className="places-library-overlay">
-      <div className="places-library">
+    <div className="places-library-overlay" onWheel={e => e.stopPropagation()} onClick={onClose}>
+      <div className="places-library" onClick={e => e.stopPropagation()}>
         <div className="places-library-header">
           <h2>Places</h2>
           <button className="places-library-close" onClick={onClose}>
@@ -857,3 +870,180 @@ export function PlacesLibrary({ onClose }) {
 }
 
 export default PlacesLibrary;
+
+/**
+ * PlacesPanelContent - Embedded panel version for LibraryPanel
+ * Simplified list view with draggable items for drag-and-drop to PersonView
+ */
+export function PlacesPanelContent({ onOpenFullLibrary }) {
+  const { isOpen } = useDatabase();
+  const { getAllPlaces, createPlace } = usePlaces();
+
+  const [places, setPlaces] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Load all places
+  useEffect(() => {
+    if (!isOpen) {
+      setPlaces([]);
+      setLoading(false);
+      return;
+    }
+
+    loadPlaces();
+  }, [isOpen]);
+
+  const loadPlaces = async () => {
+    setLoading(true);
+    try {
+      const items = await getAllPlaces();
+      setPlaces(items || []);
+    } catch (err) {
+      console.error('Error loading places:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle drag start
+  const handleDragStart = (e, place) => {
+    e.dataTransfer.setData('application/heritage-place', JSON.stringify({
+      type: 'place',
+      id: place.id,
+      name: place.name,
+      placeType: place.type,
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+    e.currentTarget.classList.add('dragging');
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.classList.remove('dragging');
+  };
+
+  // Filter and search places
+  const filteredPlaces = places.filter(item => {
+    if (filter !== 'all' && item.type !== filter) {
+      return false;
+    }
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const searchableText = [
+        item.name,
+        item.parent_name,
+        item.notes,
+        PLACE_TYPES[item.type],
+      ].filter(Boolean).join(' ').toLowerCase();
+      return searchableText.includes(query);
+    }
+    return true;
+  });
+
+  const placeTypes = [...new Set(places.map(p => p.type))].filter(Boolean);
+
+  // Get place icon
+  const getPlaceIcon = (type) => {
+    switch (type) {
+      case 'country': return '🌍';
+      case 'province': return '🏛️';
+      case 'county': return '🗺️';
+      case 'city': return '🏙️';
+      case 'town': return '🏘️';
+      case 'parish': return '⛪';
+      case 'township': return '🏡';
+      case 'village': return '🏠';
+      case 'neighborhood': return '📍';
+      case 'address': return '🏢';
+      case 'cemetery': return '🪦';
+      case 'church': return '⛪';
+      case 'hospital': return '🏥';
+      default: return '📍';
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <div className="places-panel-content">
+        <div className="panel-empty">Open a bundle to view places</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="places-panel-content">
+      <div className="panel-search">
+        <input
+          type="text"
+          placeholder="Search places..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      <div className="panel-toolbar">
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="all">All Types</option>
+          {placeTypes.map(type => (
+            <option key={type} value={type}>
+              {PLACE_TYPES[type] || type}
+            </option>
+          ))}
+        </select>
+        {onOpenFullLibrary && (
+          <button
+            className="btn-secondary btn-small"
+            onClick={onOpenFullLibrary}
+            title="Open full library to add/edit places"
+          >
+            Manage
+          </button>
+        )}
+      </div>
+
+      <div className="panel-stats">
+        {loading ? 'Loading...' : `${filteredPlaces.length} places`}
+      </div>
+
+      <div className="panel-list">
+        {loading ? (
+          <div className="panel-loading">Loading places...</div>
+        ) : filteredPlaces.length === 0 ? (
+          <div className="panel-empty">
+            {places.length === 0 ? (
+              <>
+                <p>No places</p>
+                <p className="panel-empty-hint">Add places in full library view</p>
+              </>
+            ) : (
+              <p>No matches</p>
+            )}
+          </div>
+        ) : (
+          filteredPlaces.map(place => (
+            <div
+              key={place.id}
+              className="place-item"
+              draggable="true"
+              onDragStart={(e) => handleDragStart(e, place)}
+              onDragEnd={handleDragEnd}
+              title={`Drag to set place: ${place.name}`}
+            >
+              <span className="place-icon">{getPlaceIcon(place.type)}</span>
+              <div className="place-info">
+                <span className="place-name">{place.name}</span>
+                {place.type && (
+                  <span className="place-type">{PLACE_TYPES[place.type] || place.type}</span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

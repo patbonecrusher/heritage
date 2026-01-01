@@ -19,6 +19,19 @@ export function MediaLibrary({ onClose }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null); // media item to delete
 
+  // Handle Escape key to close
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Load all media
   useEffect(() => {
     if (!isOpen) {
@@ -100,8 +113,8 @@ export function MediaLibrary({ onClose }) {
   }
 
   return (
-    <div className="media-library-overlay">
-      <div className="media-library">
+    <div className="media-library-overlay" onWheel={e => e.stopPropagation()} onClick={onClose}>
+      <div className="media-library" onClick={e => e.stopPropagation()}>
         <div className="media-library-header">
           <h2>Media Library</h2>
           <button className="media-library-close" onClick={onClose}>
@@ -288,3 +301,214 @@ export function MediaLibrary({ onClose }) {
 }
 
 export default MediaLibrary;
+
+/**
+ * MediaPanelContent - Embedded panel version for LibraryPanel
+ * Simplified view with draggable items for drag-and-drop to PersonView
+ */
+export function MediaPanelContent({ onOpenFullLibrary }) {
+  const { isOpen } = useDatabase();
+  const { getAllMedia, importAndCreateMedia } = useMedia();
+
+  const [media, setMedia] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMedia, setSelectedMedia] = useState(null);
+
+  // Load all media
+  useEffect(() => {
+    if (!isOpen) {
+      setMedia([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    getAllMedia()
+      .then(items => setMedia(items || []))
+      .catch(err => console.error('Error loading media:', err))
+      .finally(() => setLoading(false));
+  }, [isOpen, getAllMedia]);
+
+  // Refresh media list
+  const refreshMedia = async () => {
+    try {
+      const items = await getAllMedia();
+      setMedia(items || []);
+    } catch (err) {
+      console.error('Error refreshing media:', err);
+    }
+  };
+
+  // Import new media
+  const handleImport = async (type) => {
+    try {
+      const imported = await importAndCreateMedia(type);
+      if (imported && imported.length > 0) {
+        await refreshMedia();
+      }
+    } catch (err) {
+      console.error('Error importing media:', err);
+    }
+  };
+
+  // Handle drag start
+  const handleDragStart = (e, item) => {
+    e.dataTransfer.setData('application/heritage-media', JSON.stringify({
+      type: 'media',
+      id: item.id,
+      mediaType: item.type,
+      filename: item.filename,
+      title: item.title,
+      thumbnailFullPath: item.thumbnailFullPath,
+      fullPath: item.fullPath,
+    }));
+    e.dataTransfer.effectAllowed = 'copy';
+    e.currentTarget.classList.add('dragging');
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.classList.remove('dragging');
+  };
+
+  // Filter and search media
+  const filteredMedia = media.filter(item => {
+    if (filter !== 'all' && item.type !== filter) {
+      return false;
+    }
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const searchableText = [
+        item.filename,
+        item.title,
+        item.description,
+        item.linked_persons,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return searchableText.includes(query);
+    }
+    return true;
+  });
+
+  const mediaTypes = [...new Set(media.map(m => m.type))].filter(Boolean);
+
+  // Get media icon
+  const getMediaIcon = (type) => {
+    switch (type) {
+      case 'document': return '📄';
+      case 'certificate': return '📜';
+      case 'headstone': return '🪦';
+      case 'newspaper': return '📰';
+      case 'map': return '🗺️';
+      default: return '📷';
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <div className="media-panel-content">
+        <div className="panel-empty">Open a bundle to view media</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="media-panel-content">
+      <div className="panel-search">
+        <input
+          type="text"
+          placeholder="Search media..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      <div className="panel-toolbar">
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="all">All</option>
+          {mediaTypes.map(type => (
+            <option key={type} value={type}>
+              {MEDIA_TYPES[type] || type}
+            </option>
+          ))}
+        </select>
+        <button onClick={() => handleImport('photos')}>+ Photo</button>
+        <button onClick={() => handleImport('documents')}>+ Doc</button>
+        {onOpenFullLibrary && (
+          <button
+            className="btn-secondary btn-small"
+            onClick={onOpenFullLibrary}
+            title="Open full library to manage media"
+          >
+            Manage
+          </button>
+        )}
+      </div>
+
+      <div className="panel-stats">
+        {loading ? 'Loading...' : `${filteredMedia.length} items`}
+      </div>
+
+      <div className="panel-list">
+        {loading ? (
+          <div className="panel-loading">Loading media...</div>
+        ) : filteredMedia.length === 0 ? (
+          <div className="panel-empty">
+            {media.length === 0 ? (
+              <>
+                <p>No media</p>
+                <p className="panel-empty-hint">Import photos or documents</p>
+              </>
+            ) : (
+              <p>No matches</p>
+            )}
+          </div>
+        ) : (
+          <div className="media-grid">
+            {filteredMedia.map(item => (
+              <div
+                key={item.id}
+                className="media-item"
+                draggable="true"
+                onDragStart={(e) => handleDragStart(e, item)}
+                onDragEnd={handleDragEnd}
+                onClick={() => setSelectedMedia(item)}
+                title={`Click to view/edit, drag to link: ${item.title || item.filename}`}
+              >
+                {item.thumbnailFullPath || item.fullPath ? (
+                  <img
+                    src={item.thumbnailFullPath || item.fullPath}
+                    alt={item.title || item.filename}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="media-item-icon">
+                    {getMediaIcon(item.type)}
+                  </div>
+                )}
+                <div className="media-item-label">
+                  {item.title || item.filename}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selectedMedia && (
+        <PhotoViewer
+          mediaId={selectedMedia.id}
+          imageSrc={selectedMedia.fullPath}
+          mediaPath={selectedMedia.path}
+          onClose={() => {
+            setSelectedMedia(null);
+            refreshMedia(); // Refresh in case faces were tagged
+          }}
+        />
+      )}
+    </div>
+  );
+}

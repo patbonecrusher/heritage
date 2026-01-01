@@ -1871,6 +1871,7 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  touch-action: pan-y pinch-zoom; /* Allow vertical scroll and pinch zoom, but capture horizontal swipes */
 }
 
 /* View Transitions API for smooth crossfade */
