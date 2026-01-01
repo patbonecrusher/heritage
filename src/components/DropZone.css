@@ -1,0 +1,99 @@
+/* Drop Zone styles for drag-and-drop */
+
+/* Place Drop Zone */
+.place-drop-zone {
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.place-drop-zone.drop-active {
+  outline: 2px dashed var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.place-drop-zone.drop-active .place-picker-input,
+.place-drop-zone.drop-active input {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.place-drop-zone .drop-indicator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.place-drop-zone .drop-indicator span {
+  padding: 4px 12px;
+  background: var(--color-primary);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+/* Media Drop Zone */
+.media-drop-zone {
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.media-drop-zone.drop-active {
+  outline: 2px dashed var(--color-primary);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.media-drop-zone .drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.media-drop-zone .drop-overlay span {
+  padding: 8px 16px;
+  background: var(--color-primary);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* Event drop zone - smaller style */
+.media-drop-zone.event-drop-zone .drop-overlay span {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+/* Section drop zone - for birth/death/photos sections */
+.media-drop-zone.section-drop-zone {
+  min-height: 60px;
+  margin-bottom: 16px;
+}
+
+.media-drop-zone.section-drop-zone:last-child {
+  margin-bottom: 0;
+}
+
+.media-drop-zone.section-drop-zone.drop-active {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* Remove margin from nested person-view-section when wrapped */
+.media-drop-zone.section-drop-zone > .person-view-section {
+  margin-bottom: 0;
+}

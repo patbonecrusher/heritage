@@ -45,6 +45,23 @@ export function usePlaces() {
     }
   }, [query, isOpen]);
 
+  // Get all places with usage stats
+  const getAllPlaces = useCallback(async () => {
+    const rows = await query(`
+      SELECT p.*,
+        (SELECT COUNT(*) FROM event e WHERE e.place_id = p.id AND e.deleted_at IS NULL) as event_count,
+        (SELECT GROUP_CONCAT(DISTINCT e.type) FROM event e WHERE e.place_id = p.id AND e.deleted_at IS NULL) as event_types,
+        parent.name as parent_name,
+        mapped.name as mapped_to_name
+      FROM place p
+      LEFT JOIN place parent ON p.parent_id = parent.id
+      LEFT JOIN place mapped ON p.mapped_to_id = mapped.id
+      WHERE p.deleted_at IS NULL
+      ORDER BY p.name
+    `, []);
+    return rows;
+  }, [query]);
+
   // Load places when bundle opens
   useEffect(() => {
     if (isOpen) {
@@ -194,6 +211,7 @@ export function usePlaces() {
     places,
     loading,
     fetchPlaces,
+    getAllPlaces,
     getPlace,
     getPlaceWithHierarchy,
     getCurrentPlace,

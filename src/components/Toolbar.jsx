@@ -6,7 +6,8 @@ export default function Toolbar({
   onExportSvg,
   onSave,
   onLoad,
-  onOpenMediaLibrary,
+  onToggleLibrary,
+  libraryPanelOpen,
   bundleInfo,
   storageMode,
 }) {
@@ -42,7 +43,12 @@ export default function Toolbar({
 
       {storageMode === 'bundle' && (
         <div className="toolbar-group">
-          <button onClick={onOpenMediaLibrary}>Media</button>
+          <button
+            onClick={onToggleLibrary}
+            className={libraryPanelOpen ? 'active' : ''}
+          >
+            Library
+          </button>
         </div>
       )}
 

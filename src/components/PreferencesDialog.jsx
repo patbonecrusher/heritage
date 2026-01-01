@@ -68,7 +68,7 @@ function PreferencesDialog({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
+    <div className="dialog-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
       <div className="dialog preferences-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
           <h2>Preferences</h2>

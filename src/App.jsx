@@ -25,9 +25,11 @@ import SourceDialog from './components/SourceDialog';
 import Toast from './components/Toast';
 import WelcomeScreen from './components/WelcomeScreen';
 import MediaLibrary from './components/MediaLibrary';
+import PlacesLibrary from './components/PlacesLibrary';
+import LibraryPanel from './components/LibraryPanel';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
-import { useDatabase, usePersons, useUnions, useEvents, generateId } from './data';
+import { useDatabase, usePersons, useUnions, useEvents, usePlaces, generateId } from './data';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -139,6 +141,7 @@ function App() {
   const { persons, createPerson, updatePerson: updatePersonDb, getPerson, getPersonFull, fetchPersons } = usePersons();
   const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, findOrCreateUnion } = useUnions();
   const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent } = useEvents();
+  const { places } = usePlaces();
 
   // Loaded events for selected person (bundle mode)
   const [loadedBirthEvent, setLoadedBirthEvent] = useState(null);
@@ -227,6 +230,7 @@ function App() {
   const [focusedView, setFocusedView] = useState('pedigree'); // 'pedigree' | 'descendants' | 'person'
   const [selectedPersonId, setSelectedPersonId] = useState(null);
   const [navigationHistory, setNavigationHistory] = useState([]);
+  const [forwardHistory, setForwardHistory] = useState([]);
 
   // Navigation functions
   const navigateToPerson = useCallback((personId) => {
@@ -236,6 +240,8 @@ function App() {
         if (selectedPersonId) {
           setNavigationHistory(prev => [...prev, selectedPersonId]);
         }
+        // Clear forward history when navigating to a new person
+        setForwardHistory([]);
         setSelectedPersonId(personId);
       };
 
@@ -252,6 +258,10 @@ function App() {
     if (navigationHistory.length > 0) {
       const doNavigation = () => {
         const prevPersonId = navigationHistory[navigationHistory.length - 1];
+        // Push current person to forward history
+        if (selectedPersonId) {
+          setForwardHistory(prev => [...prev, selectedPersonId]);
+        }
         setNavigationHistory(prev => prev.slice(0, -1));
         setSelectedPersonId(prevPersonId);
       };
@@ -263,9 +273,31 @@ function App() {
         doNavigation();
       }
     }
-  }, [navigationHistory]);
+  }, [navigationHistory, selectedPersonId]);
+
+  const navigateForward = useCallback(() => {
+    if (forwardHistory.length > 0) {
+      const doNavigation = () => {
+        const nextPersonId = forwardHistory[forwardHistory.length - 1];
+        // Push current person to back history
+        if (selectedPersonId) {
+          setNavigationHistory(prev => [...prev, selectedPersonId]);
+        }
+        setForwardHistory(prev => prev.slice(0, -1));
+        setSelectedPersonId(nextPersonId);
+      };
+
+      // Use View Transitions API if available for smooth crossfade
+      if (document.startViewTransition) {
+        document.startViewTransition(doNavigation);
+      } else {
+        doNavigation();
+      }
+    }
+  }, [forwardHistory, selectedPersonId]);
 
   const canNavigateBack = navigationHistory.length > 0;
+  const canNavigateForward = forwardHistory.length > 0;
 
   // React Flow state for canvas mode
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -292,7 +324,12 @@ function App() {
   const [editingSource, setEditingSource] = useState(null);
   const [pendingSourceCallback, setPendingSourceCallback] = useState(null);
 
-  // Media library
+  // Library panel (replaces modal libraries)
+  const [libraryPanelOpen, setLibraryPanelOpen] = useState(false);
+  const [libraryActiveTab, setLibraryActiveTab] = useState('media'); // 'media' | 'places'
+
+  // Full library modals (for editing/managing)
+  const [placesLibraryOpen, setPlacesLibraryOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   // Load events and unions for selected person in bundle mode
@@ -892,14 +929,19 @@ function App() {
             deathDate: selectedPerson.is_living
               ? { type: 'alive', display: 'Living' }
               : (eventsReady ? dbEventToDateFormat(loadedDeathEvent) : { type: 'unknown' }),
-            birthPlace: eventsReady ? (loadedBirthEvent?.place_name || '') : '',
-            deathPlace: eventsReady ? (loadedDeathEvent?.place_name || '') : '',
+            birthPlace: eventsReady ? (loadedBirthEvent?.place_detail || loadedBirthEvent?.place_name || '') : '',
+            birthPlaceId: eventsReady ? (loadedBirthEvent?.place_id || null) : null,
+            birthEventId: eventsReady ? (loadedBirthEvent?.id || null) : null,
+            deathPlace: eventsReady ? (loadedDeathEvent?.place_detail || loadedDeathEvent?.place_name || '') : '',
+            deathPlaceId: eventsReady ? (loadedDeathEvent?.place_id || null) : null,
+            deathEventId: eventsReady ? (loadedDeathEvent?.id || null) : null,
             // Convert other events from database format (only if loaded for this person)
             events: eventsReady ? loadedOtherEvents.map(e => ({
               id: e.id,
               type: e.type,
               date: dbEventToDateFormat(e),
               place: e.place_detail || e.place_name || '',
+              placeId: e.place_id || null,
               description: e.description || '',
             })) : [],
             sources: [],
@@ -1013,6 +1055,7 @@ function App() {
                   await upsertBirthEvent(selectedPersonId, {
                     date: birthEventData.date,
                     date_qualifier: birthEventData.date_qualifier,
+                    place_id: updatedData.birthPlaceId || null,
                     place_detail: updatedData.birthPlace || null,
                   });
                 }
@@ -1023,6 +1066,7 @@ function App() {
                   await upsertDeathEvent(selectedPersonId, {
                     date: deathEventData.date,
                     date_qualifier: deathEventData.date_qualifier,
+                    place_id: updatedData.deathPlaceId || null,
                     place_detail: updatedData.deathPlace || null,
                   });
                 }
@@ -1049,6 +1093,7 @@ function App() {
                       type: event.type,
                       date: eventData.date,
                       date_qualifier: eventData.date_qualifier,
+                      place_id: event.placeId || null,
                       place_detail: event.place || null,
                       description: event.description || null,
                     });
@@ -1058,6 +1103,7 @@ function App() {
                       type: event.type,
                       date: eventData.date,
                       date_qualifier: eventData.date_qualifier,
+                      place_id: event.placeId || null,
                       place_detail: event.place || null,
                       description: event.description || null,
                     });
@@ -1099,6 +1145,9 @@ function App() {
           onSelectPerson={navigateToPerson}
           onNavigateBack={navigateBack}
           canNavigateBack={canNavigateBack}
+          onNavigateForward={navigateForward}
+          canNavigateForward={canNavigateForward}
+          places={places}
           onParentsChange={async ({ personId, fatherId, motherId }) => {
             if (storageMode === 'bundle') {
               // Handle parent changes in bundle mode via database
@@ -1310,7 +1359,8 @@ function App() {
         onExportSvg={handleExportSvg}
         onSave={handleSave}
         onLoad={handleLoad}
-        onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
+        onToggleLibrary={() => setLibraryPanelOpen(!libraryPanelOpen)}
+        libraryPanelOpen={libraryPanelOpen}
         bundleInfo={bundleInfo}
         storageMode={storageMode}
       />
@@ -1375,6 +1425,17 @@ function App() {
 
           {renderMainView()}
         </div>
+
+        {/* Library Panel - always in DOM for smooth animation */}
+        <LibraryPanel
+          isOpen={libraryPanelOpen}
+          activeTab={libraryActiveTab}
+          onTabChange={setLibraryActiveTab}
+          onToggle={() => setLibraryPanelOpen(!libraryPanelOpen)}
+          onClose={() => setLibraryPanelOpen(false)}
+          onOpenPlacesLibrary={() => setPlacesLibraryOpen(true)}
+          onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
+        />
       </div>
 
       <UnionDialog
@@ -1407,6 +1468,10 @@ function App() {
         initialData={editingSource}
       />
 
+      {/* Full Library Modals - for editing/managing */}
+      {placesLibraryOpen && (
+        <PlacesLibrary onClose={() => setPlacesLibraryOpen(false)} />
+      )}
       {mediaLibraryOpen && (
         <MediaLibrary onClose={() => setMediaLibraryOpen(false)} />
       )}

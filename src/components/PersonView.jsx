@@ -3,7 +3,11 @@ import { useTheme } from '../contexts/ThemeContext';
 import SourceSelector from './SourceSelector';
 import MediaGallery from './MediaGallery';
 import PersonPhoto from './PersonPhoto';
+import PlacePicker from './PlacePicker';
+import { PlaceDropZone, MediaDropZone } from './DropZone';
+import EventMedia from './EventMedia';
 import { getParentIds, getChildrenIds } from '../utils/dataModel';
+import { useDatabase } from '../data/DatabaseContext';
 
 // Get all descendants of a person (to prevent circular relationships)
 function getAllDescendantIds(data, personId, visited = new Set()) {
@@ -268,7 +272,7 @@ function DateInput({ label, value, onChange }) {
   );
 }
 
-function EventEntry({ event, onChange, onRemove, sources, onAddSource, parentDate }) {
+function EventEntry({ event, onChange, onRemove, sources, onAddSource, parentDate, places }) {
   const [dateText, setDateText] = useState(() => {
     if (event.dateOffset) return event.dateOffset;
     return dateToInputString(event.date);
@@ -414,11 +418,11 @@ function EventEntry({ event, onChange, onRemove, sources, onAddSource, parentDat
               {dateDisplay.display}
             </span>
           </div>
-          <input
-            type="text"
+          <PlaceDropZone
             value={event.place || ''}
-            onChange={(e) => onChange({ ...event, place: e.target.value })}
-            className="text-input"
+            placeId={event.placeId}
+            places={places}
+            onChange={({ place, placeId }) => onChange({ ...event, place, placeId })}
             placeholder="Place"
           />
           <SourceSelector
@@ -622,8 +626,9 @@ function UnionEntry({ union, onChange, onRemove, allPeople, currentPersonId, sou
   );
 }
 
-export default function PersonView({ person, onSave, onCancel, sources = {}, onAddSource, allPeople = [], existingUnions = [], onUnionsChange, onSelectPerson, onParentsChange, onCreatePerson, onNavigateBack, canNavigateBack }) {
+export default function PersonView({ person, onSave, onCancel, sources = {}, onAddSource, allPeople = [], existingUnions = [], onUnionsChange, onSelectPerson, onParentsChange, onCreatePerson, onNavigateBack, canNavigateBack, onNavigateForward, canNavigateForward, places = [] }) {
   const { theme } = useTheme();
+  const { triggerRefresh } = useDatabase();
   const firstInputRef = useRef(null);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -637,7 +642,11 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
   const [birthDate, setBirthDate] = useState({ type: 'exact' });
   const [deathDate, setDeathDate] = useState({ type: 'unknown' });
   const [birthPlace, setBirthPlace] = useState('');
+  const [birthPlaceId, setBirthPlaceId] = useState(null);
+  const [birthEventId, setBirthEventId] = useState(null);
   const [deathPlace, setDeathPlace] = useState('');
+  const [deathPlaceId, setDeathPlaceId] = useState(null);
+  const [deathEventId, setDeathEventId] = useState(null);
   const [notes, setNotes] = useState('');
   const [colorIndex, setColorIndex] = useState(0);
   const [personSources, setPersonSources] = useState([]);
@@ -658,6 +667,77 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
   const [newFamilyLastName, setNewFamilyLastName] = useState('');
   const [newFamilyGender, setNewFamilyGender] = useState('');
 
+  // Swipe gesture handling (touch devices)
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+  const containerRef = useRef(null);
+
+  const handleTouchStart = useCallback((e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (touchStartX.current === null || isEditing) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = touchEndX - touchStartX.current;
+    const deltaY = touchEndY - touchStartY.current;
+
+    // Only trigger swipe if horizontal movement is significant and greater than vertical
+    const minSwipeDistance = 80;
+    if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      if (deltaX > 0 && canNavigateBack) {
+        // Swipe right = go back
+        onNavigateBack?.();
+      } else if (deltaX < 0 && canNavigateForward) {
+        // Swipe left = go forward
+        onNavigateForward?.();
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  }, [isEditing, canNavigateBack, canNavigateForward, onNavigateBack, onNavigateForward]);
+
+  // Trackpad swipe handling (macOS two-finger swipe)
+  const wheelAccumulator = useRef({ x: 0, y: 0, timeout: null });
+
+  const handleWheel = useCallback((e) => {
+    if (isEditing) return;
+
+    // Check if this is a horizontal swipe gesture (trackpad)
+    // Trackpad swipes have wheelDeltaX and are typically larger values
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 2 && Math.abs(e.deltaX) > 10) {
+      wheelAccumulator.current.x += e.deltaX;
+
+      // Clear any existing timeout
+      if (wheelAccumulator.current.timeout) {
+        clearTimeout(wheelAccumulator.current.timeout);
+      }
+
+      // Set a timeout to process the accumulated scroll
+      wheelAccumulator.current.timeout = setTimeout(() => {
+        const totalDeltaX = wheelAccumulator.current.x;
+
+        // Threshold for triggering navigation (adjust as needed)
+        const swipeThreshold = 100;
+
+        if (totalDeltaX < -swipeThreshold && canNavigateBack) {
+          // Swipe right = go back
+          onNavigateBack?.();
+        } else if (totalDeltaX > swipeThreshold && canNavigateForward) {
+          // Swipe left = go forward
+          onNavigateForward?.();
+        }
+
+        // Reset accumulator
+        wheelAccumulator.current.x = 0;
+      }, 100);
+    }
+  }, [isEditing, canNavigateBack, canNavigateForward, onNavigateBack, onNavigateForward]);
+
   // Reset to view mode and load data when person changes
   useEffect(() => {
     setIsEditing(false);
@@ -672,7 +752,11 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
       setBirthDate(person.birthDate || { type: 'exact' });
       setDeathDate(person.deathDate || { type: 'unknown' });
       setBirthPlace(person.birthPlace || '');
+      setBirthPlaceId(person.birthPlaceId || null);
+      setBirthEventId(person.birthEventId || null);
       setDeathPlace(person.deathPlace || '');
+      setDeathPlaceId(person.deathPlaceId || null);
+      setDeathEventId(person.deathEventId || null);
       setNotes(person.notes || '');
       setColorIndex(person.colorIndex ?? 0);
       setPersonSources(person.sources || []);
@@ -773,7 +857,9 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
       birthDate,
       deathDate,
       birthPlace,
+      birthPlaceId,
       deathPlace,
+      deathPlaceId,
       notes,
       description: notes,
       dates,
@@ -785,7 +871,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
     });
 
     setIsEditing(false);
-  }, [title, firstName, middleName, lastName, maidenName, nickname, gender, birthDate, deathDate, birthPlace, deathPlace, notes, colorIndex, personSources, birthSources, deathSources, events, unions, person, onSave, onUnionsChange, selectedFatherId, selectedMotherId, onParentsChange]);
+  }, [title, firstName, middleName, lastName, maidenName, nickname, gender, birthDate, deathDate, birthPlace, birthPlaceId, deathPlace, deathPlaceId, notes, colorIndex, personSources, birthSources, deathSources, events, unions, person, onSave, onUnionsChange, selectedFatherId, selectedMotherId, onParentsChange]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -921,7 +1007,9 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
             setBirthDate(person.birthDate || { type: 'exact' });
             setDeathDate(person.deathDate || { type: 'unknown' });
             setBirthPlace(person.birthPlace || '');
+            setBirthPlaceId(person.birthPlaceId || null);
             setDeathPlace(person.deathPlace || '');
+            setDeathPlaceId(person.deathPlaceId || null);
             setNotes(person.notes || '');
             setColorIndex(person.colorIndex ?? 0);
             setPersonSources(person.sources || []);
@@ -1058,7 +1146,13 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
   // Read-only summary view
   if (!isEditing) {
     return (
-      <div className="person-view">
+      <div
+        className="person-view"
+        ref={containerRef}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+      >
         <div className="person-view-header">
           <div className="person-view-header-left">
             {canNavigateBack && (
@@ -1145,55 +1239,71 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
             <div className="person-view-dates">{fullDates}</div>
           )}
 
-          <div className="person-view-section">
-            <h3 className="person-view-section-title">Birth</h3>
-            <div className="person-view-detail">
-              {birthDate && birthDate.type !== 'unknown' ? (
-                <div className="detail-row">
-                  <span className="detail-label">Date:</span>
-                  <span className="detail-value">{birthDate.display || formatSingleDate(birthDate)}</span>
-                </div>
-              ) : null}
-              {birthPlace && (
-                <div className="detail-row">
-                  <span className="detail-label">Place:</span>
-                  <span className="detail-value">{birthPlace}</span>
-                </div>
-              )}
-              {!birthDate || (birthDate.type === 'unknown' && !birthPlace) ? (
-                <span className="detail-empty">No birth information</span>
-              ) : null}
+          <MediaDropZone
+            eventId={birthEventId}
+            onMediaLinked={() => triggerRefresh?.()}
+            className="section-drop-zone"
+            label="Drop media to link to birth"
+          >
+            <div className="person-view-section">
+              <h3 className="person-view-section-title">Birth</h3>
+              <div className="person-view-detail">
+                {birthDate && birthDate.type !== 'unknown' ? (
+                  <div className="detail-row">
+                    <span className="detail-label">Date:</span>
+                    <span className="detail-value">{birthDate.display || formatSingleDate(birthDate)}</span>
+                  </div>
+                ) : null}
+                {birthPlace && (
+                  <div className="detail-row">
+                    <span className="detail-label">Place:</span>
+                    <span className="detail-value">{birthPlace}</span>
+                  </div>
+                )}
+                {!birthDate || (birthDate.type === 'unknown' && !birthPlace) ? (
+                  <span className="detail-empty">No birth information</span>
+                ) : null}
+                <EventMedia eventId={birthEventId} />
+              </div>
             </div>
-          </div>
+          </MediaDropZone>
 
-          <div className="person-view-section">
-            <h3 className="person-view-section-title">
-              {deathDate?.type === 'alive' ? 'Status' : 'Death'}
-            </h3>
-            <div className="person-view-detail">
-              {deathDate?.type === 'alive' ? (
-                <span className="detail-value living-status">Living</span>
-              ) : (
-                <>
-                  {deathDate && deathDate.type !== 'unknown' ? (
-                    <div className="detail-row">
-                      <span className="detail-label">Date:</span>
-                      <span className="detail-value">{deathDate.display || formatSingleDate(deathDate)}</span>
-                    </div>
-                  ) : null}
-                  {deathPlace && (
-                    <div className="detail-row">
-                      <span className="detail-label">Place:</span>
-                      <span className="detail-value">{deathPlace}</span>
-                    </div>
-                  )}
-                  {(!deathDate || deathDate.type === 'unknown') && !deathPlace ? (
-                    <span className="detail-empty">No death information</span>
-                  ) : null}
-                </>
-              )}
+          <MediaDropZone
+            eventId={deathEventId}
+            onMediaLinked={() => triggerRefresh?.()}
+            className="section-drop-zone"
+            label="Drop media to link to death"
+          >
+            <div className="person-view-section">
+              <h3 className="person-view-section-title">
+                {deathDate?.type === 'alive' ? 'Status' : 'Death'}
+              </h3>
+              <div className="person-view-detail">
+                {deathDate?.type === 'alive' ? (
+                  <span className="detail-value living-status">Living</span>
+                ) : (
+                  <>
+                    {deathDate && deathDate.type !== 'unknown' ? (
+                      <div className="detail-row">
+                        <span className="detail-label">Date:</span>
+                        <span className="detail-value">{deathDate.display || formatSingleDate(deathDate)}</span>
+                      </div>
+                    ) : null}
+                    {deathPlace && (
+                      <div className="detail-row">
+                        <span className="detail-label">Place:</span>
+                        <span className="detail-value">{deathPlace}</span>
+                      </div>
+                    )}
+                    {(!deathDate || deathDate.type === 'unknown') && !deathPlace ? (
+                      <span className="detail-empty">No death information</span>
+                    ) : null}
+                    <EventMedia eventId={deathEventId} />
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          </MediaDropZone>
 
           {unions.length > 0 && (
             <div className="person-view-section">
@@ -1233,17 +1343,26 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                 {events.map((event) => {
                   const eventType = EVENT_TYPES.find(t => t.value === event.type);
                   return (
-                    <div key={event.id} className="person-view-list-item">
-                      <span className="list-item-label">{eventType?.label || event.type}:</span>
-                      {event.date && event.date.type !== 'unknown' && (
-                        <span className="list-item-value">
-                          {event.date.display || formatSingleDate(event.date)}
-                        </span>
-                      )}
-                      {event.place && (
-                        <span className="list-item-value">{event.place}</span>
-                      )}
-                    </div>
+                    <MediaDropZone
+                      key={event.id}
+                      eventId={event.id}
+                      onMediaLinked={() => triggerRefresh?.()}
+                      className="event-drop-zone"
+                      label={`Drop media to link to ${eventType?.label || event.type}`}
+                    >
+                      <div className="person-view-list-item">
+                        <span className="list-item-label">{eventType?.label || event.type}:</span>
+                        {event.date && event.date.type !== 'unknown' && (
+                          <span className="list-item-value">
+                            {event.date.display || formatSingleDate(event.date)}
+                          </span>
+                        )}
+                        {event.place && (
+                          <span className="list-item-value">{event.place}</span>
+                        )}
+                        <EventMedia eventId={event.id} />
+                      </div>
+                    </MediaDropZone>
                   );
                 })}
               </div>
@@ -1257,10 +1376,20 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
             </div>
           )}
 
-          {/* Photos Section */}
-          <div className="person-view-section">
-            <MediaGallery personId={person?.id} />
-          </div>
+          {/* Photos Section - drop zone for linking media */}
+          <MediaDropZone
+            personId={person?.id}
+            onMediaLinked={() => {
+              // Trigger a refresh - MediaGallery will reload
+              if (triggerRefresh) triggerRefresh();
+            }}
+            className="section-drop-zone"
+            label="Drop photo to link"
+          >
+            <div className="person-view-section">
+              <MediaGallery personId={person?.id} />
+            </div>
+          </MediaDropZone>
         </div>
 
         {/* Family Panel - Spouses and Children */}
@@ -1351,7 +1480,13 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
 
   // Edit mode
   return (
-    <div className="person-view person-view-editing">
+    <div
+      className="person-view person-view-editing"
+      ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onWheel={handleWheel}
+    >
       <div className="person-view-header">
         <div className="person-view-header-left">
           {canNavigateBack && (
@@ -1555,122 +1690,142 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
             </div>
           </div>
 
-          <div className="edit-view-section">
-            <h3 className="edit-view-section-title">Birth</h3>
-            <div className={`life-event-section ${birthExpanded ? 'expanded' : 'collapsed'}`}>
-              <div
-                className="life-event-header"
-                onClick={() => {
-                  const hasData = (birthDate && birthDate.type !== 'unknown') || birthPlace;
-                  if (hasData) setBirthExpanded(!birthExpanded);
-                }}
-                style={{ cursor: (birthDate?.type !== 'unknown' || birthPlace) ? 'pointer' : 'default' }}
-              >
-                <div className="life-event-header-left">
-                  {(birthDate?.type !== 'unknown' || birthPlace) && (
-                    <span className="event-chevron">{birthExpanded ? '▼' : '▶'}</span>
-                  )}
-                  {!birthExpanded && (
-                    <span className="life-event-summary">
-                      {[
-                        birthDate?.type !== 'unknown' ? formatSingleDate(birthDate) : null,
-                        birthPlace
-                      ].filter(Boolean).join(' · ') || 'No details'}
-                      {birthSources.length > 0 && ` [${birthSources.length}]`}
-                    </span>
-                  )}
+          <MediaDropZone
+            eventId={birthEventId}
+            onMediaLinked={() => triggerRefresh?.()}
+            className="section-drop-zone"
+            label="Drop media to link to birth"
+          >
+            <div className="edit-view-section">
+              <h3 className="edit-view-section-title">Birth</h3>
+              <div className={`life-event-section ${birthExpanded ? 'expanded' : 'collapsed'}`}>
+                <div
+                  className="life-event-header"
+                  onClick={() => {
+                    const hasData = (birthDate && birthDate.type !== 'unknown') || birthPlace;
+                    if (hasData) setBirthExpanded(!birthExpanded);
+                  }}
+                  style={{ cursor: (birthDate?.type !== 'unknown' || birthPlace) ? 'pointer' : 'default' }}
+                >
+                  <div className="life-event-header-left">
+                    {(birthDate?.type !== 'unknown' || birthPlace) && (
+                      <span className="event-chevron">{birthExpanded ? '▼' : '▶'}</span>
+                    )}
+                    {!birthExpanded && (
+                      <span className="life-event-summary">
+                        {[
+                          birthDate?.type !== 'unknown' ? formatSingleDate(birthDate) : null,
+                          birthPlace
+                        ].filter(Boolean).join(' · ') || 'No details'}
+                        {birthSources.length > 0 && ` [${birthSources.length}]`}
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {birthExpanded && (
+                  <div className="life-event-fields">
+                    <DateInput
+                      label="Date"
+                      value={birthDate}
+                      onChange={setBirthDate}
+                    />
+                    <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
+                      <label className="field-label">Place</label>
+                      <PlaceDropZone
+                        value={birthPlace}
+                        placeId={birthPlaceId}
+                        places={places}
+                        onChange={({ place, placeId }) => {
+                          setBirthPlace(place);
+                          setBirthPlaceId(placeId);
+                        }}
+                        placeholder="City, Country"
+                      />
+                    </div>
+                    <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
+                      <label className="field-label">Sources</label>
+                      <SourceSelector
+                        sources={sources}
+                        selectedSourceIds={birthSources}
+                        onChange={setBirthSources}
+                        onAddNew={() => onAddSource?.((newId) => setBirthSources(prev => [...prev, newId]))}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-              {birthExpanded && (
-                <div className="life-event-fields">
-                  <DateInput
-                    label="Date"
-                    value={birthDate}
-                    onChange={setBirthDate}
-                  />
-                  <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                    <label className="field-label">Place</label>
-                    <input
-                      type="text"
-                      value={birthPlace}
-                      onChange={(e) => setBirthPlace(e.target.value)}
-                      className="text-input"
-                      placeholder="City, Country"
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                    <label className="field-label">Sources</label>
-                    <SourceSelector
-                      sources={sources}
-                      selectedSourceIds={birthSources}
-                      onChange={setBirthSources}
-                      onAddNew={() => onAddSource?.((newId) => setBirthSources(prev => [...prev, newId]))}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
+          </MediaDropZone>
 
-          <div className="edit-view-section">
-            <h3 className="edit-view-section-title">{deathDate?.type === 'alive' ? 'Status' : 'Death'}</h3>
-            <div className={`life-event-section ${deathExpanded ? 'expanded' : 'collapsed'}`}>
-              <div
-                className="life-event-header"
-                onClick={() => {
-                  const hasData = (deathDate && deathDate.type !== 'unknown') || deathPlace;
-                  if (hasData) setDeathExpanded(!deathExpanded);
-                }}
-                style={{ cursor: (deathDate?.type !== 'unknown' || deathPlace) ? 'pointer' : 'default' }}
-              >
-                <div className="life-event-header-left">
-                  {(deathDate?.type !== 'unknown' || deathPlace) && (
-                    <span className="event-chevron">{deathExpanded ? '▼' : '▶'}</span>
-                  )}
-                  {!deathExpanded && (
-                    <span className="life-event-summary">
-                      {deathDate?.type === 'alive'
-                        ? 'Living'
-                        : ([
-                            deathDate?.type !== 'unknown' ? formatSingleDate(deathDate) : null,
-                            deathPlace
-                          ].filter(Boolean).join(' · ') || 'No details')
-                      }
-                      {deathSources.length > 0 && ` [${deathSources.length}]`}
-                    </span>
-                  )}
+          <MediaDropZone
+            eventId={deathEventId}
+            onMediaLinked={() => triggerRefresh?.()}
+            className="section-drop-zone"
+            label="Drop media to link to death"
+          >
+            <div className="edit-view-section">
+              <h3 className="edit-view-section-title">{deathDate?.type === 'alive' ? 'Status' : 'Death'}</h3>
+              <div className={`life-event-section ${deathExpanded ? 'expanded' : 'collapsed'}`}>
+                <div
+                  className="life-event-header"
+                  onClick={() => {
+                    const hasData = (deathDate && deathDate.type !== 'unknown') || deathPlace;
+                    if (hasData) setDeathExpanded(!deathExpanded);
+                  }}
+                  style={{ cursor: (deathDate?.type !== 'unknown' || deathPlace) ? 'pointer' : 'default' }}
+                >
+                  <div className="life-event-header-left">
+                    {(deathDate?.type !== 'unknown' || deathPlace) && (
+                      <span className="event-chevron">{deathExpanded ? '▼' : '▶'}</span>
+                    )}
+                    {!deathExpanded && (
+                      <span className="life-event-summary">
+                        {deathDate?.type === 'alive'
+                          ? 'Living'
+                          : ([
+                              deathDate?.type !== 'unknown' ? formatSingleDate(deathDate) : null,
+                              deathPlace
+                            ].filter(Boolean).join(' · ') || 'No details')
+                        }
+                        {deathSources.length > 0 && ` [${deathSources.length}]`}
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {deathExpanded && (
+                  <div className="life-event-fields">
+                    <DateInput
+                      label="Date"
+                      value={deathDate}
+                      onChange={setDeathDate}
+                    />
+                    <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
+                      <label className="field-label">Place</label>
+                      <PlaceDropZone
+                        value={deathPlace}
+                        placeId={deathPlaceId}
+                        places={places}
+                        onChange={({ place, placeId }) => {
+                          setDeathPlace(place);
+                          setDeathPlaceId(placeId);
+                        }}
+                        placeholder="City, Country"
+                      />
+                    </div>
+                    <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
+                      <label className="field-label">Sources</label>
+                      <SourceSelector
+                        sources={sources}
+                        selectedSourceIds={deathSources}
+                        onChange={setDeathSources}
+                        onAddNew={() => onAddSource?.((newId) => setDeathSources(prev => [...prev, newId]))}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-              {deathExpanded && (
-                <div className="life-event-fields">
-                  <DateInput
-                    label="Date"
-                    value={deathDate}
-                    onChange={setDeathDate}
-                  />
-                  <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                    <label className="field-label">Place</label>
-                    <input
-                      type="text"
-                      value={deathPlace}
-                      onChange={(e) => setDeathPlace(e.target.value)}
-                      className="text-input"
-                      placeholder="City, Country"
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                    <label className="field-label">Sources</label>
-                    <SourceSelector
-                      sources={sources}
-                      selectedSourceIds={deathSources}
-                      onChange={setDeathSources}
-                      onAddNew={() => onAddSource?.((newId) => setDeathSources(prev => [...prev, newId]))}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
+          </MediaDropZone>
 
           <div className="edit-view-section">
             <h3 className="edit-view-section-title">Additional Events</h3>
@@ -1718,21 +1873,29 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                 const parentDate = eventType?.requires === 'birth' ? birthDate :
                                    eventType?.requires === 'death' ? deathDate : null;
                 return (
-                  <EventEntry
+                  <MediaDropZone
                     key={event.id}
-                    event={event}
-                    parentDate={parentDate}
-                    onChange={(updated) => {
-                      const newEvents = [...events];
-                      newEvents[index] = updated;
-                      setEvents(newEvents);
-                    }}
-                    onRemove={() => {
-                      setEvents(events.filter((_, i) => i !== index));
-                    }}
-                    sources={sources}
-                    onAddSource={onAddSource}
-                  />
+                    eventId={event.id}
+                    onMediaLinked={() => triggerRefresh?.()}
+                    className="event-drop-zone"
+                    label={`Drop media to link to ${eventType?.label || event.type}`}
+                  >
+                    <EventEntry
+                      event={event}
+                      parentDate={parentDate}
+                      places={places}
+                      onChange={(updated) => {
+                        const newEvents = [...events];
+                        newEvents[index] = updated;
+                        setEvents(newEvents);
+                      }}
+                      onRemove={() => {
+                        setEvents(events.filter((_, i) => i !== index));
+                      }}
+                      sources={sources}
+                      onAddSource={onAddSource}
+                    />
+                  </MediaDropZone>
                 );
               })}
             </div>
@@ -1928,7 +2091,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
 
       {/* New Parent Dialog */}
       {showNewParentDialog && (
-        <div className="dialog-overlay" onClick={() => setShowNewParentDialog(null)}>
+        <div className="dialog-overlay" onClick={() => setShowNewParentDialog(null)} onWheel={e => e.stopPropagation()}>
           <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <h3>Add New {showNewParentDialog === 'father' ? 'Father' : 'Mother'}</h3>
@@ -1996,7 +2159,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
 
       {/* New Family Member Dialog (Child or Partner) */}
       {showNewFamilyDialog && (
-        <div className="dialog-overlay" onClick={() => setShowNewFamilyDialog(null)}>
+        <div className="dialog-overlay" onClick={() => setShowNewFamilyDialog(null)} onWheel={e => e.stopPropagation()}>
           <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
               <h3>Add New {showNewFamilyDialog.type === 'child' ? 'Child' : 'Partner'}</h3>

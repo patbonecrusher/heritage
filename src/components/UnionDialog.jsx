@@ -226,7 +226,7 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
   const typeLabel = UNION_TYPES.find(t => t.value === unionType)?.label || 'Union';
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
+    <div className="dialog-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
       <div
         className="dialog union-dialog"
         onClick={(e) => e.stopPropagation()}
