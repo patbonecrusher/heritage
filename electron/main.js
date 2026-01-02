@@ -302,6 +302,8 @@ function createWindow() {
 
   mainWindow = new BrowserWindow({
     ...bounds,
+    minWidth: 1600,
+    minHeight: 800,
     icon: path.join(__dirname, '../assets/icon.icns'),
     webPreferences: {
       nodeIntegration: false,

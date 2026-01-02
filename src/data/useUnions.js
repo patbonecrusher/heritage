@@ -202,16 +202,39 @@ export function useUnions() {
     await run(`UPDATE union_ SET ${fields.join(', ')} WHERE id = ?`, values);
   }, [run]);
 
-  // Delete a union (soft delete)
+  // Delete a union (soft delete) - also deletes child relationships
   const deleteUnion = useCallback(async (id) => {
     const now = new Date().toISOString();
-    await run('UPDATE union_ SET deleted_at = ? WHERE id = ?', [now, id]);
-  }, [run]);
+    await transaction([
+      { sql: 'UPDATE union_child SET deleted_at = ? WHERE union_id = ? AND deleted_at IS NULL', params: [now, id] },
+      { sql: 'UPDATE union_ SET deleted_at = ? WHERE id = ?', params: [now, id] },
+    ]);
+  }, [transaction]);
 
   // Add a child to a union
   const addChild = useCallback(async (unionId, personId, data = {}) => {
-    const id = generateId();
     const now = new Date().toISOString();
+
+    // Check if child already exists in this union (including soft-deleted)
+    const existing = await get(`
+      SELECT id, deleted_at FROM union_child
+      WHERE union_id = ? AND person_id = ?
+    `, [unionId, personId]);
+
+    if (existing) {
+      if (existing.deleted_at) {
+        // Restore soft-deleted entry
+        await run(`
+          UPDATE union_child SET deleted_at = NULL
+          WHERE union_id = ? AND person_id = ?
+        `, [unionId, personId]);
+      }
+      // Already exists and not deleted, nothing to do
+      return existing.id;
+    }
+
+    // Create new entry
+    const id = generateId();
 
     // Get current max birth_order
     const maxOrder = await get(`

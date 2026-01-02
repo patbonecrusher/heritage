@@ -2240,6 +2240,38 @@ select.text-input option {
   margin-bottom: 8px;
 }
 
+.parent-picker-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.parent-picker-row .person-picker {
+  flex: 1;
+}
+
+.btn-create-parent {
+  width: 32px;
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 500;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-textMuted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-create-parent:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
 .parent-select {
   width: 100%;
 }

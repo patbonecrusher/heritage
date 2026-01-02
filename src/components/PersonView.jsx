@@ -1,13 +1,29 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import SourceSelector from './SourceSelector';
 import MediaGallery from './MediaGallery';
 import PersonPhoto from './PersonPhoto';
 import PlacePicker from './PlacePicker';
+import PersonPicker from './PersonPicker';
 import { PlaceDropZone, MediaDropZone } from './DropZone';
 import EventMedia from './EventMedia';
+import CitationList from './CitationList';
+import CitationDialog from './CitationDialog';
 import { getParentIds, getChildrenIds } from '../utils/dataModel';
 import { useDatabase } from '../data/DatabaseContext';
+import './PersonViewNew.css';
+
+// Event icons mapping
+const EVENT_ICONS = {
+  birth: '★',
+  baptism: '~',
+  marriage: '⚭',
+  death: '†',
+  burial: '⚰',
+  census: '🏠',
+  immigration: '→',
+  emigration: '←',
+  service: '⚔',
+};
 
 // Get all descendants of a person (to prevent circular relationships)
 function getAllDescendantIds(data, personId, visited = new Set()) {
@@ -272,7 +288,7 @@ function DateInput({ label, value, onChange }) {
   );
 }
 
-function EventEntry({ event, onChange, onRemove, sources, onAddSource, parentDate, places }) {
+function EventEntry({ event, onChange, onRemove, sources, onAddSource, parentDate, places, citations = [], onAddCitation, onEditCitation, onDeleteCitation }) {
   const [dateText, setDateText] = useState(() => {
     if (event.dateOffset) return event.dateOffset;
     return dateToInputString(event.date);
@@ -425,11 +441,13 @@ function EventEntry({ event, onChange, onRemove, sources, onAddSource, parentDat
             onChange={({ place, placeId }) => onChange({ ...event, place, placeId })}
             placeholder="Place"
           />
-          <SourceSelector
-            sources={sources}
-            selectedSourceIds={event.sources || []}
-            onChange={(newSources) => onChange({ ...event, sources: newSources })}
-            onAddNew={() => onAddSource?.((newId) => onChange({ ...event, sources: [...(event.sources || []), newId] }))}
+          <CitationList
+            citations={citations}
+            onAdd={onAddCitation}
+            onEdit={onEditCitation}
+            onDelete={onDeleteCitation}
+            isEditing={true}
+            compact={true}
           />
         </div>
       )}
@@ -437,7 +455,7 @@ function EventEntry({ event, onChange, onRemove, sources, onAddSource, parentDat
   );
 }
 
-function UnionEntry({ union, onChange, onRemove, allPeople, currentPersonId, sources, onAddSource }) {
+function UnionEntry({ union, onChange, onRemove, allPeople, currentPersonId, sources, onAddSource, citations = [], onAddCitation, onEditCitation, onDeleteCitation }) {
   const [dateText, setDateText] = useState(() => dateToInputString(union.startDate));
   const [endDateText, setEndDateText] = useState(() => dateToInputString(union.endDate));
   const isEditing = useRef(false);
@@ -604,11 +622,13 @@ function UnionEntry({ union, onChange, onRemove, allPeople, currentPersonId, sou
               </div>
             </div>
           )}
-          <SourceSelector
-            sources={sources}
-            selectedSourceIds={union.sources || []}
-            onChange={(newSources) => onChange({ ...union, sources: newSources })}
-            onAddNew={() => onAddSource?.((newId) => onChange({ ...union, sources: [...(union.sources || []), newId] }))}
+          <CitationList
+            citations={citations}
+            onAdd={onAddCitation}
+            onEdit={onEditCitation}
+            onDelete={onDeleteCitation}
+            isEditing={true}
+            compact={true}
           />
           <div className="union-actions" style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
             <button
@@ -626,7 +646,14 @@ function UnionEntry({ union, onChange, onRemove, allPeople, currentPersonId, sou
   );
 }
 
-export default function PersonView({ person, onSave, onCancel, sources = {}, onAddSource, allPeople = [], existingUnions = [], onUnionsChange, onSelectPerson, onParentsChange, onCreatePerson, onNavigateBack, canNavigateBack, onNavigateForward, canNavigateForward, places = [] }) {
+export default function PersonView({
+  person, onSave, onCancel, sources = {}, onAddSource, allPeople = [], existingUnions = [],
+  onUnionsChange, onSelectPerson, onParentsChange, onCreatePerson, onNavigateBack, canNavigateBack,
+  onNavigateForward, canNavigateForward, places = [],
+  // Citation props
+  personCitations = [], birthCitations = [], deathCitations = [], eventCitations = {}, unionCitations = {},
+  onCreateCitation, onUpdateCitation, onDeleteCitation, dbSources = []
+}) {
   const { theme } = useTheme();
   const { triggerRefresh } = useDatabase();
   const firstInputRef = useRef(null);
@@ -666,6 +693,12 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
   const [newFamilyFirstName, setNewFamilyFirstName] = useState('');
   const [newFamilyLastName, setNewFamilyLastName] = useState('');
   const [newFamilyGender, setNewFamilyGender] = useState('');
+  const [selectedExistingChildId, setSelectedExistingChildId] = useState(''); // For selecting existing person as child
+
+  // Citation dialog state
+  const [citationDialogOpen, setCitationDialogOpen] = useState(false);
+  const [editingCitation, setEditingCitation] = useState(null);
+  const [citationTarget, setCitationTarget] = useState(null); // { type: 'birth'|'death'|'event', eventId: string }
 
   // Swipe gesture handling (touch devices)
   const touchStartX = useRef(null);
@@ -1143,335 +1176,436 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
     });
   }, [person?.id, existingUnions, allPeople]);
 
-  // Read-only summary view
+  // Helper to calculate age at event
+  const calculateAge = (birthDateObj, eventDateObj) => {
+    if (!birthDateObj?.year || !eventDateObj?.year) return null;
+    const birthYear = parseInt(birthDateObj.year);
+    const eventYear = parseInt(eventDateObj.year);
+    const birthMonth = birthDateObj.month ? parseInt(birthDateObj.month) : 1;
+    const eventMonth = eventDateObj.month ? parseInt(eventDateObj.month) : 1;
+    const birthDay = birthDateObj.day ? parseInt(birthDateObj.day) : 1;
+    const eventDay = eventDateObj.day ? parseInt(eventDateObj.day) : 1;
+
+    let years = eventYear - birthYear;
+    let months = eventMonth - birthMonth;
+    let days = eventDay - birthDay;
+
+    if (days < 0) {
+      months--;
+      days += 30;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    if (years === 0) {
+      if (months === 0) return `${days}d`;
+      return `${months}m ${days}d`;
+    }
+    if (years < 2) {
+      return `${years}y ${months}m`;
+    }
+    return `${years}y`;
+  };
+
+  // Build unified event list for timeline
+  const allEvents = useMemo(() => {
+    const eventList = [];
+
+    // Birth
+    if (birthDate && birthDate.type !== 'unknown') {
+      eventList.push({
+        id: 'birth',
+        type: 'birth',
+        label: 'Birth',
+        date: birthDate,
+        place: birthPlace,
+        eventId: birthEventId,
+      });
+    }
+
+    // Other events (baptism, etc.)
+    events.forEach(event => {
+      const eventType = EVENT_TYPES.find(t => t.value === event.type);
+      eventList.push({
+        id: event.id,
+        type: event.type,
+        label: eventType?.label || event.type,
+        date: event.date,
+        place: event.place,
+        eventId: event.id,
+        age: calculateAge(birthDate, event.date),
+      });
+    });
+
+    // Unions/Marriages
+    unions.forEach(union => {
+      const partner = allPeople.find(p => p.id === union.partnerId);
+      eventList.push({
+        id: union.id,
+        type: 'marriage',
+        label: UNION_TYPES.find(t => t.value === union.type)?.label || 'Union',
+        date: union.startDate,
+        place: union.startPlace,
+        partner,
+        age: calculateAge(birthDate, union.startDate),
+      });
+    });
+
+    // Death
+    if (deathDate && deathDate.type !== 'unknown' && deathDate.type !== 'alive') {
+      eventList.push({
+        id: 'death',
+        type: 'death',
+        label: 'Death',
+        date: deathDate,
+        place: deathPlace,
+        eventId: deathEventId,
+        age: calculateAge(birthDate, deathDate),
+      });
+    }
+
+    // Sort by date
+    return eventList.sort((a, b) => {
+      if (!a.date?.year) return 1;
+      if (!b.date?.year) return -1;
+      const yearDiff = parseInt(a.date.year) - parseInt(b.date.year);
+      if (yearDiff !== 0) return yearDiff;
+      const monthDiff = (parseInt(a.date.month) || 0) - (parseInt(b.date.month) || 0);
+      if (monthDiff !== 0) return monthDiff;
+      return (parseInt(a.date.day) || 0) - (parseInt(b.date.day) || 0);
+    });
+  }, [birthDate, birthPlace, birthEventId, deathDate, deathPlace, deathEventId, events, unions, allPeople]);
+
+  // Count total children
+  const totalChildren = familyData.reduce((acc, f) => acc + f.children.length, 0);
+
+  // Read-only summary view - NEW CARD-BASED LAYOUT
   if (!isEditing) {
     return (
       <div
-        className="person-view"
+        className="person-view-new"
         ref={containerRef}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
       >
-        <div className="person-view-header">
-          <div className="person-view-header-left">
-            {canNavigateBack && (
-              <button
-                type="button"
-                className="btn-back"
-                onClick={onNavigateBack}
-                title="Go back"
-              >
-                ←
-              </button>
-            )}
-            <PersonPhoto personId={person?.id} width={70} height={90} />
-            <div className="person-view-title">
-              <h2>
-                {displayName}
-                {personSources.length > 0 && (
-                  <span className="person-source-badge" title={`${personSources.length} source${personSources.length > 1 ? 's' : ''}`}>
-                    [{personSources.length}]
-                  </span>
+        {/* Header */}
+        <div className="pv-header">
+          <div className="pv-header-inner">
+            {/* Main Info: Photo + Name + Parents + Actions */}
+            <div className="pv-main-info">
+              {canNavigateBack && (
+                <button
+                  type="button"
+                  className="btn-back"
+                  onClick={onNavigateBack}
+                  title="Go back"
+                  style={{ marginRight: 8 }}
+                >
+                  ←
+                </button>
+              )}
+              <PersonPhoto personId={person?.id} width={70} height={90} />
+              <div className="pv-name-section">
+                <h1 className="pv-name">
+                  {displayName}
+                  {nickname && <span style={{ fontWeight: 400, fontSize: '0.7em', marginLeft: 12, color: 'var(--color-textMuted)' }}>"{nickname}"</span>}
+                </h1>
+                <div className="pv-dates">{fullDates}</div>
+                {totalChildren > 0 && (
+                  <div className="pv-children-count">{totalChildren} Children</div>
                 )}
-              </h2>
-              {nickname && <span className="person-nickname">"{nickname}"</span>}
-              {maidenName && <span className="person-maiden-name">(née {maidenName})</span>}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => setIsEditing(true)}
-          >
-            Edit <KeyHint>⌘E</KeyHint>
-          </button>
-        </div>
-
-        <div className="person-view-parents person-view-parents-fixed">
-          <div className="parent-card-container">
-            {parents.father ? (
-              <button
-                type="button"
-                className="parent-card"
-                onClick={() => onSelectPerson?.(parents.father.id)}
-              >
-                <span className="parent-label">Father</span>
-                <span className="parent-name">
-                  {[parents.father.firstName, parents.father.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                </span>
-                {parents.father.birthDate?.year && (
-                  <span className="parent-dates">{parents.father.birthDate.year}</span>
-                )}
-              </button>
-            ) : (
-              <div className="parent-card parent-unknown">
-                <span className="parent-label">Father</span>
-                <span className="parent-name">Unknown</span>
               </div>
-            )}
 
-            {parents.mother ? (
-              <button
-                type="button"
-                className="parent-card"
-                onClick={() => onSelectPerson?.(parents.mother.id)}
-              >
-                <span className="parent-label">Mother</span>
-                <span className="parent-name">
-                  {[parents.mother.firstName, parents.mother.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                </span>
-                {parents.mother.birthDate?.year && (
-                  <span className="parent-dates">{parents.mother.birthDate.year}</span>
-                )}
-              </button>
-            ) : (
-              <div className="parent-card parent-unknown">
-                <span className="parent-label">Mother</span>
-                <span className="parent-name">Unknown</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="person-view-scrollable">
-          {fullDates && (
-            <div className="person-view-dates">{fullDates}</div>
-          )}
-
-          <MediaDropZone
-            eventId={birthEventId}
-            onMediaLinked={() => triggerRefresh?.()}
-            className="section-drop-zone"
-            label="Drop media to link to birth"
-          >
-            <div className="person-view-section">
-              <h3 className="person-view-section-title">Birth</h3>
-              <div className="person-view-detail">
-                {birthDate && birthDate.type !== 'unknown' ? (
-                  <div className="detail-row">
-                    <span className="detail-label">Date:</span>
-                    <span className="detail-value">{birthDate.display || formatSingleDate(birthDate)}</span>
-                  </div>
-                ) : null}
-                {birthPlace && (
-                  <div className="detail-row">
-                    <span className="detail-label">Place:</span>
-                    <span className="detail-value">{birthPlace}</span>
-                  </div>
-                )}
-                {!birthDate || (birthDate.type === 'unknown' && !birthPlace) ? (
-                  <span className="detail-empty">No birth information</span>
-                ) : null}
-                <EventMedia eventId={birthEventId} />
-              </div>
-            </div>
-          </MediaDropZone>
-
-          <MediaDropZone
-            eventId={deathEventId}
-            onMediaLinked={() => triggerRefresh?.()}
-            className="section-drop-zone"
-            label="Drop media to link to death"
-          >
-            <div className="person-view-section">
-              <h3 className="person-view-section-title">
-                {deathDate?.type === 'alive' ? 'Status' : 'Death'}
-              </h3>
-              <div className="person-view-detail">
-                {deathDate?.type === 'alive' ? (
-                  <span className="detail-value living-status">Living</span>
+              {/* Parents inline */}
+              <div className="pv-parents-inline">
+                {parents.father ? (
+                  <button
+                    type="button"
+                    className="pv-parent-card father"
+                    onClick={() => onSelectPerson?.(parents.father.id)}
+                  >
+                    <PersonPhoto personId={parents.father.id} width={28} height={28} className="person-photo-round" />
+                    <div className="pv-parent-info">
+                      <span className="pv-parent-label">Father</span>
+                      <span className="pv-parent-name">
+                        {[parents.father.firstName, parents.father.lastName].filter(Boolean).join(' ') || 'Unknown'}
+                      </span>
+                    </div>
+                  </button>
                 ) : (
-                  <>
-                    {deathDate && deathDate.type !== 'unknown' ? (
-                      <div className="detail-row">
-                        <span className="detail-label">Date:</span>
-                        <span className="detail-value">{deathDate.display || formatSingleDate(deathDate)}</span>
-                      </div>
-                    ) : null}
-                    {deathPlace && (
-                      <div className="detail-row">
-                        <span className="detail-label">Place:</span>
-                        <span className="detail-value">{deathPlace}</span>
-                      </div>
-                    )}
-                    {(!deathDate || deathDate.type === 'unknown') && !deathPlace ? (
-                      <span className="detail-empty">No death information</span>
-                    ) : null}
-                    <EventMedia eventId={deathEventId} />
-                  </>
+                  <div className="pv-parent-card father">
+                    <div className="pv-parent-photo" />
+                    <div className="pv-parent-info">
+                      <span className="pv-parent-label">Father</span>
+                      <span className="pv-parent-name">Unknown</span>
+                    </div>
+                  </div>
+                )}
+
+                {parents.mother ? (
+                  <button
+                    type="button"
+                    className="pv-parent-card mother"
+                    onClick={() => onSelectPerson?.(parents.mother.id)}
+                  >
+                    <PersonPhoto personId={parents.mother.id} width={28} height={28} className="person-photo-round" />
+                    <div className="pv-parent-info">
+                      <span className="pv-parent-label">Mother</span>
+                      <span className="pv-parent-name">
+                        {[parents.mother.firstName, parents.mother.lastName].filter(Boolean).join(' ') || 'Unknown'}
+                      </span>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="pv-parent-card mother">
+                    <div className="pv-parent-photo" />
+                    <div className="pv-parent-info">
+                      <span className="pv-parent-label">Mother</span>
+                      <span className="pv-parent-name">Unknown</span>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-          </MediaDropZone>
 
-          {unions.length > 0 && (
-            <div className="person-view-section">
-              <h3 className="person-view-section-title">Unions</h3>
-              <div className="person-view-list">
-                {unions.map((union) => {
-                  const partner = allPeople.find(p => p.id === union.partnerId);
-                  const partnerName = partner
-                    ? [partner.firstName, partner.lastName].filter(Boolean).join(' ')
-                    : 'Unknown';
-                  const unionType = UNION_TYPES.find(t => t.value === union.type)?.label || 'Union';
-                  return (
-                    <div key={union.id} className="person-view-list-item">
-                      <span className="list-item-label">{unionType}:</span>
-                      <span className="list-item-value">{partnerName}</span>
-                      {union.startDate && union.startDate.type !== 'unknown' && (
-                        <span className="list-item-date">
-                          ({union.startDate.display || union.startDate.year})
-                        </span>
-                      )}
-                      {union.endReason && (
-                        <span className="list-item-note">
-                          — {END_REASONS.find(r => r.value === union.endReason)?.label || union.endReason}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="pv-header-actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Edit <KeyHint>⌘E</KeyHint>
+                </button>
               </div>
             </div>
-          )}
-
-          {events.length > 0 && (
-            <div className="person-view-section">
-              <h3 className="person-view-section-title">Events</h3>
-              <div className="person-view-list">
-                {events.map((event) => {
-                  const eventType = EVENT_TYPES.find(t => t.value === event.type);
-                  return (
-                    <MediaDropZone
-                      key={event.id}
-                      eventId={event.id}
-                      onMediaLinked={() => triggerRefresh?.()}
-                      className="event-drop-zone"
-                      label={`Drop media to link to ${eventType?.label || event.type}`}
-                    >
-                      <div className="person-view-list-item">
-                        <span className="list-item-label">{eventType?.label || event.type}:</span>
-                        {event.date && event.date.type !== 'unknown' && (
-                          <span className="list-item-value">
-                            {event.date.display || formatSingleDate(event.date)}
-                          </span>
-                        )}
-                        {event.place && (
-                          <span className="list-item-value">{event.place}</span>
-                        )}
-                        <EventMedia eventId={event.id} />
-                      </div>
-                    </MediaDropZone>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {notes && (
-            <div className="person-view-section">
-              <h3 className="person-view-section-title">Notes</h3>
-              <div className="person-view-notes">{notes}</div>
-            </div>
-          )}
-
-          {/* Photos Section - drop zone for linking media */}
-          <MediaDropZone
-            personId={person?.id}
-            onMediaLinked={() => {
-              // Trigger a refresh - MediaGallery will reload
-              if (triggerRefresh) triggerRefresh();
-            }}
-            className="section-drop-zone"
-            label="Drop photo to link"
-          >
-            <div className="person-view-section">
-              <MediaGallery personId={person?.id} />
-            </div>
-          </MediaDropZone>
+          </div>
         </div>
 
-        {/* Family Panel - Spouses and Children */}
-        {familyData.length > 0 && (
-          <div className="family-panel">
-            <button
-              type="button"
-              className="family-panel-toggle"
-              onClick={() => setShowFamilyPanel(!showFamilyPanel)}
-            >
-              <span className="family-panel-toggle-icon">{showFamilyPanel ? '▼' : '▲'}</span>
-              <span>Family ({familyData.reduce((acc, f) => acc + f.children.length, 0)} children)</span>
-            </button>
-
-            {showFamilyPanel && (
-              <div className="family-panel-content">
-                {familyData.map(({ union, partner, children }) => (
-                  <div key={union.id} className="family-row">
-                    <div className="family-partner">
-                      {partner ? (
-                        <button
-                          type="button"
-                          className={`family-person-card ${partner.gender === 'male' ? 'gender-male' : partner.gender === 'female' ? 'gender-female' : ''}`}
-                          onClick={() => onSelectPerson?.(partner.id)}
-                        >
-                          {partner.image && (
-                            <img src={partner.image} alt="" className="family-person-photo" />
-                          )}
-                          <div className="family-person-info">
-                            <span className="family-person-name">
-                              {[partner.firstName, partner.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                            </span>
-                            <span className="family-person-dates">
-                              {partner.birthDate?.year && `☆ ${partner.birthDate.year}`}
-                              {partner.birthDate?.year && partner.deathDate?.year && ' '}
-                              {partner.deathDate?.year && `† ${partner.deathDate.year}`}
-                            </span>
-                          </div>
-                        </button>
-                      ) : (
-                        <div className="family-person-card family-person-unknown">
-                          <span className="family-person-name">Unknown Partner</span>
-                        </div>
-                      )}
-                      <span className="family-partner-label">Partner</span>
-                    </div>
-
-                    <div className="family-children-section">
-                      <span className="family-children-label">Children</span>
-                      <div className="family-children">
-                        {children.length > 0 ? (
-                          children.map(child => (
-                            <button
-                              key={child.id}
-                              type="button"
-                              className={`family-person-card ${child.gender === 'male' ? 'gender-male' : child.gender === 'female' ? 'gender-female' : ''}`}
-                              onClick={() => onSelectPerson?.(child.id)}
-                            >
-                              {child.image && (
-                                <img src={child.image} alt="" className="family-person-photo" />
+        {/* Main Content - 3 Column Grid */}
+        <div className="pv-content">
+          <div className="pv-content-inner">
+            <div className="pv-grid">
+              {/* Left Column - Events Timeline */}
+              <div className="pv-column-left">
+                <div className="pv-card">
+                  <div className="pv-card-header">
+                    <span className="pv-card-icon">★</span>
+                    <span className="pv-card-title">Events</span>
+                    <span className="pv-card-count">({allEvents.length})</span>
+                  </div>
+                  <div className="pv-card-body">
+                    {allEvents.length > 0 ? (
+                      <div className="pv-events-list">
+                        {allEvents.map((event, index) => (
+                          <div key={event.id} className="pv-event">
+                            <div className={`pv-event-icon ${event.type}`}>
+                              {EVENT_ICONS[event.type] || '●'}
+                            </div>
+                            <div className="pv-event-content">
+                              <div className="pv-event-header">
+                                <span className="pv-event-type">{event.label}</span>
+                                {event.date && event.date.type !== 'unknown' && (
+                                  <span className="pv-event-date">
+                                    {event.date.display || formatSingleDate(event.date)}
+                                  </span>
+                                )}
+                                {event.age && (
+                                  <span className="pv-event-age">~{event.age}</span>
+                                )}
+                              </div>
+                              {event.place && (
+                                <div className="pv-event-place">
+                                  <span className="pv-event-place-icon">📍</span>
+                                  {event.place}
+                                </div>
                               )}
-                              <div className="family-person-info">
-                                <span className="family-person-name">
-                                  {[child.firstName, child.lastName].filter(Boolean).join(' ') || 'Unknown'}
+                              {event.partner && (
+                                <div className="pv-event-partner">
+                                  <span className="pv-event-partner-photo" />
+                                  {[event.partner.firstName, event.partner.lastName].filter(Boolean).join(' ')}
+                                </div>
+                              )}
+                              {event.eventId && <EventMedia eventId={event.eventId} />}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="pv-empty">No events recorded</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Center Column - Media & Family */}
+              <div className="pv-column-center">
+                {/* Media Card */}
+                <MediaDropZone
+                  personId={person?.id}
+                  onMediaLinked={() => triggerRefresh?.()}
+                  className="section-drop-zone"
+                  label="Drop photo to link"
+                >
+                  <div className="pv-card">
+                    <div className="pv-card-header">
+                      <span className="pv-card-icon">📷</span>
+                      <span className="pv-card-title">Media</span>
+                    </div>
+                    <div className="pv-card-body">
+                      <MediaGallery personId={person?.id} compact />
+                    </div>
+                  </div>
+                </MediaDropZone>
+
+                {/* Family Members Card */}
+                {familyData.length > 0 && (
+                  <div className="pv-card" style={{ marginTop: 20 }}>
+                    <div className="pv-card-header">
+                      <span className="pv-card-icon">👨‍👩‍👧</span>
+                      <span className="pv-card-title">Family</span>
+                      <span className="pv-card-count">({familyData.length} union{familyData.length > 1 ? 's' : ''})</span>
+                    </div>
+                    <div className="pv-card-body">
+                      {familyData.map(({ union, partner, children }) => (
+                        <div key={union.id} style={{ marginBottom: 16 }}>
+                          {partner && (
+                            <div
+                              className="pv-family-member"
+                              onClick={() => onSelectPerson?.(partner.id)}
+                            >
+                              <div className="pv-family-member-photo" />
+                              <div className="pv-family-member-info">
+                                <span className="pv-family-member-role">
+                                  {UNION_TYPES.find(t => t.value === union.type)?.label || 'Partner'}
                                 </span>
-                                <span className="family-person-dates">
-                                  {child.birthDate?.year && `☆ ${child.birthDate.year}`}
-                                  {child.birthDate?.year && child.deathDate?.year && ' '}
-                                  {child.deathDate?.year && `† ${child.deathDate.year}`}
+                                <span className="pv-family-member-name">
+                                  {[partner.firstName, partner.lastName].filter(Boolean).join(' ')}
                                 </span>
                               </div>
-                            </button>
-                          ))
-                        ) : (
-                          <span className="family-no-children">No children</span>
-                        )}
-                      </div>
+                            </div>
+                          )}
+                          {children.length > 0 && (
+                            <div style={{ marginLeft: 24, marginTop: 8 }}>
+                              {children.map(child => (
+                                <div
+                                  key={child.id}
+                                  className="pv-family-member"
+                                  onClick={() => onSelectPerson?.(child.id)}
+                                >
+                                  <div className="pv-family-member-photo" />
+                                  <div className="pv-family-member-info">
+                                    <span className="pv-family-member-role">Child</span>
+                                    <span className="pv-family-member-name">
+                                      {[child.firstName, child.lastName].filter(Boolean).join(' ')}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
-            )}
+
+              {/* Right Column - Notes & Sources */}
+              <div className="pv-column-right">
+                {/* Notes Card */}
+                <div className="pv-card">
+                  <div className="pv-card-header">
+                    <span className="pv-card-icon">📝</span>
+                    <span className="pv-card-title">Notes</span>
+                  </div>
+                  <div className="pv-card-body">
+                    {notes ? (
+                      <div className="pv-notes">{notes}</div>
+                    ) : (
+                      <div className="pv-empty">No notes</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sources Card */}
+                {personSources.length > 0 && (
+                  <div className="pv-card" style={{ marginTop: 20 }}>
+                    <div className="pv-card-header">
+                      <span className="pv-card-icon">📚</span>
+                      <span className="pv-card-title">Sources</span>
+                      <span className="pv-card-count">({personSources.length})</span>
+                    </div>
+                    <div className="pv-card-body">
+                      {personSources.map((source, idx) => (
+                        <div key={idx} className="pv-source-item">
+                          <div className="pv-source-title">{source.title || 'Untitled Source'}</div>
+                          {source.page && <div className="pv-source-detail">Page: {source.page}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Info Card */}
+                <div className="pv-card" style={{ marginTop: 20 }}>
+                  <div className="pv-card-header">
+                    <span className="pv-card-icon">ℹ️</span>
+                    <span className="pv-card-title">Info</span>
+                  </div>
+                  <div className="pv-card-body">
+                    <div className="pv-info-row">
+                      <span className="pv-info-label">Gender</span>
+                      <span className="pv-info-value">{gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : 'Unknown'}</span>
+                    </div>
+                    {maidenName && (
+                      <div className="pv-info-row">
+                        <span className="pv-info-label">Maiden Name</span>
+                        <span className="pv-info-value">{maidenName}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Family Bar */}
+        {familyData.length > 0 && (
+          <div className="pv-family-bar">
+            <div className="pv-family-bar-inner">
+              <div className="pv-family-bar-section">
+                <span className="pv-family-bar-label">Children</span>
+                <div className="pv-family-bar-members">
+                  {familyData.flatMap(({ union, partner, children }) =>
+                    children.map(child => (
+                      <button
+                        key={child.id}
+                        type="button"
+                        className={`pv-family-chip ${child.gender || ''}`}
+                        onClick={() => onSelectPerson?.(child.id)}
+                      >
+                        <PersonPhoto personId={child.id} width={28} height={28} className="person-photo-round" />
+                        <div className="pv-family-chip-info">
+                          <span className="pv-family-chip-name">
+                            {[child.firstName, child.lastName].filter(Boolean).join(' ')}
+                          </span>
+                          <span className="pv-family-chip-dates">
+                            {child.birthDate?.year && `☆ ${child.birthDate.year}`}
+                            {child.deathDate?.year && ` † ${child.deathDate.year}`}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                  {totalChildren === 0 && (
+                    <span style={{ color: 'var(--color-textMuted)', fontSize: 13 }}>No children</span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1511,56 +1645,54 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
         <div className="parent-card-container">
           <div className="parent-card-edit">
             <span className="parent-label">Father</span>
-            <select
-              value={selectedFatherId}
-              onChange={(e) => {
-                if (e.target.value === '__create_new__') {
+            <div className="parent-picker-row">
+              <PersonPicker
+                value={selectedFatherId}
+                people={allPeople}
+                onChange={(personId) => setSelectedFatherId(personId || '')}
+                placeholder="Search for father..."
+                excludeIds={[person?.id, ...Array.from(descendantIds)].filter(Boolean)}
+                filterFn={(p) => p.gender !== 'female'}
+              />
+              <button
+                type="button"
+                className="btn-create-parent"
+                onClick={() => {
                   setNewParentFirstName('');
                   setNewParentLastName(lastName || '');
                   setShowNewParentDialog('father');
-                } else {
-                  setSelectedFatherId(e.target.value);
-                }
-              }}
-              className="text-input parent-select"
-            >
-              <option value="">Select father...</option>
-              <option value="__create_new__">+ Create new person...</option>
-              {allPeople
-                .filter(p => p.id !== person?.id && p.gender !== 'female' && !descendantIds.has(p.id))
-                .map(p => (
-                  <option key={p.id} value={p.id}>
-                    {[p.firstName, p.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                  </option>
-                ))}
-            </select>
+                }}
+                title="Create new person"
+              >
+                +
+              </button>
+            </div>
           </div>
 
           <div className="parent-card-edit">
             <span className="parent-label">Mother</span>
-            <select
-              value={selectedMotherId}
-              onChange={(e) => {
-                if (e.target.value === '__create_new__') {
+            <div className="parent-picker-row">
+              <PersonPicker
+                value={selectedMotherId}
+                people={allPeople}
+                onChange={(personId) => setSelectedMotherId(personId || '')}
+                placeholder="Search for mother..."
+                excludeIds={[person?.id, ...Array.from(descendantIds)].filter(Boolean)}
+                filterFn={(p) => p.gender !== 'male'}
+              />
+              <button
+                type="button"
+                className="btn-create-parent"
+                onClick={() => {
                   setNewParentFirstName('');
                   setNewParentLastName('');
                   setShowNewParentDialog('mother');
-                } else {
-                  setSelectedMotherId(e.target.value);
-                }
-              }}
-              className="text-input parent-select"
-            >
-              <option value="">Select mother...</option>
-              <option value="__create_new__">+ Create new person...</option>
-              {allPeople
-                .filter(p => p.id !== person?.id && p.gender !== 'male' && !descendantIds.has(p.id))
-                .map(p => (
-                  <option key={p.id} value={p.id}>
-                    {[p.firstName, p.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                  </option>
-                ))}
-            </select>
+                }}
+                title="Create new person"
+              >
+                +
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1675,17 +1807,26 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
               </div>
             </div>
 
-            {/* Person Sources */}
+            {/* Person Citations */}
             <div className="form-group person-sources-group">
               <label className="field-label">
-                Sources
-                {personSources.length > 0 && ` [${personSources.length}]`}
+                Citations
+                {personCitations.length > 0 && ` [${personCitations.length}]`}
               </label>
-              <SourceSelector
-                sources={sources}
-                selectedSourceIds={personSources}
-                onChange={setPersonSources}
-                onAddNew={() => onAddSource?.((newId) => setPersonSources(prev => [...prev, newId]))}
+              <CitationList
+                citations={personCitations}
+                onAdd={() => {
+                  setCitationTarget({ type: 'person', personId: person?.id });
+                  setEditingCitation(null);
+                  setCitationDialogOpen(true);
+                }}
+                onEdit={(citation) => {
+                  setCitationTarget({ type: 'person', personId: person?.id });
+                  setEditingCitation(citation);
+                  setCitationDialogOpen(true);
+                }}
+                onDelete={(citationId) => onDeleteCitation?.(citationId)}
+                isEditing={true}
               />
             </div>
           </div>
@@ -1743,12 +1884,21 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                       />
                     </div>
                     <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                      <label className="field-label">Sources</label>
-                      <SourceSelector
-                        sources={sources}
-                        selectedSourceIds={birthSources}
-                        onChange={setBirthSources}
-                        onAddNew={() => onAddSource?.((newId) => setBirthSources(prev => [...prev, newId]))}
+                      <label className="field-label">Citations</label>
+                      <CitationList
+                        citations={birthCitations}
+                        onAdd={() => {
+                          setCitationTarget({ type: 'birth', eventId: birthEventId });
+                          setEditingCitation(null);
+                          setCitationDialogOpen(true);
+                        }}
+                        onEdit={(citation) => {
+                          setCitationTarget({ type: 'birth', eventId: birthEventId });
+                          setEditingCitation(citation);
+                          setCitationDialogOpen(true);
+                        }}
+                        onDelete={(citationId) => onDeleteCitation?.(citationId)}
+                        isEditing={true}
                       />
                     </div>
                   </div>
@@ -1813,12 +1963,21 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                       />
                     </div>
                     <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                      <label className="field-label">Sources</label>
-                      <SourceSelector
-                        sources={sources}
-                        selectedSourceIds={deathSources}
-                        onChange={setDeathSources}
-                        onAddNew={() => onAddSource?.((newId) => setDeathSources(prev => [...prev, newId]))}
+                      <label className="field-label">Citations</label>
+                      <CitationList
+                        citations={deathCitations}
+                        onAdd={() => {
+                          setCitationTarget({ type: 'death', eventId: deathEventId });
+                          setEditingCitation(null);
+                          setCitationDialogOpen(true);
+                        }}
+                        onEdit={(citation) => {
+                          setCitationTarget({ type: 'death', eventId: deathEventId });
+                          setEditingCitation(citation);
+                          setCitationDialogOpen(true);
+                        }}
+                        onDelete={(citationId) => onDeleteCitation?.(citationId)}
+                        isEditing={true}
                       />
                     </div>
                   </div>
@@ -1894,6 +2053,18 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                       }}
                       sources={sources}
                       onAddSource={onAddSource}
+                      citations={eventCitations[event.id] || []}
+                      onAddCitation={() => {
+                        setCitationTarget({ type: 'event', eventId: event.id });
+                        setEditingCitation(null);
+                        setCitationDialogOpen(true);
+                      }}
+                      onEditCitation={(citation) => {
+                        setCitationTarget({ type: 'event', eventId: event.id });
+                        setEditingCitation(citation);
+                        setCitationDialogOpen(true);
+                      }}
+                      onDeleteCitation={(citationId) => onDeleteCitation?.(citationId)}
                     />
                   </MediaDropZone>
                 );
@@ -1949,6 +2120,18 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                   onRemove={() => {
                     setUnions(unions.filter((_, i) => i !== index));
                   }}
+                  citations={unionCitations[union.id] || []}
+                  onAddCitation={() => {
+                    setCitationTarget({ type: 'union', unionId: union.id });
+                    setEditingCitation(null);
+                    setCitationDialogOpen(true);
+                  }}
+                  onEditCitation={(citation) => {
+                    setCitationTarget({ type: 'union', unionId: union.id });
+                    setEditingCitation(citation);
+                    setCitationDialogOpen(true);
+                  }}
+                  onDeleteCitation={(citationId) => onDeleteCitation?.(citationId)}
                 />
               ))}
             </div>
@@ -2055,6 +2238,7 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                         setNewFamilyFirstName('');
                         setNewFamilyLastName(lastName || '');
                         setNewFamilyGender('');
+                        setSelectedExistingChildId('');
                         setShowNewFamilyDialog({ type: 'child', unionId: union.id });
                       }}
                     >
@@ -2162,43 +2346,80 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
         <div className="dialog-overlay" onClick={() => setShowNewFamilyDialog(null)} onWheel={e => e.stopPropagation()}>
           <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-header">
-              <h3>Add New {showNewFamilyDialog.type === 'child' ? 'Child' : 'Partner'}</h3>
+              <h3>Add {showNewFamilyDialog.type === 'child' ? 'Child' : 'Partner'}</h3>
             </div>
             <div className="dialog-body">
-              <div className="form-group">
-                <label className="field-label">First Name</label>
-                <input
-                  type="text"
-                  value={newFamilyFirstName}
-                  onChange={(e) => setNewFamilyFirstName(e.target.value)}
-                  className="text-input"
-                  placeholder="First name"
-                  autoFocus
-                />
-              </div>
-              <div className="form-group">
-                <label className="field-label">Last Name</label>
-                <input
-                  type="text"
-                  value={newFamilyLastName}
-                  onChange={(e) => setNewFamilyLastName(e.target.value)}
-                  className="text-input"
-                  placeholder="Last name"
-                />
-              </div>
-              <div className="form-group">
-                <label className="field-label">Gender</label>
-                <ToggleGroup
-                  options={[
-                    { value: 'male', label: 'Male', className: 'gender-male' },
-                    { value: 'female', label: 'Female', className: 'gender-female' },
-                    { value: 'other', label: 'Other' },
-                  ]}
-                  value={newFamilyGender}
-                  onChange={setNewFamilyGender}
-                  name="new-family-gender"
-                />
-              </div>
+              {/* Select existing person (for child only) */}
+              {showNewFamilyDialog.type === 'child' && (
+                <div className="form-group">
+                  <label className="field-label">Select Existing Person</label>
+                  <PersonPicker
+                    value={selectedExistingChildId}
+                    people={allPeople}
+                    onChange={(personId) => {
+                      setSelectedExistingChildId(personId || '');
+                      if (personId) {
+                        // Clear the new person fields when selecting existing
+                        setNewFamilyFirstName('');
+                        setNewFamilyLastName('');
+                        setNewFamilyGender('');
+                      }
+                    }}
+                    placeholder="Search for existing person..."
+                    excludeIds={[
+                      person?.id,
+                      ...(unions.find(u => u.id === showNewFamilyDialog.unionId)?.childIds || [])
+                    ].filter(Boolean)}
+                  />
+                </div>
+              )}
+
+              {/* Divider when showing both options */}
+              {showNewFamilyDialog.type === 'child' && !selectedExistingChildId && (
+                <div style={{ textAlign: 'center', color: 'var(--color-textMuted)', margin: '12px 0', fontSize: '12px' }}>
+                  — or create new person —
+                </div>
+              )}
+
+              {/* New person fields (hidden when existing person selected for child) */}
+              {(!selectedExistingChildId || showNewFamilyDialog.type !== 'child') && (
+                <>
+                  <div className="form-group">
+                    <label className="field-label">First Name</label>
+                    <input
+                      type="text"
+                      value={newFamilyFirstName}
+                      onChange={(e) => setNewFamilyFirstName(e.target.value)}
+                      className="text-input"
+                      placeholder="First name"
+                      autoFocus={showNewFamilyDialog.type !== 'child'}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="field-label">Last Name</label>
+                    <input
+                      type="text"
+                      value={newFamilyLastName}
+                      onChange={(e) => setNewFamilyLastName(e.target.value)}
+                      className="text-input"
+                      placeholder="Last name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="field-label">Gender</label>
+                    <ToggleGroup
+                      options={[
+                        { value: 'male', label: 'Male', className: 'gender-male' },
+                        { value: 'female', label: 'Female', className: 'gender-female' },
+                        { value: 'other', label: 'Other' },
+                      ]}
+                      value={newFamilyGender}
+                      onChange={setNewFamilyGender}
+                      name="new-family-gender"
+                    />
+                  </div>
+                </>
+              )}
             </div>
             <div className="dialog-footer">
               <button
@@ -2212,65 +2433,72 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
                 type="button"
                 className="btn-primary"
                 onClick={() => {
-                  if (onCreatePerson && (newFamilyFirstName || newFamilyLastName)) {
-                    const newId = onCreatePerson({
+                  let childIdToAdd = null;
+
+                  // Check if we're adding an existing person as child
+                  if (showNewFamilyDialog.type === 'child' && selectedExistingChildId) {
+                    childIdToAdd = selectedExistingChildId;
+                  } else if (onCreatePerson && (newFamilyFirstName || newFamilyLastName)) {
+                    // Create new person
+                    childIdToAdd = onCreatePerson({
                       firstName: newFamilyFirstName,
                       lastName: newFamilyLastName,
                       gender: newFamilyGender || ''
                     });
-                    if (newId && person) {
-                      let updatedUnions;
-                      if (showNewFamilyDialog.type === 'child') {
-                        // Add child to the union
-                        const unionId = showNewFamilyDialog.unionId;
-                        updatedUnions = unions.map(u =>
-                          u.id === unionId
-                            ? { ...u, childIds: [...(u.childIds || []), newId] }
-                            : u
-                        );
-                      } else if (showNewFamilyDialog.type === 'partner') {
-                        // Create a new union with this partner
-                        const newUnion = {
-                          id: `union-new-${Date.now()}`,
-                          partnerId: newId,
-                          type: 'marriage',
-                          startDate: { type: 'unknown' },
-                          startPlace: '',
-                          endDate: null,
-                          endReason: '',
-                          childIds: [],
-                          sources: [],
-                          isNew: true
-                        };
-                        updatedUnions = [...unions, newUnion];
-                      }
+                  }
 
-                      if (updatedUnions) {
-                        setUnions(updatedUnions);
-                        // Save immediately
-                        if (onUnionsChange) {
-                          const formattedUnions = updatedUnions
-                            .filter(u => u.partnerId)
-                            .map(u => ({
-                              id: u.id || `union-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                              partner1Id: person.id,
-                              partner2Id: u.partnerId,
-                              type: u.type || 'marriage',
-                              startDate: u.startDate,
-                              startPlace: u.startPlace || '',
-                              endDate: u.endDate,
-                              endReason: u.endReason || '',
-                              childIds: u.childIds || [],
-                              sources: u.sources || []
-                            }));
-                          onUnionsChange(formattedUnions);
-                        }
+                  if (childIdToAdd && person) {
+                    let updatedUnions;
+                    if (showNewFamilyDialog.type === 'child') {
+                      // Add child to the union
+                      const unionId = showNewFamilyDialog.unionId;
+                      updatedUnions = unions.map(u =>
+                        u.id === unionId
+                          ? { ...u, childIds: [...(u.childIds || []), childIdToAdd] }
+                          : u
+                      );
+                    } else if (showNewFamilyDialog.type === 'partner') {
+                      // Create a new union with this partner
+                      const newUnion = {
+                        id: `union-new-${Date.now()}`,
+                        partnerId: childIdToAdd,
+                        type: 'marriage',
+                        startDate: { type: 'unknown' },
+                        startPlace: '',
+                        endDate: null,
+                        endReason: '',
+                        childIds: [],
+                        sources: [],
+                        isNew: true
+                      };
+                      updatedUnions = [...unions, newUnion];
+                    }
+
+                    if (updatedUnions) {
+                      setUnions(updatedUnions);
+                      // Save immediately
+                      if (onUnionsChange) {
+                        const formattedUnions = updatedUnions
+                          .filter(u => u.partnerId)
+                          .map(u => ({
+                            id: u.id || `union-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                            partner1Id: person.id,
+                            partner2Id: u.partnerId,
+                            type: u.type || 'marriage',
+                            startDate: u.startDate,
+                            startPlace: u.startPlace || '',
+                            endDate: u.endDate,
+                            endReason: u.endReason || '',
+                            childIds: u.childIds || [],
+                            sources: u.sources || []
+                          }));
+                        onUnionsChange(formattedUnions);
                       }
                     }
                   }
                   setShowNewFamilyDialog(null);
                 }}
-                disabled={!newFamilyFirstName && !newFamilyLastName}
+                disabled={!selectedExistingChildId && !newFamilyFirstName && !newFamilyLastName}
               >
                 Add
               </button>
@@ -2278,6 +2506,34 @@ export default function PersonView({ person, onSave, onCancel, sources = {}, onA
           </div>
         </div>
       )}
+
+      {/* Citation Dialog */}
+      <CitationDialog
+        isOpen={citationDialogOpen}
+        onClose={() => {
+          setCitationDialogOpen(false);
+          setEditingCitation(null);
+          setCitationTarget(null);
+        }}
+        onSave={(citationData) => {
+          if (editingCitation) {
+            onUpdateCitation?.(editingCitation.id, citationData);
+          } else {
+            onCreateCitation?.({
+              ...citationData,
+              person_id: citationTarget?.personId,
+              event_id: citationTarget?.eventId,
+              union_id: citationTarget?.unionId
+            });
+          }
+          setCitationDialogOpen(false);
+          setEditingCitation(null);
+          setCitationTarget(null);
+        }}
+        initialData={editingCitation}
+        sources={dbSources}
+        targetType={citationTarget?.type}
+      />
     </div>
   );
 }

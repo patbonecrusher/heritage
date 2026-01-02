@@ -33,3 +33,12 @@
   color: var(--text-secondary, #888);
   font-weight: 300;
 }
+
+/* Round variant for small avatars */
+.person-photo-round {
+  border-radius: 50%;
+}
+
+.person-photo-round .person-photo-placeholder {
+  font-size: 1em;
+}

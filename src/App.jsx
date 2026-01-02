@@ -143,7 +143,7 @@ function App() {
   const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, getParentUnionForPerson, findOrCreateUnion, fetchAllUnions } = useUnions();
   const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent } = useEvents();
   const { places } = usePlaces();
-  const { sources: dbSources, getCitationsForEvent, getCitationsForUnion, createCitation, updateCitation, deleteCitation } = useSources();
+  const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, createCitation, updateCitation, deleteCitation } = useSources();
 
   // Loaded events for selected person (bundle mode)
   const [loadedBirthEvent, setLoadedBirthEvent] = useState(null);
@@ -154,6 +154,7 @@ function App() {
   const [loadedDataForPersonId, setLoadedDataForPersonId] = useState(null); // Track which person data belongs to
 
   // Loaded citations for selected person (bundle mode)
+  const [personCitations, setPersonCitations] = useState([]); // Citations attached to person
   const [birthCitations, setBirthCitations] = useState([]);
   const [deathCitations, setDeathCitations] = useState([]);
   const [eventCitations, setEventCitations] = useState({}); // Map of eventId -> citations[]
@@ -396,6 +397,10 @@ function App() {
         // Mark that data is loaded for this specific person
         setLoadedDataForPersonId(selectedPersonId);
 
+        // Load citations for person
+        const personCits = await getCitationsForPerson(selectedPersonId);
+        setPersonCitations(personCits || []);
+
         // Load citations for birth and death events
         if (birth?.id) {
           const citations = await getCitationsForEvent(birth.id);
@@ -428,7 +433,7 @@ function App() {
       }
     };
     loadPersonData();
-  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getEventsForPerson, getUnionsForPerson, getParentUnionForPerson, getCitationsForEvent, getCitationsForUnion]);
+  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getEventsForPerson, getUnionsForPerson, getParentUnionForPerson, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion]);
 
   // Load citations for union being edited
   useEffect(() => {
@@ -1450,13 +1455,18 @@ function App() {
             }
           }}
           // Citation props
+          personCitations={personCitations}
           birthCitations={birthCitations}
           deathCitations={deathCitations}
           eventCitations={eventCitations}
           unionCitations={personUnionCitations}
           onCreateCitation={async (data) => {
             await createCitation(data);
-            // Reload citations for the affected event or union
+            // Reload citations for the affected person, event or union
+            if (data.person_id) {
+              const citations = await getCitationsForPerson(data.person_id);
+              setPersonCitations(citations || []);
+            }
             if (data.event_id) {
               const eventId = data.event_id;
               const citations = await getCitationsForEvent(eventId);
@@ -1477,6 +1487,10 @@ function App() {
           onUpdateCitation={async (citationId, data) => {
             await updateCitation(citationId, data);
             // Reload all citations for this person
+            if (selectedPersonId) {
+              const personCits = await getCitationsForPerson(selectedPersonId);
+              setPersonCitations(personCits || []);
+            }
             if (loadedBirthEvent?.id) {
               const citations = await getCitationsForEvent(loadedBirthEvent.id);
               setBirthCitations(citations || []);
@@ -1500,6 +1514,10 @@ function App() {
           onDeleteCitation={async (citationId) => {
             await deleteCitation(citationId);
             // Reload all citations for this person
+            if (selectedPersonId) {
+              const personCits = await getCitationsForPerson(selectedPersonId);
+              setPersonCitations(personCits || []);
+            }
             if (loadedBirthEvent?.id) {
               const citations = await getCitationsForEvent(loadedBirthEvent.id);
               setBirthCitations(citations || []);
@@ -1526,6 +1544,7 @@ function App() {
             }
             setPersonUnionCitations(unionCitationsMap);
           }}
+          dbSources={dbSources}
         />
       );
     }
