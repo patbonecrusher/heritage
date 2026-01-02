@@ -116,6 +116,40 @@ export function useUnions() {
     return unions;
   }, [query, get]);
 
+  // Get parent union for a person (union where person is a child)
+  const getParentUnionForPerson = useCallback(async (personId) => {
+    // Find union where this person is listed as a child
+    const result = await query(`
+      SELECT u.*
+      FROM union_ u
+      JOIN union_child uc ON u.id = uc.union_id
+      WHERE uc.person_id = ? AND uc.deleted_at IS NULL AND u.deleted_at IS NULL
+    `, [personId]);
+
+    if (result.length === 0) return null;
+
+    const union = result[0];
+
+    // Get parent details
+    if (union.person1_id) {
+      union.parent1 = await get('SELECT * FROM person WHERE id = ?', [union.person1_id]);
+    }
+    if (union.person2_id) {
+      union.parent2 = await get('SELECT * FROM person WHERE id = ?', [union.person2_id]);
+    }
+
+    // Get all children of this union
+    union.children = await query(`
+      SELECT p.*, uc.birth_order, uc.relationship
+      FROM union_child uc
+      JOIN person p ON uc.person_id = p.id
+      WHERE uc.union_id = ? AND uc.deleted_at IS NULL AND p.deleted_at IS NULL
+      ORDER BY uc.birth_order, p.id
+    `, [union.id]);
+
+    return union;
+  }, [query, get]);
+
   // Create a new union
   const createUnion = useCallback(async (data) => {
     const id = generateId();
@@ -328,11 +362,22 @@ export function useUnions() {
   // Find or create union between two persons
   const findOrCreateUnion = useCallback(async (person1Id, person2Id) => {
     // Check if union already exists
-    const existing = await get(`
-      SELECT id FROM union_
-      WHERE ((person1_id = ? AND person2_id = ?) OR (person1_id = ? AND person2_id = ?))
-        AND deleted_at IS NULL
-    `, [person1Id, person2Id, person2Id, person1Id]);
+    // Handle NULL person2Id specially since SQL NULL comparison requires IS NULL
+    let existing;
+    if (person2Id) {
+      existing = await get(`
+        SELECT id FROM union_
+        WHERE ((person1_id = ? AND person2_id = ?) OR (person1_id = ? AND person2_id = ?))
+          AND deleted_at IS NULL
+      `, [person1Id, person2Id, person2Id, person1Id]);
+    } else {
+      // Single parent - check for union with just this person
+      existing = await get(`
+        SELECT id FROM union_
+        WHERE (person1_id = ? OR person2_id = ?) AND (person2_id IS NULL OR person1_id IS NULL)
+          AND deleted_at IS NULL
+      `, [person1Id, person1Id]);
+    }
 
     if (existing) {
       return existing.id;
@@ -347,6 +392,7 @@ export function useUnions() {
     getUnion,
     getUnionFull,
     getUnionsForPerson,
+    getParentUnionForPerson,
     createUnion,
     updateUnion,
     deleteUnion,

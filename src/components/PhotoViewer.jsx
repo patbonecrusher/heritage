@@ -25,6 +25,11 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
 
   // Resizing state
   const [resizing, setResizing] = useState(null); // { index, isSaved, handle, startX, startY, startBox }
+  const justResizedRef = useRef(false);
+
+  // Moving state
+  const [moving, setMoving] = useState(null); // { index, isSaved, startX, startY, startBox }
+  const justMovedRef = useRef(false);
 
   // Zoom and pan state
   const [scale, setScale] = useState(1);
@@ -106,10 +111,44 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
   }, [modelsReady, detecting, savedFaceTags, mediaPath]);
 
   // Handle clicking on a detected face
-  const handleFaceClick = (index, isSaved) => {
+  const handleFaceClick = (e, index, isSaved) => {
+    e.stopPropagation();
+    // Don't open picker if we just finished resizing/moving or if currently resizing/moving
+    if (justResizedRef.current || justMovedRef.current || resizing || moving) {
+      justResizedRef.current = false;
+      justMovedRef.current = false;
+      return;
+    }
+    // Don't open if clicking on a resize handle
+    if (e.target.classList.contains('resize-handle')) {
+      return;
+    }
     setSelectedFaceIndex({ index, isSaved });
     setShowPersonPicker(true);
     setSearchTerm('');
+  };
+
+  // Start moving a face box
+  const startMove = (e, index, isSaved) => {
+    // Don't start move if clicking on resize handle or remove button
+    if (e.target.classList.contains('resize-handle') || e.target.classList.contains('remove-tag-btn')) {
+      return;
+    }
+    e.stopPropagation();
+
+    const box = isSaved ? savedFaceTags[index] : detectedFaces[index];
+    const startBox = isSaved
+      ? { x: box.x, y: box.y, width: box.width, height: box.height }
+      : { x: box.xPct, y: box.yPct, width: box.widthPct, height: box.heightPct };
+
+    setMoving({
+      index,
+      isSaved,
+      startX: e.clientX,
+      startY: e.clientY,
+      startBox,
+      hasMoved: false,
+    });
   };
 
   // Assign a person to the selected face
@@ -248,6 +287,9 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
     };
 
     const handleMouseUp = async () => {
+      // Prevent click from opening picker right after resize - set BEFORE async ops
+      justResizedRef.current = true;
+
       // Save the updated coordinates to database if it's a saved tag
       if (resizing.isSaved) {
         const tag = savedFaceTags[resizing.index];
@@ -271,6 +313,78 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [resizing, savedFaceTags, updateFaceTag, triggerRefresh]);
+
+  // Handle mouse move during move
+  useEffect(() => {
+    if (!moving) return;
+
+    const handleMouseMove = (e) => {
+      if (!photoContainerRef.current || !imageRef.current) return;
+
+      const imgRect = imageRef.current.getBoundingClientRect();
+
+      // Calculate delta in percentage of image size
+      const deltaX = ((e.clientX - moving.startX) / imgRect.width) * 100;
+      const deltaY = ((e.clientY - moving.startY) / imgRect.height) * 100;
+
+      // Only consider it a move if we've moved more than a tiny amount
+      const hasMoved = Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5;
+
+      const { startBox } = moving;
+      let newX = startBox.x + deltaX;
+      let newY = startBox.y + deltaY;
+
+      // Clamp to image bounds
+      newX = Math.max(0, Math.min(100 - startBox.width, newX));
+      newY = Math.max(0, Math.min(100 - startBox.height, newY));
+
+      // Update the appropriate state
+      if (moving.isSaved) {
+        setSavedFaceTags(prev => prev.map((tag, i) =>
+          i === moving.index ? { ...tag, x: newX, y: newY } : tag
+        ));
+      } else {
+        setDetectedFaces(prev => prev.map((face, i) =>
+          i === moving.index
+            ? { ...face, xPct: newX, yPct: newY }
+            : face
+        ));
+      }
+
+      if (hasMoved && !moving.hasMoved) {
+        setMoving(prev => ({ ...prev, hasMoved: true }));
+      }
+    };
+
+    const handleMouseUp = async () => {
+      // Only set justMoved if we actually moved
+      if (moving.hasMoved) {
+        justMovedRef.current = true;
+
+        // Save the updated coordinates to database if it's a saved tag
+        if (moving.isSaved) {
+          const tag = savedFaceTags[moving.index];
+          await updateFaceTag(tag.id, {
+            x: tag.x,
+            y: tag.y,
+            width: tag.width,
+            height: tag.height,
+          });
+          // Trigger global refresh so PersonPhoto updates
+          triggerRefresh();
+        }
+      }
+      setMoving(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [moving, savedFaceTags, updateFaceTag, triggerRefresh]);
 
   // Handle wheel event for zoom (trackpad pinch gesture)
   const handleWheel = useCallback((e) => {
@@ -337,16 +451,21 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
   };
 
   // Render resize handles for a face box
+  const handleResizeClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
   const renderResizeHandles = (index, isSaved) => (
     <>
-      <div className="resize-handle nw" onMouseDown={(e) => startResize(e, index, isSaved, 'nw')} />
-      <div className="resize-handle ne" onMouseDown={(e) => startResize(e, index, isSaved, 'ne')} />
-      <div className="resize-handle sw" onMouseDown={(e) => startResize(e, index, isSaved, 'sw')} />
-      <div className="resize-handle se" onMouseDown={(e) => startResize(e, index, isSaved, 'se')} />
-      <div className="resize-handle n" onMouseDown={(e) => startResize(e, index, isSaved, 'n')} />
-      <div className="resize-handle s" onMouseDown={(e) => startResize(e, index, isSaved, 's')} />
-      <div className="resize-handle w" onMouseDown={(e) => startResize(e, index, isSaved, 'w')} />
-      <div className="resize-handle e" onMouseDown={(e) => startResize(e, index, isSaved, 'e')} />
+      <div className="resize-handle nw" onMouseDown={(e) => startResize(e, index, isSaved, 'nw')} onClick={handleResizeClick} />
+      <div className="resize-handle ne" onMouseDown={(e) => startResize(e, index, isSaved, 'ne')} onClick={handleResizeClick} />
+      <div className="resize-handle sw" onMouseDown={(e) => startResize(e, index, isSaved, 'sw')} onClick={handleResizeClick} />
+      <div className="resize-handle se" onMouseDown={(e) => startResize(e, index, isSaved, 'se')} onClick={handleResizeClick} />
+      <div className="resize-handle n" onMouseDown={(e) => startResize(e, index, isSaved, 'n')} onClick={handleResizeClick} />
+      <div className="resize-handle s" onMouseDown={(e) => startResize(e, index, isSaved, 's')} onClick={handleResizeClick} />
+      <div className="resize-handle w" onMouseDown={(e) => startResize(e, index, isSaved, 'w')} onClick={handleResizeClick} />
+      <div className="resize-handle e" onMouseDown={(e) => startResize(e, index, isSaved, 'e')} onClick={handleResizeClick} />
     </>
   );
 
@@ -385,80 +504,118 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
             />
 
             {/* Render saved face tags */}
-            {savedFaceTags.map((tag, index) => (
-              <div
-                key={tag.id}
-                className={`face-box saved ${selectedFaceIndex?.isSaved && selectedFaceIndex?.index === index ? 'selected' : ''} ${resizing?.isSaved && resizing?.index === index ? 'resizing' : ''}`}
-                style={{
-                  left: `${tag.x}%`,
-                  top: `${tag.y}%`,
-                  width: `${tag.width}%`,
-                  height: `${tag.height}%`,
-                }}
-                onClick={() => handleFaceClick(index, true)}
-              >
-                <span className="face-label">{getPersonName(tag)}</span>
-                <button
-                  className="remove-tag-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeFaceTag(tag.id);
+            {savedFaceTags.map((tag, index) => {
+              const isSelected = selectedFaceIndex?.isSaved && selectedFaceIndex?.index === index;
+              const isMoving = moving?.isSaved && moving?.index === index;
+              return (
+                <div
+                  key={tag.id}
+                  className={`face-box saved ${isSelected ? 'selected' : ''} ${resizing?.isSaved && resizing?.index === index ? 'resizing' : ''} ${isMoving ? 'moving' : ''}`}
+                  style={{
+                    left: `${tag.x}%`,
+                    top: `${tag.y}%`,
+                    width: `${tag.width}%`,
+                    height: `${tag.height}%`,
                   }}
+                  onMouseDown={(e) => startMove(e, index, true)}
+                  onClick={(e) => handleFaceClick(e, index, true)}
                 >
-                  x
-                </button>
-                {renderResizeHandles(index, true)}
-              </div>
-            ))}
+                  <span className="face-label">{getPersonName(tag)}</span>
+                  <button
+                    className="remove-tag-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFaceTag(tag.id);
+                    }}
+                  >
+                    x
+                  </button>
+                  {renderResizeHandles(index, true)}
+                  {/* Person picker inside selected face box */}
+                  {showPersonPicker && isSelected && (
+                    <div className="person-picker" onClick={(e) => e.stopPropagation()}>
+                      <div className="person-picker-header">
+                        <input
+                          type="text"
+                          placeholder="Search people..."
+                          value={searchTerm}
+                          onChange={e => setSearchTerm(e.target.value)}
+                          autoFocus
+                        />
+                        <button onClick={() => setShowPersonPicker(false)}>Cancel</button>
+                      </div>
+                      <div className="person-list">
+                        {filteredPersons.map(person => (
+                          <div
+                            key={person.id}
+                            className="person-option"
+                            onClick={() => assignPerson(person.id)}
+                          >
+                            {person.given_names} {person.surname}
+                          </div>
+                        ))}
+                        {filteredPersons.length === 0 && (
+                          <div className="no-results">No matching people found</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {/* Render detected (unsaved) faces */}
-            {detectedFaces.map((face, index) => (
-              <div
-                key={`detected-${index}`}
-                className={`face-box detected ${selectedFaceIndex?.isSaved === false && selectedFaceIndex?.index === index ? 'selected' : ''} ${resizing?.isSaved === false && resizing?.index === index ? 'resizing' : ''}`}
-                style={{
-                  left: `${face.xPct}%`,
-                  top: `${face.yPct}%`,
-                  width: `${face.widthPct}%`,
-                  height: `${face.heightPct}%`,
-                }}
-                onClick={() => handleFaceClick(index, false)}
-              >
-                <span className="face-label">Click to identify</span>
-                {renderResizeHandles(index, false)}
-              </div>
-            ))}
+            {detectedFaces.map((face, index) => {
+              const isSelected = selectedFaceIndex?.isSaved === false && selectedFaceIndex?.index === index;
+              const isMoving = moving?.isSaved === false && moving?.index === index;
+              return (
+                <div
+                  key={`detected-${index}`}
+                  className={`face-box detected ${isSelected ? 'selected' : ''} ${resizing?.isSaved === false && resizing?.index === index ? 'resizing' : ''} ${isMoving ? 'moving' : ''}`}
+                  style={{
+                    left: `${face.xPct}%`,
+                    top: `${face.yPct}%`,
+                    width: `${face.widthPct}%`,
+                    height: `${face.heightPct}%`,
+                  }}
+                  onMouseDown={(e) => startMove(e, index, false)}
+                  onClick={(e) => handleFaceClick(e, index, false)}
+                >
+                  <span className="face-label">Click to identify</span>
+                  {renderResizeHandles(index, false)}
+                  {/* Person picker inside selected face box */}
+                  {showPersonPicker && isSelected && (
+                    <div className="person-picker" onClick={(e) => e.stopPropagation()}>
+                      <div className="person-picker-header">
+                        <input
+                          type="text"
+                          placeholder="Search people..."
+                          value={searchTerm}
+                          onChange={e => setSearchTerm(e.target.value)}
+                          autoFocus
+                        />
+                        <button onClick={() => setShowPersonPicker(false)}>Cancel</button>
+                      </div>
+                      <div className="person-list">
+                        {filteredPersons.map(person => (
+                          <div
+                            key={person.id}
+                            className="person-option"
+                            onClick={() => assignPerson(person.id)}
+                          >
+                            {person.given_names} {person.surname}
+                          </div>
+                        ))}
+                        {filteredPersons.length === 0 && (
+                          <div className="no-results">No matching people found</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-
-          {/* Person picker dropdown */}
-          {showPersonPicker && (
-            <div className="person-picker">
-              <div className="person-picker-header">
-                <input
-                  type="text"
-                  placeholder="Search people..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  autoFocus
-                />
-                <button onClick={() => setShowPersonPicker(false)}>Cancel</button>
-              </div>
-              <div className="person-list">
-                {filteredPersons.map(person => (
-                  <div
-                    key={person.id}
-                    className="person-option"
-                    onClick={() => assignPerson(person.id)}
-                  >
-                    {person.given_names} {person.surname}
-                  </div>
-                ))}
-                {filteredPersons.length === 0 && (
-                  <div className="no-results">No matching people found</div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="photo-viewer-footer">

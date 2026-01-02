@@ -6,6 +6,7 @@
 import React, { useEffect } from 'react';
 import { MediaPanelContent } from './MediaLibrary';
 import { PlacesPanelContent } from './PlacesLibrary';
+import { SourcesPanelContent } from './SourcesLibrary';
 import './LibraryPanel.css';
 
 export default function LibraryPanel({
@@ -16,6 +17,7 @@ export default function LibraryPanel({
   onClose,
   onOpenPlacesLibrary,
   onOpenMediaLibrary,
+  onOpenSourcesLibrary,
 }) {
   // Handle Escape key to close panel
   useEffect(() => {
@@ -61,6 +63,12 @@ export default function LibraryPanel({
             >
               Places
             </button>
+            <button
+              className={activeTab === 'sources' ? 'active' : ''}
+              onClick={() => onTabChange('sources')}
+            >
+              Sources
+            </button>
           </div>
           <button
             className="library-panel-close"
@@ -72,10 +80,14 @@ export default function LibraryPanel({
         </div>
 
         <div className="library-panel-content">
-          {activeTab === 'media' ? (
+          {activeTab === 'media' && (
             <MediaPanelContent onOpenFullLibrary={onOpenMediaLibrary} />
-          ) : (
+          )}
+          {activeTab === 'places' && (
             <PlacesPanelContent onOpenFullLibrary={onOpenPlacesLibrary} />
+          )}
+          {activeTab === 'sources' && (
+            <SourcesPanelContent onOpenFullLibrary={onOpenSourcesLibrary} />
           )}
         </div>
       </div>

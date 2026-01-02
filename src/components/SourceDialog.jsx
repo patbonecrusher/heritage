@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
 const SOURCE_TYPES = [
+  { value: 'interview', label: 'Interview/Oral History' },
   { value: 'website', label: 'Website' },
   { value: 'church_record', label: 'Church Record' },
   { value: 'civil_record', label: 'Civil Record' },
@@ -30,6 +31,8 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
   const [publisher, setPublisher] = useState('');
   const [year, setYear] = useState('');
   const [notes, setNotes] = useState('');
+  const [informant, setInformant] = useState('');
+  const [relationship, setRelationship] = useState('');
 
   useEffect(() => {
     if (isOpen && firstInputRef.current) {
@@ -54,8 +57,10 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
       setPublisher(initialData.publisher || '');
       setYear(initialData.year || '');
       setNotes(initialData.notes || '');
+      setInformant(initialData.informant || '');
+      setRelationship(initialData.relationship || '');
     } else {
-      setSourceType('website');
+      setSourceType('interview');
       setTitle('');
       setUrl('');
       setAccessDate('');
@@ -70,6 +75,8 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
       setPublisher('');
       setYear('');
       setNotes('');
+      setInformant('');
+      setRelationship('');
     }
   }, [initialData, isOpen]);
 
@@ -111,6 +118,8 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
       publisher,
       year,
       notes,
+      informant,
+      relationship,
     };
 
     onSave(source);
@@ -120,6 +129,54 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
 
   const renderTypeFields = () => {
     switch (sourceType) {
+      case 'interview':
+        return (
+          <>
+            <div className="form-group">
+              <label className="field-label">Informant (who told you)</label>
+              <input
+                type="text"
+                value={informant}
+                onChange={(e) => setInformant(e.target.value)}
+                className="text-input"
+                placeholder="e.g., Marie Laplante"
+              />
+            </div>
+            <div className="form-group">
+              <label className="field-label">Relationship to Subject</label>
+              <input
+                type="text"
+                value={relationship}
+                onChange={(e) => setRelationship(e.target.value)}
+                className="text-input"
+                placeholder="e.g., Granddaughter, Neighbor, Family friend"
+              />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="field-label">Date of Interview</label>
+                <input
+                  type="text"
+                  value={recordDate}
+                  onChange={(e) => setRecordDate(e.target.value)}
+                  className="text-input"
+                  placeholder="When did they tell you?"
+                />
+              </div>
+              <div className="form-group">
+                <label className="field-label">Location</label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="text-input"
+                  placeholder="Phone, in person, etc."
+                />
+              </div>
+            </div>
+          </>
+        );
+
       case 'website':
         return (
           <>

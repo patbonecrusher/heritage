@@ -1,0 +1,171 @@
+/* CitationDialog styles */
+
+.citation-dialog {
+  width: 90vw;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.citation-dialog .dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.citation-dialog .form-group {
+  margin-bottom: 16px;
+}
+
+.citation-dialog .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.citation-dialog .form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.citation-dialog .form-row .form-group {
+  flex: 1;
+}
+
+.citation-dialog .field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-textMuted);
+  margin-bottom: 6px;
+}
+
+.citation-dialog .field-label.required::after {
+  content: ' *';
+  color: #ef4444;
+}
+
+.citation-dialog .text-input,
+.citation-dialog .select-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.citation-dialog .text-input:focus,
+.citation-dialog .select-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.citation-dialog .textarea-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.citation-dialog .textarea-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Source info box */
+.citation-dialog .source-info-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.citation-dialog .source-type-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.citation-dialog .source-link {
+  font-size: 13px;
+  color: var(--color-primary);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.citation-dialog .source-link:hover {
+  text-decoration: underline;
+}
+
+/* Toggle advanced */
+.citation-dialog .toggle-advanced {
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-textMuted);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.citation-dialog .toggle-advanced:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* Advanced fields section */
+.citation-dialog .advanced-fields {
+  padding: 16px;
+  margin-bottom: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.citation-dialog .advanced-fields .form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Loading/empty states */
+.citation-dialog .loading-text,
+.citation-dialog .empty-text {
+  padding: 12px;
+  text-align: center;
+  color: var(--color-textMuted);
+  font-size: 13px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+/* Dialog footer */
+.citation-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+}

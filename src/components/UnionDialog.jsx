@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import SourceSelector from './SourceSelector';
+import CitationList from './CitationList';
+import CitationDialog from './CitationDialog';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -128,7 +129,18 @@ function KeyHint({ children }) {
   return <span className="key-hint">{children}</span>;
 }
 
-export default function UnionDialog({ isOpen, onClose, onSave, initialData, sources = {}, onAddSource }) {
+export default function UnionDialog({
+  isOpen,
+  onClose,
+  onSave,
+  initialData,
+  // Citation support
+  citations = [],
+  dbSources = [],
+  onCreateCitation,
+  onUpdateCitation,
+  onDeleteCitation,
+}) {
   const firstInputRef = useRef(null);
 
   const [unionType, setUnionType] = useState('marriage');
@@ -138,7 +150,10 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
   const [endDateText, setEndDateText] = useState('');
   const [endDateParsed, setEndDateParsed] = useState({ type: 'unknown', display: 'Unknown' });
   const [endReason, setEndReason] = useState('');
-  const [unionSources, setUnionSources] = useState([]);
+
+  // Citation dialog state
+  const [citationDialogOpen, setCitationDialogOpen] = useState(false);
+  const [editingCitation, setEditingCitation] = useState(null);
 
   useEffect(() => {
     if (isOpen && firstInputRef.current) {
@@ -161,7 +176,6 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
       setEndDateText(endText);
       setEndDateParsed(parseDateString(endText));
       setEndReason(initialData.endReason || '');
-      setUnionSources(initialData.unionSources || initialData.marriageSources || []);
     } else {
       setUnionType('marriage');
       setStartDateText('');
@@ -170,7 +184,6 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
       setEndDateText('');
       setEndDateParsed({ type: 'unknown', display: 'Unknown' });
       setEndReason('');
-      setUnionSources([]);
     }
   }, [initialData, isOpen]);
 
@@ -212,13 +225,36 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
       startPlace,
       endDate: endDateParsed.type !== 'unknown' ? endDateParsed : null,
       endReason,
-      unionSources,
       // Keep legacy fields for backwards compatibility
       marriageDate: startDateParsed,
       marriagePlace: startPlace,
       divorceDate: endDateParsed.type !== 'unknown' ? endDateParsed : null,
-      marriageSources: unionSources,
     });
+  };
+
+  // Citation handlers
+  const handleAddCitation = () => {
+    setEditingCitation(null);
+    setCitationDialogOpen(true);
+  };
+
+  const handleEditCitation = (citation) => {
+    setEditingCitation(citation);
+    setCitationDialogOpen(true);
+  };
+
+  const handleSaveCitation = async (citationData) => {
+    if (editingCitation) {
+      await onUpdateCitation?.(editingCitation.id, citationData);
+    } else {
+      await onCreateCitation?.({ ...citationData, union_id: initialData?.id });
+    }
+    setCitationDialogOpen(false);
+    setEditingCitation(null);
+  };
+
+  const handleDeleteCitation = async (citationId) => {
+    await onDeleteCitation?.(citationId);
   };
 
   if (!isOpen) return null;
@@ -322,15 +358,28 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
             </div>
           )}
 
-          <div className="form-group">
-            <label className="field-label">Sources</label>
-            <SourceSelector
-              sources={sources}
-              selectedSourceIds={unionSources}
-              onChange={setUnionSources}
-              onAddNew={() => onAddSource?.((newId) => setUnionSources(prev => [...prev, newId]))}
-            />
-          </div>
+          {/* Citations - only show for existing unions */}
+          {initialData?.id && (
+            <div className="form-group">
+              <label className="field-label">Citations</label>
+              <CitationList
+                citations={citations}
+                onAdd={handleAddCitation}
+                onEdit={handleEditCitation}
+                onDelete={handleDeleteCitation}
+                isEditing={true}
+              />
+            </div>
+          )}
+
+          {!initialData?.id && (
+            <div className="form-group">
+              <label className="field-label">Citations</label>
+              <p className="text-muted" style={{ fontSize: '12px', margin: '8px 0' }}>
+                Save the union first to add citations.
+              </p>
+            </div>
+          )}
 
           <div className="dialog-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>
@@ -342,6 +391,18 @@ export default function UnionDialog({ isOpen, onClose, onSave, initialData, sour
           </div>
         </form>
       </div>
+
+      {/* Citation Dialog */}
+      <CitationDialog
+        isOpen={citationDialogOpen}
+        onClose={() => {
+          setCitationDialogOpen(false);
+          setEditingCitation(null);
+        }}
+        onSave={handleSaveCitation}
+        citation={editingCitation}
+        sources={dbSources}
+      />
     </div>
   );
 }

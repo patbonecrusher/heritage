@@ -39,7 +39,7 @@ export const CONFIDENCE_LEVELS = {
 };
 
 export function useSources() {
-  const { query, get, run, isOpen } = useDatabase();
+  const { query, get, run, isOpen, refreshTrigger } = useDatabase();
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -60,14 +60,14 @@ export function useSources() {
     }
   }, [query, isOpen]);
 
-  // Load sources when bundle opens
+  // Load sources when bundle opens or refresh is triggered
   useEffect(() => {
     if (isOpen) {
       fetchSources();
     } else {
       setSources([]);
     }
-  }, [isOpen, fetchSources]);
+  }, [isOpen, fetchSources, refreshTrigger]);
 
   // Get a source by ID
   const getSource = useCallback(async (id) => {

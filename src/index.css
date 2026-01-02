@@ -265,8 +265,8 @@ html, body, #root {
 }
 
 .dialog-footer .dialog-actions {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 0;
+  padding-top: 0;
   border-top: none;
 }
 
@@ -305,6 +305,24 @@ html, body, #root {
   transition: border-color 0.2s, box-shadow 0.2s;
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+/* Select dropdown styling */
+select.text-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M3 4.5L6 7.5L9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+select.text-input option {
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 8px;
 }
 
 .text-input:focus, .textarea-input:focus {
@@ -563,6 +581,22 @@ html, body, #root {
   background: var(--color-background);
 }
 
+.btn-danger {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--color-danger, #ef4444);
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
 /* Keyboard Hints */
 .key-hint {
   display: inline-flex;
@@ -615,7 +649,7 @@ html, body, #root {
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--color-border);
-  margin-bottom: 16px;
+  background: var(--color-surface);
 }
 
 .preferences-tab {
@@ -642,6 +676,7 @@ html, body, #root {
 
 .preferences-content {
   min-height: 300px;
+  padding: 20px;
 }
 
 .preferences-section h3 {
@@ -779,6 +814,36 @@ html, body, #root {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.credentials-row .form-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-textMuted);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.credentials-row .form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.credentials-row .form-group input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.credentials-row .form-group input::placeholder {
+  color: var(--color-textMuted);
+  opacity: 0.6;
 }
 
 /* Toggle Group (replaces date-type-selector) */
@@ -2179,6 +2244,62 @@ html, body, #root {
   width: 100%;
 }
 
+.parent-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.parent-selected-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.parent-change-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-textMuted);
+  cursor: pointer;
+}
+
+.parent-change-btn:hover {
+  background: var(--color-surfaceHover);
+  color: var(--color-text);
+}
+
+.parent-clear-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: var(--color-textMuted);
+  color: var(--color-background);
+  border-radius: 50%;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.parent-clear-btn:hover {
+  opacity: 1;
+}
+
+.parent-add-btn {
+  width: 100%;
+  padding: 10px;
+}
+
 /* New Parent Dialog */
 .new-parent-dialog {
   width: 320px;
@@ -2216,6 +2337,77 @@ html, body, #root {
   background: var(--color-surface);
 }
 
+/* New Family Dialog (for adding children/partners) */
+.new-family-dialog {
+  width: 380px;
+  overflow: visible; /* Allow PersonPicker dropdown to extend outside */
+}
+
+.new-family-dialog .dialog-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.new-family-dialog .dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.new-family-dialog .dialog-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: visible; /* Allow PersonPicker dropdown to extend outside */
+}
+
+.new-family-dialog .form-group {
+  margin-bottom: 0;
+}
+
+.new-family-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.dialog-mode-toggle {
+  display: flex;
+  gap: 0;
+  background: var(--color-surface);
+  border-radius: 6px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+}
+
+.dialog-mode-toggle .mode-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-textMuted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.dialog-mode-toggle .mode-btn:hover {
+  color: var(--color-text);
+}
+
+.dialog-mode-toggle .mode-btn.active {
+  background: var(--color-background);
+  color: var(--color-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 /* Edit mode form styles */
 .person-view-form {
   flex: 1;
@@ -2226,11 +2418,28 @@ html, body, #root {
 
 .person-view-footer {
   display: flex;
-  justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
+}
+
+.person-view-footer .footer-spacer {
+  flex: 1;
+}
+
+.delete-warning {
+  color: var(--color-danger, #ef4444);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.delete-confirm-dialog {
+  max-width: 400px;
+}
+
+.delete-confirm-dialog .dialog-body p {
+  margin: 0 0 8px 0;
 }
 
 /* Legacy edit-view classes (for form sections inside person-view) */
@@ -2328,6 +2537,44 @@ html, body, #root {
   gap: 4px;
 }
 
+/* Union list item in view mode */
+.union-list-item {
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 8px;
+}
+
+.union-item-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.family-union-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.family-union-cite-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  color: var(--color-textMuted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.family-union-cite-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.05);
+}
+
 .family-partner-label {
   font-size: 10px;
   text-transform: uppercase;
@@ -2355,6 +2602,41 @@ html, body, #root {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.family-child-wrapper {
+  position: relative;
+}
+
+.family-child-wrapper .family-remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: var(--color-danger, #ef4444);
+  color: white;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.family-child-wrapper:hover .family-remove-btn {
+  opacity: 1;
+}
+
+.family-child-wrapper .family-remove-btn:hover {
+  background: #dc2626;
+  transform: scale(1.1);
 }
 
 .family-person-card {
@@ -2492,6 +2774,50 @@ html, body, #root {
   border-top: 1px dashed var(--color-border);
   padding-top: 12px;
   margin-top: 8px;
+}
+
+/* ==========================================
+   Person View - Responsive Layout
+   ========================================== */
+
+/* Constrain content width on wide screens */
+@media (min-width: 900px) {
+  .person-view-scrollable {
+    max-width: 700px;
+    margin: 0 auto;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .person-view-form .edit-view-scrollable {
+    max-width: 700px;
+    margin: 0 auto;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .person-view-section,
+  .edit-view-section {
+    max-width: 100%;
+  }
+
+  .family-panel {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .family-panel-content {
+    max-height: 300px;
+  }
+}
+
+/* Very wide screens: slightly larger max-width */
+@media (min-width: 1400px) {
+  .person-view-scrollable,
+  .person-view-form .edit-view-scrollable,
+  .family-panel {
+    max-width: 800px;
+  }
 }
 
 /* ==========================================

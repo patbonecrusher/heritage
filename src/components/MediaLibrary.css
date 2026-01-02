@@ -355,3 +355,128 @@
 .btn-danger:hover {
   background: #c82333;
 }
+
+/* Media item description */
+.media-item-description {
+  font-size: 11px;
+  color: var(--color-textMuted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+
+/* Edit button */
+.media-item-edit {
+  position: absolute;
+  top: 8px;
+  left: 40px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-library-item:hover .media-item-edit {
+  opacity: 1;
+}
+
+.media-item-edit:hover {
+  background: var(--color-primary);
+}
+
+/* Media edit dialog */
+.media-edit-dialog {
+  background: var(--color-background);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.media-edit-dialog h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  color: var(--color-text);
+}
+
+.media-edit-preview {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-edit-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-edit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.media-edit-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-textMuted);
+}
+
+.media-edit-fields input,
+.media-edit-fields select,
+.media-edit-fields textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.media-edit-fields input:focus,
+.media-edit-fields select:focus,
+.media-edit-fields textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.media-edit-fields textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.btn-primary {
+  padding: 8px 16px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}

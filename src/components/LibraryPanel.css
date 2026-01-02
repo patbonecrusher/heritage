@@ -126,7 +126,8 @@
 
 /* Embedded content styles - override modal styles */
 .library-panel-content .media-panel-content,
-.library-panel-content .places-panel-content {
+.library-panel-content .places-panel-content,
+.library-panel-content .sources-panel-content {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -309,9 +310,70 @@
   color: var(--color-textMuted);
 }
 
+/* Sources list for panel */
+.library-panel-content .source-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: grab;
+  transition: all 0.15s ease;
+  background: var(--color-background);
+}
+
+.library-panel-content .source-item:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.library-panel-content .source-item:active {
+  cursor: grabbing;
+}
+
+.library-panel-content .source-item .source-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.library-panel-content .source-item .source-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.library-panel-content .source-item .source-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-panel-content .source-item .source-type {
+  font-size: 11px;
+  color: var(--color-textMuted);
+}
+
+.library-panel-content .source-item .source-link {
+  color: var(--color-textMuted);
+  font-size: 12px;
+  text-decoration: none;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+
+.library-panel-content .source-item .source-link:hover {
+  color: var(--color-primary);
+}
+
 /* Dragging states */
 .library-panel-content .media-item.dragging,
-.library-panel-content .place-item.dragging {
+.library-panel-content .place-item.dragging,
+.library-panel-content .source-item.dragging {
   opacity: 0.5;
 }
 

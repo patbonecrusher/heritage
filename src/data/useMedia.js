@@ -235,6 +235,29 @@ export function useMedia() {
     }
   }, [run]);
 
+  // Update media metadata
+  const updateMedia = useCallback(async (id, data) => {
+    const now = new Date().toISOString();
+    const fields = [];
+    const values = [];
+
+    const updateableFields = ['title', 'description', 'type', 'date_taken', 'date_digitized', 'photographer', 'source_id', 'notes'];
+    for (const field of updateableFields) {
+      if (data[field] !== undefined) {
+        fields.push(`${field} = ?`);
+        values.push(data[field]);
+      }
+    }
+
+    if (fields.length === 0) return;
+
+    fields.push('updated_at = ?');
+    values.push(now);
+    values.push(id);
+
+    await run(`UPDATE media SET ${fields.join(', ')} WHERE id = ?`, values);
+  }, [run]);
+
   // Delete media (soft delete record, optionally delete file)
   const deleteMediaRecord = useCallback(async (id, deleteFile = false) => {
     const media = await getMedia(id);
@@ -374,6 +397,7 @@ export function useMedia() {
     getMediaForEvent,
     importAndCreateMedia,
     createExternalMedia,
+    updateMedia,
     linkMedia,
     unlinkMedia,
     setPrimaryPhoto,

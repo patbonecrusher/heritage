@@ -10,7 +10,7 @@ import './MediaLibrary.css';
 
 export function MediaLibrary({ onClose }) {
   const { isOpen, triggerRefresh } = useDatabase();
-  const { getAllMedia, importAndCreateMedia, deleteMediaRecord } = useMedia();
+  const { getAllMedia, importAndCreateMedia, deleteMediaRecord, updateMedia } = useMedia();
 
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +18,7 @@ export function MediaLibrary({ onClose }) {
   const [filter, setFilter] = useState('all'); // all, photo, document, etc.
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null); // media item to delete
+  const [editingMedia, setEditingMedia] = useState(null); // media item being edited
 
   // Handle Escape key to close
   useEffect(() => {
@@ -82,6 +83,23 @@ export function MediaLibrary({ onClose }) {
       triggerRefresh();
     } catch (err) {
       console.error('Error deleting media:', err);
+    }
+  };
+
+  // Save media edits
+  const handleSaveEdit = async () => {
+    if (!editingMedia) return;
+    try {
+      await updateMedia(editingMedia.id, {
+        title: editingMedia.title,
+        description: editingMedia.description,
+        type: editingMedia.type,
+        date_taken: editingMedia.date_taken,
+      });
+      setEditingMedia(null);
+      await refreshMedia();
+    } catch (err) {
+      console.error('Error saving media:', err);
     }
   };
 
@@ -222,12 +240,27 @@ export function MediaLibrary({ onClose }) {
                       <span className="media-item-name">
                         {item.title || item.filename}
                       </span>
+                      {item.description && (
+                        <span className="media-item-description">
+                          {item.description}
+                        </span>
+                      )}
                       {item.linked_persons && (
                         <span className="media-item-persons">
                           {item.linked_persons}
                         </span>
                       )}
                     </div>
+                  </button>
+                  <button
+                    className="media-item-edit"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingMedia({ ...item });
+                    }}
+                    title="Edit"
+                  >
+                    ✎
                   </button>
                   <button
                     className="media-item-delete"
@@ -290,6 +323,91 @@ export function MediaLibrary({ onClose }) {
                   onClick={() => handleDelete(deleteConfirm, true)}
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {editingMedia && (
+          <div className="delete-confirm-overlay">
+            <div className="media-edit-dialog">
+              <h3>Edit Media</h3>
+              <div className="media-edit-preview">
+                {editingMedia.thumbnailFullPath || editingMedia.fullPath ? (
+                  <img
+                    src={editingMedia.thumbnailFullPath || editingMedia.fullPath}
+                    alt={editingMedia.title || editingMedia.filename}
+                  />
+                ) : (
+                  <div className="media-item-icon">
+                    {MEDIA_TYPES[editingMedia.type] || editingMedia.type}
+                  </div>
+                )}
+              </div>
+              <div className="media-edit-fields">
+                <label>
+                  Title
+                  <input
+                    type="text"
+                    value={editingMedia.title || ''}
+                    onChange={(e) => setEditingMedia({
+                      ...editingMedia,
+                      title: e.target.value
+                    })}
+                    placeholder={editingMedia.filename}
+                  />
+                </label>
+                <label>
+                  Description
+                  <textarea
+                    value={editingMedia.description || ''}
+                    onChange={(e) => setEditingMedia({
+                      ...editingMedia,
+                      description: e.target.value
+                    })}
+                    placeholder="Add a description..."
+                    rows={3}
+                  />
+                </label>
+                <label>
+                  Type
+                  <select
+                    value={editingMedia.type || 'photo'}
+                    onChange={(e) => setEditingMedia({
+                      ...editingMedia,
+                      type: e.target.value
+                    })}
+                  >
+                    {Object.entries(MEDIA_TYPES).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Date Taken
+                  <input
+                    type="date"
+                    value={editingMedia.date_taken || ''}
+                    onChange={(e) => setEditingMedia({
+                      ...editingMedia,
+                      date_taken: e.target.value
+                    })}
+                  />
+                </label>
+              </div>
+              <div className="delete-confirm-actions">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setEditingMedia(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={handleSaveEdit}
+                >
+                  Save
                 </button>
               </div>
             </div>
