@@ -12,6 +12,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
+import TitleBar from './components/TitleBar';
 import Toolbar from './components/Toolbar';
 import Sidebar from './components/Sidebar';
 import PedigreeView from './components/PedigreeView';
@@ -30,7 +31,7 @@ import SourcesLibrary from './components/SourcesLibrary';
 import LibraryPanel from './components/LibraryPanel';
 import { exportToImage, exportToSvg } from './utils/export';
 import { useTheme } from './contexts/ThemeContext';
-import { useDatabase, usePersons, useUnions, useEvents, usePlaces, useSources, generateId } from './data';
+import { useDatabase, usePersons, useUnions, useEvents, usePlaces, useSources, useMedia, generateId } from './data';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -143,7 +144,8 @@ function App() {
   const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, getParentUnionForPerson, findOrCreateUnion, fetchAllUnions } = useUnions();
   const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent } = useEvents();
   const { places } = usePlaces();
-  const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, createCitation, updateCitation, deleteCitation } = useSources();
+  const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getCitationsForMedia, createCitation, updateCitation, deleteCitation } = useSources();
+  const { getMediaForPerson } = useMedia();
 
   // Loaded events for selected person (bundle mode)
   const [loadedBirthEvent, setLoadedBirthEvent] = useState(null);
@@ -160,6 +162,7 @@ function App() {
   const [eventCitations, setEventCitations] = useState({}); // Map of eventId -> citations[]
   const [personUnionCitations, setPersonUnionCitations] = useState({}); // Map of unionId -> citations[] for PersonView
   const [unionCitations, setUnionCitations] = useState([]); // Citations for union being edited in dialog
+  const [mediaCitations, setMediaCitations] = useState({}); // Map of mediaId -> citations[] for PersonView
 
   // Core data state - using new format (legacy JSON mode)
   const [data, setData] = useState(createEmptyData());
@@ -376,6 +379,7 @@ function App() {
     setDeathCitations([]);
     setEventCitations({});
     setPersonUnionCitations({});
+    setMediaCitations({});
 
     const loadPersonData = async () => {
       if (storageMode === 'bundle' && selectedPersonId && isOpen) {
@@ -430,10 +434,21 @@ function App() {
           }
         }
         setPersonUnionCitations(unionCitationsMap);
+
+        // Load citations for media
+        const media = await getMediaForPerson(selectedPersonId);
+        const mediaCitationsMap = {};
+        for (const item of (media || [])) {
+          const citations = await getCitationsForMedia(item.id);
+          if (citations && citations.length > 0) {
+            mediaCitationsMap[item.id] = citations;
+          }
+        }
+        setMediaCitations(mediaCitationsMap);
       }
     };
     loadPersonData();
-  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getEventsForPerson, getUnionsForPerson, getParentUnionForPerson, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion]);
+  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getEventsForPerson, getUnionsForPerson, getParentUnionForPerson, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getMediaForPerson, getCitationsForMedia]);
 
   // Load citations for union being edited
   useEffect(() => {
@@ -1460,6 +1475,7 @@ function App() {
           deathCitations={deathCitations}
           eventCitations={eventCitations}
           unionCitations={personUnionCitations}
+          mediaCitations={mediaCitations}
           onCreateCitation={async (data) => {
             await createCitation(data);
             // Reload citations for the affected person, event or union
@@ -1482,6 +1498,11 @@ function App() {
               const unionId = data.union_id;
               const citations = await getCitationsForUnion(unionId);
               setPersonUnionCitations(prev => ({ ...prev, [unionId]: citations || [] }));
+            }
+            if (data.media_id) {
+              const mediaId = data.media_id;
+              const citations = await getCitationsForMedia(mediaId);
+              setMediaCitations(prev => ({ ...prev, [mediaId]: citations || [] }));
             }
           }}
           onUpdateCitation={async (citationId, data) => {
@@ -1509,6 +1530,14 @@ function App() {
             for (const union of loadedUnions) {
               const citations = await getCitationsForUnion(union.id);
               setPersonUnionCitations(prev => ({ ...prev, [union.id]: citations || [] }));
+            }
+            // Also reload media citations
+            if (selectedPersonId) {
+              const media = await getMediaForPerson(selectedPersonId);
+              for (const item of (media || [])) {
+                const citations = await getCitationsForMedia(item.id);
+                setMediaCitations(prev => ({ ...prev, [item.id]: citations || [] }));
+              }
             }
           }}
           onDeleteCitation={async (citationId) => {
@@ -1543,6 +1572,18 @@ function App() {
               }
             }
             setPersonUnionCitations(unionCitationsMap);
+            // Also reload media citations
+            if (selectedPersonId) {
+              const media = await getMediaForPerson(selectedPersonId);
+              const mediaCitationsMap = {};
+              for (const item of (media || [])) {
+                const citations = await getCitationsForMedia(item.id);
+                if (citations && citations.length > 0) {
+                  mediaCitationsMap[item.id] = citations;
+                }
+              }
+              setMediaCitations(mediaCitationsMap);
+            }
           }}
           dbSources={dbSources}
         />
@@ -1611,6 +1652,10 @@ function App() {
 
   return (
     <div className="app">
+      <TitleBar
+        title="Heritage"
+        subtitle={bundleInfo?.name}
+      />
       <Toolbar
         onAddNode={addNode}
         onExportPng={handleExportPng}

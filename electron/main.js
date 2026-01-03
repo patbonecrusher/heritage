@@ -305,6 +305,8 @@ function createWindow() {
     minWidth: 1600,
     minHeight: 800,
     icon: path.join(__dirname, '../assets/icon.icns'),
+    titleBarStyle: 'hiddenInset', // Custom title bar on macOS
+    trafficLightPosition: { x: 12, y: 8 }, // Center traffic lights in 28px title bar
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -480,6 +482,32 @@ ipcMain.handle('set-credentials', (event, { site, credentials }) => {
 });
 ipcMain.handle('get-all-credentials', () => secureStore.getAllCredentials());
 ipcMain.handle('has-credentials', (event, site) => secureStore.hasCredentials(site));
+
+// ============================================
+// Window Control Handlers
+// ============================================
+
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow) mainWindow.close();
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow ? mainWindow.isMaximized() : false;
+});
 
 // ============================================
 // Bundle Management Handlers

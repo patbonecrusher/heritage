@@ -262,6 +262,37 @@
   text-overflow: ellipsis;
 }
 
+/* Media item badges */
+.library-panel-content .media-item .media-item-badges {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.library-panel-content .media-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+  line-height: 1.2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.library-panel-content .face-badge {
+  background: var(--color-primary);
+  color: white;
+}
+
+.library-panel-content .citation-badge {
+  background: #f59e0b;
+  color: white;
+}
+
 /* Places list for panel */
 .library-panel-content .place-item {
   display: flex;

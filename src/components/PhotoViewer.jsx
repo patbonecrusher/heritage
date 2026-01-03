@@ -7,9 +7,20 @@ import { detectFaces, loadModels } from '../utils/faceDetector';
 import { useMedia } from '../data/useMedia';
 import { usePersons } from '../data/usePersons';
 import { useDatabase } from '../data/DatabaseContext';
+import CitationList from './CitationList';
 import './PhotoViewer.css';
 
-export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
+export function PhotoViewer({
+  mediaId,
+  imageSrc,
+  mediaPath,
+  onClose,
+  citations = [],
+  onAddCitation,
+  onEditCitation,
+  onDeleteCitation,
+  dbSources = [],
+}) {
   const containerRef = useRef(null);
   const imageRef = useRef(null);
   const photoContainerRef = useRef(null);
@@ -619,21 +630,33 @@ export function PhotoViewer({ mediaId, imageSrc, mediaPath, onClose }) {
         </div>
 
         <div className="photo-viewer-footer">
-          <div className="zoom-controls">
-            <span className="zoom-level">{Math.round(scale * 100)}%</span>
-            {scale !== 1 && (
-              <button className="reset-zoom-btn" onClick={resetZoom}>
-                Reset
-              </button>
-            )}
+          <div className="photo-viewer-footer-row">
+            <div className="zoom-controls">
+              <span className="zoom-level">{Math.round(scale * 100)}%</span>
+              {scale !== 1 && (
+                <button className="reset-zoom-btn" onClick={resetZoom}>
+                  Reset
+                </button>
+              )}
+            </div>
+            <div className="face-count">
+              {savedFaceTags.length > 0 && (
+                <span>{savedFaceTags.length} tagged</span>
+              )}
+              {detectedFaces.length > 0 && (
+                <span>{detectedFaces.length} detected (untagged)</span>
+              )}
+            </div>
           </div>
-          <div className="face-count">
-            {savedFaceTags.length > 0 && (
-              <span>{savedFaceTags.length} tagged</span>
-            )}
-            {detectedFaces.length > 0 && (
-              <span>{detectedFaces.length} detected (untagged)</span>
-            )}
+
+          <div className="photo-viewer-citations">
+            <CitationList
+              citations={citations}
+              onAdd={onAddCitation}
+              onEdit={onEditCitation}
+              onDelete={onDeleteCitation}
+              isEditing={true}
+            />
           </div>
         </div>
       </div>

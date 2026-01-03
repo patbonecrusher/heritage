@@ -8,7 +8,14 @@ import { useDatabase } from '../data/DatabaseContext';
 import PhotoViewer from './PhotoViewer';
 import './MediaGallery.css';
 
-export function MediaGallery({ personId }) {
+export function MediaGallery({
+  personId,
+  mediaCitations = {},
+  onAddCitation,
+  onEditCitation,
+  onDeleteCitation,
+  dbSources = [],
+}) {
   const { isOpen, refreshTrigger } = useDatabase();
   const { getMediaForPerson, importAndCreateMedia, linkMedia, unlinkMedia } = useMedia();
 
@@ -128,6 +135,11 @@ export function MediaGallery({ personId }) {
                 {photo.face_count > 0 && (
                   <span className="face-count-badge">{photo.face_count}</span>
                 )}
+                {(mediaCitations[photo.id]?.length > 0) && (
+                  <span className="citation-count-badge" title="Citations">
+                    {mediaCitations[photo.id].length}
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -148,6 +160,11 @@ export function MediaGallery({ personId }) {
           imageSrc={selectedPhoto.fullPath}
           mediaPath={selectedPhoto.path}
           onClose={() => setSelectedPhoto(null)}
+          citations={mediaCitations[selectedPhoto.id] || []}
+          onAddCitation={() => onAddCitation?.(selectedPhoto.id)}
+          onEditCitation={onEditCitation}
+          onDeleteCitation={onDeleteCitation}
+          dbSources={dbSources}
         />
       )}
     </div>

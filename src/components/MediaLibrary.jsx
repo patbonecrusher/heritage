@@ -586,32 +586,53 @@ export function MediaPanelContent({ onOpenFullLibrary }) {
           </div>
         ) : (
           <div className="media-grid">
-            {filteredMedia.map(item => (
-              <div
-                key={item.id}
-                className="media-item"
-                draggable="true"
-                onDragStart={(e) => handleDragStart(e, item)}
-                onDragEnd={handleDragEnd}
-                onClick={() => setSelectedMedia(item)}
-                title={`Click to view/edit, drag to link: ${item.title || item.filename}`}
-              >
-                {item.thumbnailFullPath || item.fullPath ? (
-                  <img
-                    src={item.thumbnailFullPath || item.fullPath}
-                    alt={item.title || item.filename}
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="media-item-icon">
-                    {getMediaIcon(item.type)}
+            {filteredMedia.map(item => {
+              // Build tooltip with tagged person names
+              const tooltipParts = [`Click to view/edit, drag to link: ${item.title || item.filename}`];
+              if (item.tagged_faces) {
+                tooltipParts.push(`Tagged: ${item.tagged_faces}`);
+              }
+              const tooltip = tooltipParts.join('\n');
+
+              return (
+                <div
+                  key={item.id}
+                  className="media-item"
+                  draggable="true"
+                  onDragStart={(e) => handleDragStart(e, item)}
+                  onDragEnd={handleDragEnd}
+                  onClick={() => setSelectedMedia(item)}
+                  title={tooltip}
+                >
+                  {item.thumbnailFullPath || item.fullPath ? (
+                    <img
+                      src={item.thumbnailFullPath || item.fullPath}
+                      alt={item.title || item.filename}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="media-item-icon">
+                      {getMediaIcon(item.type)}
+                    </div>
+                  )}
+                  <div className="media-item-badges">
+                    {item.face_count > 0 && (
+                      <span className="media-badge face-badge" title={item.tagged_faces || 'Tagged faces'}>
+                        {item.face_count}
+                      </span>
+                    )}
+                    {item.citation_count > 0 && (
+                      <span className="media-badge citation-badge" title="Citations">
+                        {item.citation_count}
+                      </span>
+                    )}
                   </div>
-                )}
-                <div className="media-item-label">
-                  {item.title || item.filename}
+                  <div className="media-item-label">
+                    {item.title || item.filename}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -1,0 +1,103 @@
+/* TitleBar - Custom window title bar */
+
+.title-bar {
+  height: 28px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  user-select: none;
+  -webkit-app-region: drag; /* Make entire title bar draggable */
+}
+
+/* Drag region extends the full width but leaves space for controls */
+.title-bar-drag-region {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  -webkit-app-region: drag;
+}
+
+/* Title centered */
+.title-bar-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 1;
+  pointer-events: none; /* Allow drag through title */
+}
+
+.title-bar-app-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.title-bar-subtitle {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-textMuted);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title-bar-subtitle::before {
+  content: '—';
+  margin-right: 6px;
+  opacity: 0.5;
+}
+
+/* Window controls (Windows/Linux only - Mac uses native traffic lights) */
+.title-bar-controls {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: no-drag; /* Make buttons clickable */
+}
+
+.title-bar-btn {
+  width: 36px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.title-bar-btn:hover {
+  background: var(--color-surfaceHover);
+}
+
+.title-bar-btn.close:hover {
+  background: #e81123;
+  color: white;
+}
+
+.title-bar-btn svg {
+  width: 9px;
+  height: 9px;
+}
+
+/* Ensure buttons don't have focus outline issues */
+.title-bar-btn:focus {
+  outline: none;
+}
+
+.title-bar-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}

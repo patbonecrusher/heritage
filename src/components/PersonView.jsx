@@ -652,6 +652,7 @@ export default function PersonView({
   onNavigateForward, canNavigateForward, places = [],
   // Citation props
   personCitations = [], birthCitations = [], deathCitations = [], eventCitations = {}, unionCitations = {},
+  mediaCitations = {},
   onCreateCitation, onUpdateCitation, onDeleteCitation, dbSources = []
 }) {
   const { theme } = useTheme();
@@ -1454,7 +1455,22 @@ export default function PersonView({
                       <span className="pv-card-title">Media</span>
                     </div>
                     <div className="pv-card-body">
-                      <MediaGallery personId={person?.id} compact />
+                      <MediaGallery
+                          personId={person?.id}
+                          mediaCitations={mediaCitations}
+                          onAddCitation={(mediaId) => {
+                            setCitationTarget({ type: 'media', mediaId });
+                            setCitationDialogOpen(true);
+                          }}
+                          onEditCitation={(citation) => {
+                            setEditingCitation(citation);
+                            setCitationTarget({ type: 'media', mediaId: citation.media_id });
+                            setCitationDialogOpen(true);
+                          }}
+                          onDeleteCitation={(citationId) => onDeleteCitation?.(citationId)}
+                          dbSources={dbSources}
+                          compact
+                        />
                     </div>
                   </div>
                 </MediaDropZone>
@@ -1608,6 +1624,35 @@ export default function PersonView({
             </div>
           </div>
         )}
+
+        {/* Citation Dialog - also needed in view mode for media citations */}
+        <CitationDialog
+          isOpen={citationDialogOpen}
+          onClose={() => {
+            setCitationDialogOpen(false);
+            setEditingCitation(null);
+            setCitationTarget(null);
+          }}
+          onSave={(citationData) => {
+            if (editingCitation) {
+              onUpdateCitation?.(editingCitation.id, citationData);
+            } else {
+              onCreateCitation?.({
+                ...citationData,
+                person_id: citationTarget?.personId,
+                event_id: citationTarget?.eventId,
+                union_id: citationTarget?.unionId,
+                media_id: citationTarget?.mediaId
+              });
+            }
+            setCitationDialogOpen(false);
+            setEditingCitation(null);
+            setCitationTarget(null);
+          }}
+          initialData={editingCitation}
+          sources={dbSources}
+          targetType={citationTarget?.type}
+        />
       </div>
     );
   }
@@ -2523,7 +2568,8 @@ export default function PersonView({
               ...citationData,
               person_id: citationTarget?.personId,
               event_id: citationTarget?.eventId,
-              union_id: citationTarget?.unionId
+              union_id: citationTarget?.unionId,
+              media_id: citationTarget?.mediaId
             });
           }
           setCitationDialogOpen(false);

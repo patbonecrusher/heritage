@@ -12,7 +12,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const BUNDLE_EXTENSION = '.heritage';
-const CURRENT_FORMAT_VERSION = 1;
+const CURRENT_FORMAT_VERSION = 2;
 
 const INFO_PLIST_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -267,15 +267,21 @@ class BundleManager {
 
     try {
       // Always ensure is_living column exists (added in v1.1)
-      const columns = db.pragma('table_info(person)');
-      const hasIsLiving = columns.some(col => col.name === 'is_living');
+      const personColumns = db.pragma('table_info(person)');
+      const hasIsLiving = personColumns.some(col => col.name === 'is_living');
       if (!hasIsLiving) {
         console.log('Adding is_living column to person table');
         db.exec('ALTER TABLE person ADD COLUMN is_living INTEGER DEFAULT 0');
       }
 
-      // Future migrations go here:
-      // if (fromVersion < 2) { ... }
+      // v2: Add media_id to citation table for media citations
+      const citationColumns = db.pragma('table_info(citation)');
+      const hasMediaId = citationColumns.some(col => col.name === 'media_id');
+      if (!hasMediaId) {
+        console.log('Adding media_id column to citation table');
+        db.exec('ALTER TABLE citation ADD COLUMN media_id TEXT REFERENCES media(id)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_citation_media ON citation(media_id)');
+      }
     } finally {
       db.close();
     }

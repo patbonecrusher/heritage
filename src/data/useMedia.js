@@ -45,7 +45,8 @@ export function useMedia() {
         (SELECT GROUP_CONCAT(p.given_names || ' ' || p.surname, ', ')
          FROM face_tag ft
          JOIN person p ON ft.person_id = p.id
-         WHERE ft.media_id = m.id AND ft.deleted_at IS NULL AND ft.person_id IS NOT NULL) as tagged_faces
+         WHERE ft.media_id = m.id AND ft.deleted_at IS NULL AND ft.person_id IS NOT NULL) as tagged_faces,
+        (SELECT COUNT(*) FROM citation c WHERE c.media_id = m.id AND c.deleted_at IS NULL) as citation_count
       FROM media m
       WHERE m.deleted_at IS NULL
       ORDER BY m.created_at DESC
