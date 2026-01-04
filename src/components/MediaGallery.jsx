@@ -1,12 +1,38 @@
 /**
- * MediaGallery - Component for displaying and managing photos for a person
+ * MediaGallery - Renders top-level media cards by type for PersonView
  */
 
-import { useState, useEffect } from 'react';
-import { useMedia } from '../data/useMedia';
+import { useState, useEffect, Fragment } from 'react';
+import { useMedia, MEDIA_TYPES } from '../data/useMedia';
 import { useDatabase } from '../data/DatabaseContext';
 import PhotoViewer from './PhotoViewer';
 import './MediaGallery.css';
+
+// Icons for each media type
+const MEDIA_ICONS = {
+  photo: '📷',
+  document: '📄',
+  certificate: '📜',
+  headstone: '🪦',
+  newspaper: '📰',
+  map: '🗺️',
+  audio: '🎵',
+  video: '🎬',
+  other: '📎',
+};
+
+// Import folder mapping
+const IMPORT_FOLDERS = {
+  photo: 'photos',
+  document: 'documents',
+  certificate: 'documents',
+  headstone: 'headstones',
+  newspaper: 'documents',
+  map: 'documents',
+  audio: 'documents',
+  video: 'documents',
+  other: 'documents',
+};
 
 export function MediaGallery({
   personId,
@@ -17,157 +43,233 @@ export function MediaGallery({
   dbSources = [],
 }) {
   const { isOpen, refreshTrigger } = useDatabase();
-  const { getMediaForPerson, importAndCreateMedia, linkMedia, unlinkMedia } = useMedia();
+  const { getMediaForPerson, getMediaWithPerson, importAndCreateMedia, linkMedia, unlinkMedia } = useMedia();
 
-  const [photos, setPhotos] = useState([]);
+  const [mediaByType, setMediaByType] = useState({});
   const [loading, setLoading] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [selectedMedia, setSelectedMedia] = useState(null);
 
-  // Load photos for this person
+  // Load all media for this person grouped by type
   useEffect(() => {
     if (!personId || !isOpen) {
-      setPhotos([]);
+      setMediaByType({});
       return;
     }
 
     setLoading(true);
-    getMediaForPerson(personId)
-      .then(media => {
-        // Filter to only photos
-        const photoMedia = media.filter(m =>
-          m.type === 'photo' ||
-          m.mime_type?.startsWith('image/')
-        );
-        setPhotos(photoMedia);
-      })
-      .catch(err => console.error('Error loading photos:', err))
-      .finally(() => setLoading(false));
-  }, [personId, isOpen, getMediaForPerson, refreshTrigger]);
 
-  // Unlink photo from person
-  const handleUnlink = async (e, photo) => {
-    e.stopPropagation(); // Don't open the photo viewer
-    try {
-      await unlinkMedia(photo.id, 'person', personId);
-      // Refresh the list
-      const media = await getMediaForPerson(personId);
-      const photoMedia = media.filter(m =>
-        m.type === 'photo' ||
-        m.mime_type?.startsWith('image/')
-      );
-      setPhotos(photoMedia);
-    } catch (err) {
-      console.error('Error unlinking photo:', err);
+    Promise.all([
+      getMediaForPerson(personId),
+      getMediaWithPerson(personId)
+    ])
+      .then(([linkedMedia, taggedMedia]) => {
+        const linkedIds = new Set(linkedMedia.map(m => m.id));
+
+        // Group by type
+        const grouped = {};
+
+        // Add linked media
+        for (const media of linkedMedia) {
+          const type = media.type || 'other';
+          if (!grouped[type]) grouped[type] = [];
+          grouped[type].push({ ...media, isLinked: true });
+        }
+
+        // Add tagged media (photos only) that aren't already linked
+        for (const media of taggedMedia) {
+          if (!linkedIds.has(media.id)) {
+            const type = media.type || 'photo';
+            if (!grouped[type]) grouped[type] = [];
+            grouped[type].push({ ...media, isLinked: false, isTagged: true });
+          }
+        }
+
+        setMediaByType(grouped);
+      })
+      .catch(err => console.error('Error loading media:', err))
+      .finally(() => setLoading(false));
+  }, [personId, isOpen, getMediaForPerson, getMediaWithPerson, refreshTrigger]);
+
+  // Refresh media list
+  const refreshMedia = async () => {
+    const [linkedMedia, taggedMedia] = await Promise.all([
+      getMediaForPerson(personId),
+      getMediaWithPerson(personId)
+    ]);
+    const linkedIds = new Set(linkedMedia.map(m => m.id));
+
+    const grouped = {};
+    for (const media of linkedMedia) {
+      const type = media.type || 'other';
+      if (!grouped[type]) grouped[type] = [];
+      grouped[type].push({ ...media, isLinked: true });
     }
+    for (const media of taggedMedia) {
+      if (!linkedIds.has(media.id)) {
+        const type = media.type || 'photo';
+        if (!grouped[type]) grouped[type] = [];
+        grouped[type].push({ ...media, isLinked: false, isTagged: true });
+      }
+    }
+    setMediaByType(grouped);
   };
 
-  // Import new photos
-  const handleImportPhotos = async () => {
+  // Import media of a specific type
+  const handleImport = async (mediaType) => {
     try {
-      const imported = await importAndCreateMedia('photos');
+      const folder = IMPORT_FOLDERS[mediaType] || 'documents';
+      const imported = await importAndCreateMedia(folder, { type: mediaType });
       if (imported && imported.length > 0) {
-        // Link each imported photo to this person
-        for (const photo of imported) {
-          await linkMedia(photo.id, { person_id: personId });
+        for (const media of imported) {
+          await linkMedia(media.id, { person_id: personId });
         }
-        // Refresh photos
-        const media = await getMediaForPerson(personId);
-        const photoMedia = media.filter(m =>
-          m.type === 'photo' ||
-          m.mime_type?.startsWith('image/')
-        );
-        setPhotos(photoMedia);
+        await refreshMedia();
       }
     } catch (err) {
-      console.error('Error importing photos:', err);
+      console.error('Error importing media:', err);
     }
   };
 
-  // Open photo viewer
-  const openPhotoViewer = (photo) => {
-    setSelectedPhoto(photo);
+  // Unlink media
+  const handleUnlink = async (media) => {
+    try {
+      await unlinkMedia(media.id, 'person', personId);
+      await refreshMedia();
+    } catch (err) {
+      console.error('Error unlinking media:', err);
+    }
+  };
+
+  // Get all media as flat array for navigation
+  const getAllMedia = () => {
+    return Object.values(mediaByType).flat();
   };
 
   if (!isOpen) {
-    return null; // Don't show in legacy mode
+    return null;
   }
 
-  return (
-    <div className="media-gallery">
-      <div className="media-gallery-header">
-        <h3 className="media-gallery-title">Photos</h3>
-        <button
-          type="button"
-          className="btn-secondary btn-small"
-          onClick={handleImportPhotos}
-        >
-          + Add Photos
-        </button>
-      </div>
+  if (loading) {
+    return <div className="media-gallery-loading">Loading media...</div>;
+  }
 
-      {loading ? (
-        <div className="media-gallery-loading">Loading...</div>
-      ) : photos.length === 0 ? (
-        <div className="media-gallery-empty">
-          <p>No photos</p>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={handleImportPhotos}
-          >
-            Import Photos
-          </button>
-        </div>
-      ) : (
-        <div className="media-gallery-grid">
-          {photos.map(photo => (
-            <div key={photo.id} className="media-gallery-item-wrapper">
+  // Types to show (photo first, then others that have items)
+  const typesWithItems = Object.keys(mediaByType).filter(t => mediaByType[t]?.length > 0);
+  const photoFirst = typesWithItems.includes('photo')
+    ? ['photo', ...typesWithItems.filter(t => t !== 'photo')]
+    : typesWithItems;
+
+  // Always show photo card, even if empty
+  const typesToShow = photoFirst.includes('photo') ? photoFirst : ['photo', ...photoFirst];
+
+  return (
+    <Fragment>
+      {typesToShow.map(type => {
+        const icon = MEDIA_ICONS[type] || MEDIA_ICONS.other;
+        const label = MEDIA_TYPES[type] || 'Other';
+        const items = mediaByType[type] || [];
+
+        return (
+          <div key={type} className="pv-card">
+            <div className="pv-card-header">
+              <span className="pv-card-icon">{icon}</span>
+              <span className="pv-card-title">{label}s</span>
               <button
                 type="button"
-                className="media-gallery-item"
-                onClick={() => openPhotoViewer(photo)}
+                className="pv-card-add-btn"
+                onClick={() => handleImport(type)}
+                title={`Add ${label}`}
               >
-                <img
-                  src={photo.thumbnailFullPath || photo.fullPath}
-                  alt={photo.title || 'Photo'}
-                  loading="lazy"
-                />
-                {photo.face_count > 0 && (
-                  <span className="face-count-badge">{photo.face_count}</span>
-                )}
-                {(mediaCitations[photo.id]?.length > 0) && (
-                  <span className="citation-count-badge" title="Citations">
-                    {mediaCitations[photo.id].length}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                className="media-gallery-unlink"
-                onClick={(e) => handleUnlink(e, photo)}
-                title="Unlink from person"
-              >
-                ×
+                +
               </button>
             </div>
-          ))}
-        </div>
-      )}
+            <div className="pv-card-body">
+              {items.length === 0 ? (
+                <div className="media-empty">No {label.toLowerCase()}s</div>
+              ) : (
+                <div className="media-grid">
+                  {items.map(item => (
+                    <div key={item.id} className="media-item-wrapper">
+                      <button
+                        type="button"
+                        className="media-item"
+                        onClick={() => setSelectedMedia(item)}
+                      >
+                        {item.mime_type?.startsWith('image/') ? (
+                          <img
+                            src={item.thumbnailFullPath || item.fullPath}
+                            alt={item.title || label}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="media-item-icon">{icon}</span>
+                        )}
+                        {item.isTagged && !item.isLinked && (
+                          <span className="media-tagged-badge" title="Tagged in photo">👤</span>
+                        )}
+                        {item.face_count > 0 && (
+                          <span className="media-face-badge">{item.face_count}</span>
+                        )}
+                        {(mediaCitations[item.id]?.length > 0) && (
+                          <span className="media-citation-badge" title="Citations">
+                            {mediaCitations[item.id].length}
+                          </span>
+                        )}
+                      </button>
+                      {item.isLinked && (
+                        <button
+                          type="button"
+                          className="media-unlink-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUnlink(item);
+                          }}
+                          title="Unlink"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
 
-      {selectedPhoto && (
+      {selectedMedia && (
         <PhotoViewer
-          mediaId={selectedPhoto.id}
-          imageSrc={selectedPhoto.fullPath}
-          mediaPath={selectedPhoto.path}
-          onClose={() => setSelectedPhoto(null)}
-          citations={mediaCitations[selectedPhoto.id] || []}
-          onAddCitation={() => onAddCitation?.(selectedPhoto.id)}
+          mediaId={selectedMedia.id}
+          imageSrc={selectedMedia.fullPath}
+          mediaPath={selectedMedia.path}
+          onClose={() => setSelectedMedia(null)}
+          citations={mediaCitations[selectedMedia.id] || []}
+          onAddCitation={() => onAddCitation?.(selectedMedia.id)}
           onEditCitation={onEditCitation}
           onDeleteCitation={onDeleteCitation}
           dbSources={dbSources}
+          hasNext={(() => {
+            const all = getAllMedia();
+            return all.findIndex(m => m.id === selectedMedia.id) < all.length - 1;
+          })()}
+          hasPrevious={(() => {
+            const all = getAllMedia();
+            return all.findIndex(m => m.id === selectedMedia.id) > 0;
+          })()}
+          onNext={() => {
+            const all = getAllMedia();
+            const idx = all.findIndex(m => m.id === selectedMedia.id);
+            if (idx < all.length - 1) setSelectedMedia(all[idx + 1]);
+          }}
+          onPrevious={() => {
+            const all = getAllMedia();
+            const idx = all.findIndex(m => m.id === selectedMedia.id);
+            if (idx > 0) setSelectedMedia(all[idx - 1]);
+          }}
         />
       )}
-    </div>
+    </Fragment>
   );
 }
 

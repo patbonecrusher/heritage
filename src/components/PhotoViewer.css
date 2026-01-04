@@ -38,6 +38,36 @@
   color: var(--text-primary, #fff);
 }
 
+.photo-viewer-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  background: var(--bg-secondary, #2a2a2a);
+  color: var(--text-primary, #fff);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: var(--accent-color, #4a9eff);
+  border-color: var(--accent-color, #4a9eff);
+}
+
+.nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .photo-viewer-actions {
   display: flex;
   gap: 8px;
@@ -273,6 +303,21 @@
 
 .photo-viewer-citations .citation-list {
   font-size: 12px;
+}
+
+.photo-viewer-notes {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #333);
+  margin-top: 12px;
+}
+
+.photo-viewer-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
 }
 
 .face-count {

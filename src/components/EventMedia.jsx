@@ -107,6 +107,20 @@ export function EventMedia({ eventId, compact = false }) {
           imageSrc={selectedMedia.fullPath}
           mediaPath={selectedMedia.path}
           onClose={() => setSelectedMedia(null)}
+          hasNext={media.findIndex(m => m.id === selectedMedia.id) < media.length - 1}
+          hasPrevious={media.findIndex(m => m.id === selectedMedia.id) > 0}
+          onNext={() => {
+            const currentIndex = media.findIndex(m => m.id === selectedMedia.id);
+            if (currentIndex < media.length - 1) {
+              setSelectedMedia(media[currentIndex + 1]);
+            }
+          }}
+          onPrevious={() => {
+            const currentIndex = media.findIndex(m => m.id === selectedMedia.id);
+            if (currentIndex > 0) {
+              setSelectedMedia(media[currentIndex - 1]);
+            }
+          }}
         />
       )}
     </div>

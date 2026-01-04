@@ -369,6 +369,24 @@ CREATE INDEX idx_change_log_record ON change_log(record_id);
 CREATE INDEX idx_change_log_session ON change_log(session_id);
 
 -- ============================================
+-- NOTES (polymorphic - attach to any entity)
+-- ============================================
+CREATE TABLE note (
+    id TEXT PRIMARY KEY,  -- UUID
+    entity_type TEXT NOT NULL,  -- 'person', 'event', 'union', 'media', 'place', 'source', 'citation'
+    entity_id TEXT NOT NULL,
+    title TEXT,  -- optional title
+    content TEXT NOT NULL,  -- note content (supports markdown)
+    is_private INTEGER DEFAULT 0,  -- private notes not included in exports
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT
+);
+
+CREATE INDEX idx_note_entity ON note(entity_type, entity_id);
+CREATE INDEX idx_note_created ON note(created_at);
+
+-- ============================================
 -- RESEARCH TASKS (optional - for tracking research)
 -- ============================================
 CREATE TABLE research_task (

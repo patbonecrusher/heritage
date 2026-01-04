@@ -81,6 +81,8 @@
   display: flex;
   flex-direction: column;
   line-height: 1.2;
+  min-width: 0;
+  max-width: 120px;
 }
 
 .pv-parent-label {
@@ -94,6 +96,9 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pv-parent-dates {
@@ -243,6 +248,28 @@
   margin-left: 4px;
 }
 
+.pv-card-add-btn {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: var(--color-primary);
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.pv-card-add-btn:hover {
+  background: var(--color-primaryHover, #3a8eef);
+}
+
 .pv-card-body {
   padding: 16px;
 }
@@ -390,6 +417,12 @@
   height: 20px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.pv-event-notes {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
 }
 
 .pv-event-media {
@@ -547,6 +580,11 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.pv-family-notes {
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-border);
 }
 
 /* Child styling with gender color */
@@ -761,12 +799,17 @@
 .pv-family-chip-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100px;
 }
 
 .pv-family-chip-name {
   font-size: 12px;
   font-weight: 500;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pv-family-chip-dates {

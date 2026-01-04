@@ -232,6 +232,11 @@ function buildMenu() {
           accelerator: 'CmdOrCtrl+0',
           click: () => mainWindow.webContents.send('menu-fit-view')
         },
+        {
+          label: 'Toggle Library',
+          accelerator: 'CmdOrCtrl+L',
+          click: () => mainWindow.webContents.send('menu-toggle-library')
+        },
         { type: 'separator' },
         {
           label: 'Enable Claude Desktop Integration',
@@ -437,7 +442,8 @@ protocol.registerSchemesAsPrivileged([
 app.whenReady().then(() => {
   // Register protocol handler for heritage-media://
   protocol.handle('heritage-media', (request) => {
-    // URL format: heritage-media://media/path/to/file.jpg
+    // URL format: heritage-media://media/photos/file.jpg
+    // 'media' is the host, pathname is /photos/file.jpg
     const url = new URL(request.url);
     const relativePath = decodeURIComponent(url.pathname.slice(1)); // Remove leading /
 
@@ -445,7 +451,8 @@ app.whenReady().then(() => {
       return new Response('No bundle open', { status: 404 });
     }
 
-    const fullPath = path.join(bundleManager.bundlePath, relativePath);
+    // Files are stored in the Media folder within the bundle
+    const fullPath = path.join(bundleManager.bundlePath, 'Media', relativePath);
 
     // Security check: ensure path is within bundle
     if (!fullPath.startsWith(bundleManager.bundlePath)) {

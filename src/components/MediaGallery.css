@@ -1,113 +1,108 @@
-/* MediaGallery styles */
-
-.media-gallery {
-  margin-top: 16px;
-}
-
-.media-gallery-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.media-gallery-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary, #fff);
-  margin: 0;
-}
-
-.btn-small {
-  font-size: 12px;
-  padding: 4px 10px;
-}
+/* MediaGallery styles - integrates with PersonView's pv-card */
 
 .media-gallery-loading {
   padding: 20px;
   text-align: center;
-  color: var(--text-secondary, #888);
+  color: var(--color-textMuted, #888);
   font-size: 13px;
 }
 
-.media-gallery-empty {
-  padding: 20px;
+.media-empty {
+  padding: 12px;
   text-align: center;
-  color: var(--text-secondary, #888);
-  font-size: 13px;
+  color: var(--color-textMuted, #666);
+  font-size: 12px;
+  font-style: italic;
 }
 
-.media-gallery-empty p {
-  margin: 0 0 12px 0;
-}
-
-.media-gallery-grid {
+.media-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 6px;
 }
 
-.media-gallery-item {
+.media-item-wrapper {
   position: relative;
+}
+
+.media-item {
+  position: relative;
+  width: 100%;
   aspect-ratio: 1;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
   padding: 0;
-  background: var(--bg-tertiary, #333);
+  background: var(--color-background, #1a1a1a);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.media-gallery-item:hover {
+.media-item:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.media-gallery-item img {
+.media-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.face-count-badge {
+.media-item-icon {
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Badges */
+.media-face-badge {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(147, 51, 234, 0.9);
+  color: white;
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 8px;
+}
+
+.media-citation-badge {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  background: rgba(245, 158, 11, 0.9);
+  color: white;
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 8px;
+}
+
+.media-tagged-badge {
+  position: absolute;
+  top: 2px;
+  left: 2px;
   background: rgba(0, 0, 0, 0.7);
-  color: white;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 10px;
+  font-size: 9px;
+  padding: 1px 3px;
+  border-radius: 3px;
 }
 
-.citation-count-badge {
+/* Unlink button */
+.media-unlink-btn {
   position: absolute;
-  bottom: 4px;
-  left: 4px;
-  background: var(--accent-color, #4a9eff);
-  color: white;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 10px;
-}
-
-/* Wrapper for photo with unlink button */
-.media-gallery-item-wrapper {
-  position: relative;
-}
-
-.media-gallery-unlink {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
   border: none;
   border-radius: 50%;
   background: rgba(239, 68, 68, 0.9);
   color: white;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
@@ -118,10 +113,10 @@
   z-index: 5;
 }
 
-.media-gallery-item-wrapper:hover .media-gallery-unlink {
+.media-item-wrapper:hover .media-unlink-btn {
   opacity: 1;
 }
 
-.media-gallery-unlink:hover {
+.media-unlink-btn:hover {
   background: #dc2626;
 }

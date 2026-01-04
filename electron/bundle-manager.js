@@ -204,12 +204,13 @@ class BundleManager {
 
   /**
    * Get the full path to a media file
+   * @param relativePath - Path relative to Media folder (e.g., "photos/file.jpg")
    */
   resolveMediaPath(relativePath) {
     if (!this.bundlePath) {
       throw new Error('No bundle open');
     }
-    return path.join(this.bundlePath, relativePath);
+    return path.join(this.bundlePath, 'Media', relativePath);
   }
 
   /**
@@ -281,6 +282,47 @@ class BundleManager {
         console.log('Adding media_id column to citation table');
         db.exec('ALTER TABLE citation ADD COLUMN media_id TEXT REFERENCES media(id)');
         db.exec('CREATE INDEX IF NOT EXISTS idx_citation_media ON citation(media_id)');
+      }
+
+      // v3: Add note table for polymorphic notes
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='note'").all();
+      if (tables.length === 0) {
+        console.log('Creating note table');
+        db.exec(`
+          CREATE TABLE note (
+            id TEXT PRIMARY KEY,
+            entity_type TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            title TEXT,
+            content TEXT NOT NULL,
+            is_private INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            deleted_at TEXT
+          );
+          CREATE INDEX idx_note_entity ON note(entity_type, entity_id);
+          CREATE INDEX idx_note_created ON note(created_at);
+        `);
+
+        // Migrate existing person.notes to note table
+        const personsWithNotes = db.prepare(`
+          SELECT id, notes, created_at FROM person
+          WHERE notes IS NOT NULL AND notes != '' AND deleted_at IS NULL
+        `).all();
+
+        if (personsWithNotes.length > 0) {
+          console.log(`Migrating ${personsWithNotes.length} person notes to note table`);
+          const insertNote = db.prepare(`
+            INSERT INTO note (id, entity_type, entity_id, content, created_at, updated_at)
+            VALUES (?, 'person', ?, ?, ?, ?)
+          `);
+
+          for (const person of personsWithNotes) {
+            const noteId = uuidv4();
+            const now = new Date().toISOString();
+            insertNote.run(noteId, person.id, person.notes, person.created_at || now, now);
+          }
+        }
       }
     } finally {
       db.close();

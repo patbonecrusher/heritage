@@ -1,0 +1,223 @@
+/* NotesSection styles */
+
+.notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notes-section-loading {
+  padding: 12px;
+  text-align: center;
+  color: var(--color-textMuted);
+  font-size: 12px;
+}
+
+/* Notes list */
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Individual note */
+.note-item {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.note-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.note-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.note-header-spacer {
+  flex: 1;
+}
+
+.note-date {
+  font-size: 11px;
+  color: var(--color-textMuted);
+}
+
+.note-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.note-action-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.note-action-btn:hover {
+  background: var(--color-surface);
+}
+
+.note-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.note-content {
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Add/Edit forms */
+.note-add-form,
+.note-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-title-input {
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.note-title-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.note-title-input::placeholder {
+  color: var(--color-textMuted);
+  font-weight: 400;
+}
+
+.note-content-input {
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-background);
+  color: var(--color-text);
+  resize: vertical;
+  min-height: 60px;
+}
+
+.note-content-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.note-content-input::placeholder {
+  color: var(--color-textMuted);
+}
+
+.note-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Add note button */
+.note-add-btn {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.note-add-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+}
+
+/* Empty state */
+.notes-empty {
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-textMuted);
+  font-style: italic;
+}
+
+/* Compact mode */
+.notes-section.compact .note-item {
+  padding: 8px 10px;
+}
+
+.notes-section.compact .note-content {
+  font-size: 12px;
+}
+
+.notes-section.compact .note-title {
+  font-size: 12px;
+}
+
+/* Button styles (reuse from app) */
+.notes-section .btn-primary {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.notes-section .btn-primary:hover {
+  background: var(--color-primaryHover, #3a8eef);
+}
+
+.notes-section .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notes-section .btn-secondary {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.notes-section .btn-secondary:hover {
+  background: var(--color-background);
+}
+
+.notes-section .btn-small {
+  padding: 4px 10px;
+}

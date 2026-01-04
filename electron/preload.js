@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuPreferences: (callback) => ipcRenderer.on('menu-preferences', callback),
   onMenuAddPerson: (callback) => ipcRenderer.on('menu-add-person', callback),
   onMenuFitView: (callback) => ipcRenderer.on('menu-fit-view', callback),
+  onMenuToggleLibrary: (callback) => ipcRenderer.on('menu-toggle-library', callback),
 
   // Bundle opened event (for double-click open)
   onBundleOpened: (callback) => ipcRenderer.on('bundle-opened', (event, data) => callback(data)),
@@ -36,6 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('menu-preferences');
     ipcRenderer.removeAllListeners('menu-add-person');
     ipcRenderer.removeAllListeners('menu-fit-view');
+    ipcRenderer.removeAllListeners('menu-toggle-library');
     ipcRenderer.removeAllListeners('bundle-opened');
     ipcRenderer.removeAllListeners('database-changed');
   },

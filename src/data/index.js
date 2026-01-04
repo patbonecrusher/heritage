@@ -28,3 +28,4 @@ export { useEvents, EVENT_TYPES } from './useEvents';
 export { useMedia, MEDIA_TYPES } from './useMedia';
 export { usePlaces, PLACE_TYPES } from './usePlaces';
 export { useSources, SOURCE_TYPES, COMMON_SOURCES, CONFIDENCE_LEVELS } from './useSources';
+export { useNotes, NOTE_ENTITY_TYPES } from './useNotes';
