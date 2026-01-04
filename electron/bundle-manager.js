@@ -204,12 +204,13 @@ class BundleManager {
 
   /**
    * Get the full path to a media file
+   * @param relativePath - Path relative to Media folder (e.g., "photos/file.jpg")
    */
   resolveMediaPath(relativePath) {
     if (!this.bundlePath) {
       throw new Error('No bundle open');
     }
-    return path.join(this.bundlePath, relativePath);
+    return path.join(this.bundlePath, 'Media', relativePath);
   }
 
   /**

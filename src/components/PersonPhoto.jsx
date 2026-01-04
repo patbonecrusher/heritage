@@ -7,16 +7,18 @@ import { useMedia } from '../data/useMedia';
 import { useDatabase } from '../data/DatabaseContext';
 import './PersonPhoto.css';
 
-export function PersonPhoto({ personId, width = 80, height = 100, className = '' }) {
+export function PersonPhoto({ personId, width = 80, height = 100, className = '', onClick }) {
   const { isOpen, refreshTrigger } = useDatabase();
   const { getMediaWithPerson } = useMedia();
 
   const [photoData, setPhotoData] = useState(null);
+  const [mediaInfo, setMediaInfo] = useState(null); // Full media object for click handler
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!personId || !isOpen) {
       setPhotoData(null);
+      setMediaInfo(null);
       setLoading(false);
       return;
     }
@@ -36,13 +38,16 @@ export function PersonPhoto({ personId, width = 80, height = 100, className = ''
             width: photo.width,
             height: photo.height,
           });
+          setMediaInfo(photo); // Store full media object for click handler
         } else {
           setPhotoData(null);
+          setMediaInfo(null);
         }
       })
       .catch(err => {
         console.error('Error loading person photo:', err);
         setPhotoData(null);
+        setMediaInfo(null);
       })
       .finally(() => setLoading(false));
   }, [personId, isOpen, getMediaWithPerson, refreshTrigger]);
@@ -89,10 +94,22 @@ export function PersonPhoto({ personId, width = 80, height = 100, className = ''
   const scale = Math.max(scaleX, scaleY);
   const imgWidthPercent = scale * 100;
 
+  const handleClick = () => {
+    if (onClick && mediaInfo) {
+      onClick(mediaInfo);
+    }
+  };
+
+  const isClickable = onClick && mediaInfo;
+
   return (
     <div
-      className={`person-photo ${className}`}
+      className={`person-photo ${className} ${isClickable ? 'clickable' : ''}`}
       style={{ width, height }}
+      onClick={isClickable ? handleClick : undefined}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter') handleClick(); } : undefined}
     >
       <img
         src={photoData.src}

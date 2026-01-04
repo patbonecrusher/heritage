@@ -15,6 +15,10 @@ export function PhotoViewer({
   imageSrc,
   mediaPath,
   onClose,
+  onNext,
+  onPrevious,
+  hasNext = false,
+  hasPrevious = false,
   citations = [],
   onAddCitation,
   onEditCitation,
@@ -461,6 +465,28 @@ export function PhotoViewer({
     setTranslate({ x: 0, y: 0 });
   };
 
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't navigate if person picker is open or if focus is in an input
+      if (showPersonPicker || e.target.tagName === 'INPUT') return;
+
+      if (e.key === 'ArrowRight' && hasNext && onNext) {
+        e.preventDefault();
+        onNext();
+      } else if (e.key === 'ArrowLeft' && hasPrevious && onPrevious) {
+        e.preventDefault();
+        onPrevious();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasNext, hasPrevious, onNext, onPrevious, onClose, showPersonPicker]);
+
   // Render resize handles for a face box
   const handleResizeClick = (e) => {
     e.stopPropagation();
@@ -484,6 +510,24 @@ export function PhotoViewer({
     <div className="photo-viewer-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
       <div className="photo-viewer-container" onClick={e => e.stopPropagation()} ref={containerRef}>
         <div className="photo-viewer-header">
+          <div className="photo-viewer-nav">
+            <button
+              className="nav-btn prev"
+              onClick={onPrevious}
+              disabled={!hasPrevious}
+              title="Previous (←)"
+            >
+              ‹
+            </button>
+            <button
+              className="nav-btn next"
+              onClick={onNext}
+              disabled={!hasNext}
+              title="Next (→)"
+            >
+              ›
+            </button>
+          </div>
           <div className="photo-viewer-title">Photo Viewer</div>
           <div className="photo-viewer-actions">
             <button

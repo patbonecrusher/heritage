@@ -81,6 +81,8 @@
   display: flex;
   flex-direction: column;
   line-height: 1.2;
+  min-width: 0;
+  max-width: 120px;
 }
 
 .pv-parent-label {
@@ -94,6 +96,9 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pv-parent-dates {
@@ -761,12 +766,17 @@
 .pv-family-chip-info {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100px;
 }
 
 .pv-family-chip-name {
   font-size: 12px;
   font-weight: 500;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pv-family-chip-dates {

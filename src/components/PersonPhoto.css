@@ -42,3 +42,18 @@
 .person-photo-round .person-photo-placeholder {
   font-size: 1em;
 }
+
+/* Clickable state */
+.person-photo.clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.person-photo.clickable:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.person-photo.clickable:active {
+  transform: scale(0.98);
+}

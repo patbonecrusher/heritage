@@ -9,6 +9,7 @@ import { PlaceDropZone, MediaDropZone } from './DropZone';
 import EventMedia from './EventMedia';
 import CitationList from './CitationList';
 import CitationDialog from './CitationDialog';
+import PhotoViewer from './PhotoViewer';
 import { getParentIds, getChildrenIds } from '../utils/dataModel';
 import { useDatabase } from '../data/DatabaseContext';
 import './PersonViewNew.css';
@@ -702,6 +703,9 @@ export default function PersonView({
   const [editingCitation, setEditingCitation] = useState(null);
   const [citationTarget, setCitationTarget] = useState(null); // { type: 'birth'|'death'|'event', eventId: string }
 
+  // Portrait photo viewer state
+  const [portraitMedia, setPortraitMedia] = useState(null);
+
   // Swipe gesture handling (touch devices)
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
@@ -1309,7 +1313,7 @@ export default function PersonView({
                   ←
                 </button>
               )}
-              <PersonPhoto personId={person?.id} width={70} height={90} />
+              <PersonPhoto personId={person?.id} width={70} height={90} onClick={setPortraitMedia} />
               <div className="pv-name-section">
                 <h1 className="pv-name">
                   {displayName}
@@ -1328,6 +1332,7 @@ export default function PersonView({
                     type="button"
                     className="pv-parent-card father has-person-tooltip"
                     onClick={() => onSelectPerson?.(parents.father.id)}
+                    title={[parents.father.firstName, parents.father.lastName].filter(Boolean).join(' ') || 'Unknown'}
                   >
                     <PersonPhoto personId={parents.father.id} width={28} height={28} className="person-photo-round" />
                     <div className="pv-parent-info">
@@ -1357,6 +1362,7 @@ export default function PersonView({
                     type="button"
                     className="pv-parent-card mother has-person-tooltip"
                     onClick={() => onSelectPerson?.(parents.mother.id)}
+                    title={[parents.mother.firstName, parents.mother.lastName].filter(Boolean).join(' ') || 'Unknown'}
                   >
                     <PersonPhoto personId={parents.mother.id} width={28} height={28} className="person-photo-round" />
                     <div className="pv-parent-info">
@@ -1618,6 +1624,7 @@ export default function PersonView({
                         type="button"
                         className={`pv-family-chip has-person-tooltip ${child.gender || ''}`}
                         onClick={() => onSelectPerson?.(child.id)}
+                        title={[child.firstName, child.lastName].filter(Boolean).join(' ')}
                       >
                         <PersonPhoto personId={child.id} width={28} height={28} className="person-photo-round" />
                         <div className="pv-family-chip-info">
@@ -1670,6 +1677,15 @@ export default function PersonView({
           sources={dbSources}
           targetType={citationTarget?.type}
         />
+
+        {portraitMedia && (
+          <PhotoViewer
+            mediaId={portraitMedia.id}
+            imageSrc={portraitMedia.fullPath}
+            mediaPath={portraitMedia.path}
+            onClose={() => setPortraitMedia(null)}
+          />
+        )}
       </div>
     );
   }
@@ -2597,6 +2613,15 @@ export default function PersonView({
         sources={dbSources}
         targetType={citationTarget?.type}
       />
+
+      {portraitMedia && (
+        <PhotoViewer
+          mediaId={portraitMedia.id}
+          imageSrc={portraitMedia.fullPath}
+          mediaPath={portraitMedia.path}
+          onClose={() => setPortraitMedia(null)}
+        />
+      )}
     </div>
   );
 }

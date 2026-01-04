@@ -293,6 +293,20 @@ export function MediaLibrary({ onClose }) {
               setSelectedMedia(null);
               refreshMedia(); // Refresh in case faces were tagged
             }}
+            hasNext={filteredMedia.findIndex(m => m.id === selectedMedia.id) < filteredMedia.length - 1}
+            hasPrevious={filteredMedia.findIndex(m => m.id === selectedMedia.id) > 0}
+            onNext={() => {
+              const currentIndex = filteredMedia.findIndex(m => m.id === selectedMedia.id);
+              if (currentIndex < filteredMedia.length - 1) {
+                setSelectedMedia(filteredMedia[currentIndex + 1]);
+              }
+            }}
+            onPrevious={() => {
+              const currentIndex = filteredMedia.findIndex(m => m.id === selectedMedia.id);
+              if (currentIndex > 0) {
+                setSelectedMedia(filteredMedia[currentIndex - 1]);
+              }
+            }}
           />
         )}
 
@@ -645,6 +659,20 @@ export function MediaPanelContent({ onOpenFullLibrary }) {
           onClose={() => {
             setSelectedMedia(null);
             refreshMedia(); // Refresh in case faces were tagged
+          }}
+          hasNext={filteredMedia.findIndex(m => m.id === selectedMedia.id) < filteredMedia.length - 1}
+          hasPrevious={filteredMedia.findIndex(m => m.id === selectedMedia.id) > 0}
+          onNext={() => {
+            const currentIndex = filteredMedia.findIndex(m => m.id === selectedMedia.id);
+            if (currentIndex < filteredMedia.length - 1) {
+              setSelectedMedia(filteredMedia[currentIndex + 1]);
+            }
+          }}
+          onPrevious={() => {
+            const currentIndex = filteredMedia.findIndex(m => m.id === selectedMedia.id);
+            if (currentIndex > 0) {
+              setSelectedMedia(filteredMedia[currentIndex - 1]);
+            }
           }}
         />
       )}

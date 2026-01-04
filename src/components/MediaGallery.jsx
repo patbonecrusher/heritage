@@ -165,6 +165,20 @@ export function MediaGallery({
           onEditCitation={onEditCitation}
           onDeleteCitation={onDeleteCitation}
           dbSources={dbSources}
+          hasNext={photos.findIndex(p => p.id === selectedPhoto.id) < photos.length - 1}
+          hasPrevious={photos.findIndex(p => p.id === selectedPhoto.id) > 0}
+          onNext={() => {
+            const currentIndex = photos.findIndex(p => p.id === selectedPhoto.id);
+            if (currentIndex < photos.length - 1) {
+              setSelectedPhoto(photos[currentIndex + 1]);
+            }
+          }}
+          onPrevious={() => {
+            const currentIndex = photos.findIndex(p => p.id === selectedPhoto.id);
+            if (currentIndex > 0) {
+              setSelectedPhoto(photos[currentIndex - 1]);
+            }
+          }}
         />
       )}
     </div>
