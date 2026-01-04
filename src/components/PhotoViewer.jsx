@@ -8,6 +8,7 @@ import { useMedia } from '../data/useMedia';
 import { usePersons } from '../data/usePersons';
 import { useDatabase } from '../data/DatabaseContext';
 import CitationList from './CitationList';
+import NotesSection from './NotesSection';
 import './PhotoViewer.css';
 
 export function PhotoViewer({
@@ -700,6 +701,15 @@ export function PhotoViewer({
               onEdit={onEditCitation}
               onDelete={onDeleteCitation}
               isEditing={true}
+            />
+          </div>
+
+          <div className="photo-viewer-notes">
+            <div className="photo-viewer-section-title">Notes</div>
+            <NotesSection
+              entityType="media"
+              entityId={mediaId}
+              compact
             />
           </div>
         </div>

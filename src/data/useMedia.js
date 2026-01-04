@@ -111,12 +111,16 @@ export function useMedia() {
   }, [query, resolveMediaPath]);
 
   // Import and create media record
-  const importAndCreateMedia = useCallback(async (type = 'photos', metadata = {}) => {
-    const imported = await importMedia(type);
+  const importAndCreateMedia = useCallback(async (folder = 'photos', metadata = {}) => {
+    const imported = await importMedia(folder);
     if (!imported || imported.length === 0) return null;
 
     const results = [];
     const now = new Date().toISOString();
+
+    // Determine media type: use metadata.type if provided, otherwise infer from folder
+    const inferredType = folder === 'photos' ? 'photo' : folder === 'headstones' ? 'headstone' : 'document';
+    const mediaType = metadata.type || inferredType;
 
     for (const file of imported) {
       const id = file.id; // UUID from bundle-manager
@@ -132,7 +136,7 @@ export function useMedia() {
         file.path,
         file.thumbnailPath || null,
         file.filename,
-        type === 'photos' ? 'photo' : type === 'documents' ? 'document' : 'other',
+        mediaType,
         file.mimeType,
         metadata.title || null,
         metadata.description || null,

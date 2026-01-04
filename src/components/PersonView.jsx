@@ -10,6 +10,7 @@ import EventMedia from './EventMedia';
 import CitationList from './CitationList';
 import CitationDialog from './CitationDialog';
 import PhotoViewer from './PhotoViewer';
+import NotesSection from './NotesSection';
 import { getParentIds, getChildrenIds } from '../utils/dataModel';
 import { useDatabase } from '../data/DatabaseContext';
 import './PersonViewNew.css';
@@ -677,7 +678,6 @@ export default function PersonView({
   const [deathPlace, setDeathPlace] = useState('');
   const [deathPlaceId, setDeathPlaceId] = useState(null);
   const [deathEventId, setDeathEventId] = useState(null);
-  const [notes, setNotes] = useState('');
   const [colorIndex, setColorIndex] = useState(0);
   const [personSources, setPersonSources] = useState([]);
   const [birthSources, setBirthSources] = useState([]);
@@ -686,6 +686,7 @@ export default function PersonView({
   const [unions, setUnions] = useState([]);
   const [birthExpanded, setBirthExpanded] = useState(true);
   const [deathExpanded, setDeathExpanded] = useState(true);
+  const [noteAddTrigger, setNoteAddTrigger] = useState(false);
   const [selectedFatherId, setSelectedFatherId] = useState('');
   const [selectedMotherId, setSelectedMotherId] = useState('');
   const [showNewParentDialog, setShowNewParentDialog] = useState(null);
@@ -796,7 +797,6 @@ export default function PersonView({
       setDeathPlace(person.deathPlace || '');
       setDeathPlaceId(person.deathPlaceId || null);
       setDeathEventId(person.deathEventId || null);
-      setNotes(person.notes || '');
       setColorIndex(person.colorIndex ?? 0);
       setPersonSources(person.sources || []);
       setBirthSources(person.birthSources || []);
@@ -899,8 +899,6 @@ export default function PersonView({
       birthPlaceId,
       deathPlace,
       deathPlaceId,
-      notes,
-      description: notes,
       dates,
       colorIndex,
       sources: personSources,
@@ -910,7 +908,7 @@ export default function PersonView({
     });
 
     setIsEditing(false);
-  }, [title, firstName, middleName, lastName, maidenName, nickname, gender, birthDate, deathDate, birthPlace, birthPlaceId, deathPlace, deathPlaceId, notes, colorIndex, personSources, birthSources, deathSources, events, unions, person, onSave, onUnionsChange, selectedFatherId, selectedMotherId, onParentsChange]);
+  }, [title, firstName, middleName, lastName, maidenName, nickname, gender, birthDate, deathDate, birthPlace, birthPlaceId, deathPlace, deathPlaceId, colorIndex, personSources, birthSources, deathSources, events, unions, person, onSave, onUnionsChange, selectedFatherId, selectedMotherId, onParentsChange]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1049,7 +1047,6 @@ export default function PersonView({
             setBirthPlaceId(person.birthPlaceId || null);
             setDeathPlace(person.deathPlace || '');
             setDeathPlaceId(person.deathPlaceId || null);
-            setNotes(person.notes || '');
             setColorIndex(person.colorIndex ?? 0);
             setPersonSources(person.sources || []);
             setBirthSources(person.birthSources || []);
@@ -1446,6 +1443,15 @@ export default function PersonView({
                                 </div>
                               )}
                               {event.eventId && <EventMedia eventId={event.eventId} />}
+                              {event.eventId && (
+                                <div className="pv-event-notes">
+                                  <NotesSection
+                                    entityType="event"
+                                    entityId={event.eventId}
+                                    compact
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1459,38 +1465,55 @@ export default function PersonView({
 
               {/* Center Column - Media & Family */}
               <div className="pv-column-center">
-                {/* Media Card */}
+                {/* Media Cards (Photos, Documents, etc.) - accepts drops from library */}
                 <MediaDropZone
                   personId={person?.id}
                   onMediaLinked={() => triggerRefresh?.()}
-                  className="section-drop-zone"
-                  label="Drop photo to link"
+                  className="media-section-drop-zone"
+                  label="Drop to link media"
                 >
-                  <div className="pv-card">
-                    <div className="pv-card-header">
-                      <span className="pv-card-icon">📷</span>
-                      <span className="pv-card-title">Media</span>
-                    </div>
-                    <div className="pv-card-body">
-                      <MediaGallery
-                          personId={person?.id}
-                          mediaCitations={mediaCitations}
-                          onAddCitation={(mediaId) => {
-                            setCitationTarget({ type: 'media', mediaId });
-                            setCitationDialogOpen(true);
-                          }}
-                          onEditCitation={(citation) => {
-                            setEditingCitation(citation);
-                            setCitationTarget({ type: 'media', mediaId: citation.media_id });
-                            setCitationDialogOpen(true);
-                          }}
-                          onDeleteCitation={(citationId) => onDeleteCitation?.(citationId)}
-                          dbSources={dbSources}
-                          compact
-                        />
-                    </div>
-                  </div>
+                  <MediaGallery
+                    personId={person?.id}
+                    mediaCitations={mediaCitations}
+                    onAddCitation={(mediaId) => {
+                      setCitationTarget({ type: 'media', mediaId });
+                      setCitationDialogOpen(true);
+                    }}
+                    onEditCitation={(citation) => {
+                      setEditingCitation(citation);
+                      setCitationTarget({ type: 'media', mediaId: citation.media_id });
+                      setCitationDialogOpen(true);
+                    }}
+                    onDeleteCitation={(citationId) => onDeleteCitation?.(citationId)}
+                    dbSources={dbSources}
+                  />
                 </MediaDropZone>
+
+                {/* Notes Card */}
+                <div className="pv-card" style={{ marginTop: 20 }}>
+                  <div className="pv-card-header">
+                    <span className="pv-card-icon">📝</span>
+                    <span className="pv-card-title">Notes</span>
+                    <button
+                      className="pv-card-add-btn"
+                      onClick={() => setNoteAddTrigger(prev => !prev)}
+                      title="Add Note"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="pv-card-body">
+                    <NotesSection
+                      entityType="person"
+                      entityId={person?.id}
+                      showAddButton={false}
+                      externalAddTrigger={noteAddTrigger}
+                      onAddingChange={(adding) => {
+                        if (!adding) setNoteAddTrigger(false);
+                      }}
+                    />
+                  </div>
+                </div>
 
                 {/* Family Cards - One per union/spouse */}
                 {familyData.map(({ union, partner, children }, idx) => {
@@ -1545,49 +1568,23 @@ export default function PersonView({
                           })}
                         </div>
                       )}
+                      {/* Union Notes */}
+                      <div className="pv-family-notes">
+                        <NotesSection
+                          entityType="union"
+                          entityId={union.id}
+                          compact
+                        />
+                      </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Right Column - Notes & Sources */}
+              {/* Right Column - Sources */}
               <div className="pv-column-right">
-                {/* Notes Card */}
-                <div className="pv-card">
-                  <div className="pv-card-header">
-                    <span className="pv-card-icon">📝</span>
-                    <span className="pv-card-title">Notes</span>
-                  </div>
-                  <div className="pv-card-body">
-                    {notes ? (
-                      <div className="pv-notes">{notes}</div>
-                    ) : (
-                      <div className="pv-empty">No notes</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Sources Card */}
-                {personSources.length > 0 && (
-                  <div className="pv-card" style={{ marginTop: 20 }}>
-                    <div className="pv-card-header">
-                      <span className="pv-card-icon">📚</span>
-                      <span className="pv-card-title">Sources</span>
-                      <span className="pv-card-count">({personSources.length})</span>
-                    </div>
-                    <div className="pv-card-body">
-                      {personSources.map((source, idx) => (
-                        <div key={idx} className="pv-source-item">
-                          <div className="pv-source-title">{source.title || 'Untitled Source'}</div>
-                          {source.page && <div className="pv-source-detail">Page: {source.page}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Info Card */}
-                <div className="pv-card" style={{ marginTop: 20 }}>
+                <div className="pv-card">
                   <div className="pv-card-header">
                     <span className="pv-card-icon">ℹ️</span>
                     <span className="pv-card-title">Info</span>
@@ -1605,6 +1602,25 @@ export default function PersonView({
                     )}
                   </div>
                 </div>
+
+                {/* Sources Card */}
+                {personSources.length > 0 && (
+                  <div className="pv-card" style={{ marginTop: 12 }}>
+                    <div className="pv-card-header">
+                      <span className="pv-card-icon">📚</span>
+                      <span className="pv-card-title">Sources</span>
+                      <span className="pv-card-count">({personSources.length})</span>
+                    </div>
+                    <div className="pv-card-body">
+                      {personSources.map((source, idx) => (
+                        <div key={idx} className="pv-source-item">
+                          <div className="pv-source-title">{source.title || 'Untitled Source'}</div>
+                          {source.page && <div className="pv-source-detail">Page: {source.page}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2215,18 +2231,6 @@ export default function PersonView({
             </div>
           </div>
 
-          <div className="edit-view-section">
-            <h3 className="edit-view-section-title">Notes</h3>
-            <div className="form-group">
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="textarea-input"
-                placeholder="Occupation, achievements, stories..."
-                rows={4}
-              />
-            </div>
-          </div>
         </div>
 
         <div className="person-view-footer">

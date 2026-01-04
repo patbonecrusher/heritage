@@ -97,3 +97,17 @@
 .media-drop-zone.section-drop-zone > .person-view-section {
   margin-bottom: 0;
 }
+
+/* Media section drop zone - for media cards in PersonView */
+.media-drop-zone.media-section-drop-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.media-drop-zone.media-section-drop-zone.drop-active {
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 12px;
+  padding: 8px;
+  margin: -8px;
+}
