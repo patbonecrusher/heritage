@@ -1525,21 +1525,39 @@ export default function PersonView({
                     <div key={union.id} className="pv-card pv-family-card" style={{ marginTop: idx === 0 ? 20 : 12 }}>
                       <div
                         className={`pv-card-header pv-family-header has-person-tooltip ${partner?.gender || ''}`}
-                        onClick={() => partner && onSelectPerson?.(partner.id)}
                         style={{ cursor: partner ? 'pointer' : 'default' }}
                       >
-                        {partner ? (
-                          <PersonPhoto personId={partner.id} width={28} height={28} className="pv-family-header-photo" />
-                        ) : (
-                          <span className="pv-card-icon">💑</span>
-                        )}
-                        <span className="pv-card-title">{partnerName}</span>
-                        <span className="pv-card-count">
-                          {children.length > 0 && `${children.length} child${children.length > 1 ? 'ren' : ''}`}
-                        </span>
-                        {partner && (
-                          <PersonTooltip person={partner} position="below" />
-                        )}
+                        <div
+                          className="pv-family-header-clickable"
+                          onClick={() => partner && onSelectPerson?.(partner.id)}
+                        >
+                          {partner ? (
+                            <PersonPhoto personId={partner.id} width={28} height={28} className="pv-family-header-photo" />
+                          ) : (
+                            <span className="pv-card-icon">💑</span>
+                          )}
+                          <span className="pv-card-title">{partnerName}</span>
+                          <span className="pv-card-count">
+                            {children.length > 0 && `${children.length} child${children.length > 1 ? 'ren' : ''}`}
+                          </span>
+                          {partner && (
+                            <PersonTooltip person={partner} position="below" />
+                          )}
+                        </div>
+                        <button
+                          className="pv-card-add-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewFamilyFirstName('');
+                            setNewFamilyLastName(lastName || '');
+                            setNewFamilyGender('');
+                            setSelectedExistingChildId('');
+                            setShowNewFamilyDialog({ type: 'child', unionId: union.id });
+                          }}
+                          title="Add Child"
+                        >
+                          +
+                        </button>
                       </div>
                       {children.length > 0 && (
                         <div className="pv-card-body pv-family-body">
@@ -1701,6 +1719,143 @@ export default function PersonView({
             mediaPath={portraitMedia.path}
             onClose={() => setPortraitMedia(null)}
           />
+        )}
+
+        {/* New Family Member Dialog (Child) - View Mode */}
+        {showNewFamilyDialog && (
+          <div className="dialog-overlay" onClick={() => setShowNewFamilyDialog(null)} onWheel={e => e.stopPropagation()}>
+            <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
+              <div className="dialog-header">
+                <h3>Add Child</h3>
+              </div>
+              <div className="dialog-body">
+                {/* Select existing person */}
+                <div className="form-group">
+                  <label className="field-label">Select Existing Person</label>
+                  <PersonPicker
+                    value={selectedExistingChildId}
+                    people={allPeople}
+                    onChange={(personId) => {
+                      setSelectedExistingChildId(personId || '');
+                      if (personId) {
+                        setNewFamilyFirstName('');
+                        setNewFamilyLastName('');
+                        setNewFamilyGender('');
+                      }
+                    }}
+                    placeholder="Search for existing person..."
+                    excludeIds={[
+                      person?.id,
+                      ...(familyData.find(f => f.union.id === showNewFamilyDialog.unionId)?.children.map(c => c.id) || [])
+                    ].filter(Boolean)}
+                  />
+                </div>
+
+                {/* Divider */}
+                {!selectedExistingChildId && (
+                  <div style={{ textAlign: 'center', color: 'var(--color-textMuted)', margin: '12px 0', fontSize: '12px' }}>
+                    — or create new person —
+                  </div>
+                )}
+
+                {/* New person fields */}
+                {!selectedExistingChildId && (
+                  <>
+                    <div className="form-group">
+                      <label className="field-label">First Name</label>
+                      <input
+                        type="text"
+                        value={newFamilyFirstName}
+                        onChange={(e) => setNewFamilyFirstName(e.target.value)}
+                        className="text-input"
+                        placeholder="First name"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="field-label">Last Name</label>
+                      <input
+                        type="text"
+                        value={newFamilyLastName}
+                        onChange={(e) => setNewFamilyLastName(e.target.value)}
+                        className="text-input"
+                        placeholder="Last name"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="field-label">Gender</label>
+                      <ToggleGroup
+                        options={[
+                          { value: 'male', label: 'Male', className: 'gender-male' },
+                          { value: 'female', label: 'Female', className: 'gender-female' },
+                          { value: 'other', label: 'Other' },
+                        ]}
+                        value={newFamilyGender}
+                        onChange={setNewFamilyGender}
+                        name="new-family-gender-view"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="dialog-footer">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowNewFamilyDialog(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={async () => {
+                    let childIdToAdd = null;
+
+                    if (selectedExistingChildId) {
+                      childIdToAdd = selectedExistingChildId;
+                    } else if (onCreatePerson && (newFamilyFirstName || newFamilyLastName)) {
+                      childIdToAdd = onCreatePerson({
+                        firstName: newFamilyFirstName,
+                        lastName: newFamilyLastName,
+                        gender: newFamilyGender || ''
+                      });
+                    }
+
+                    if (childIdToAdd && person && showNewFamilyDialog.unionId) {
+                      const unionId = showNewFamilyDialog.unionId;
+                      const updatedUnions = unions.map(u =>
+                        u.id === unionId
+                          ? { ...u, childIds: [...(u.childIds || []), childIdToAdd] }
+                          : u
+                      );
+                      setUnions(updatedUnions);
+                      if (onUnionsChange) {
+                        const formattedUnions = updatedUnions
+                          .filter(u => u.partnerId)
+                          .map(u => ({
+                            id: u.id,
+                            partner1Id: person.id,
+                            partner2Id: u.partnerId,
+                            type: u.type || 'marriage',
+                            startDate: u.startDate,
+                            startPlace: u.startPlace || '',
+                            endDate: u.endDate,
+                            endReason: u.endReason || '',
+                            childIds: u.childIds || [],
+                            sources: u.sources || []
+                          }));
+                        onUnionsChange(formattedUnions);
+                      }
+                    }
+                    setShowNewFamilyDialog(null);
+                  }}
+                  disabled={!selectedExistingChildId && !newFamilyFirstName && !newFamilyLastName}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     );

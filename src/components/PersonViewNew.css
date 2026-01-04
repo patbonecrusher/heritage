@@ -537,6 +537,14 @@
   transition: background 0.15s ease;
 }
 
+.pv-family-header-clickable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
 .pv-family-header:hover {
   background: var(--color-surfaceHover);
 }
