@@ -12,7 +12,7 @@
   background: var(--color-background);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible !important;
 }
 
 /* Header with photo, name, parents */
@@ -489,6 +489,169 @@
   color: var(--color-text);
 }
 
+.pv-family-member-dates {
+  display: block;
+  font-size: 11px;
+  color: var(--color-textMuted);
+}
+
+/* Compact family card - needs overflow visible for tooltips */
+.pv-card.pv-family-card {
+  overflow: visible;
+}
+
+.pv-family-header {
+  transition: background 0.15s ease;
+}
+
+.pv-family-header:hover {
+  background: var(--color-surfaceHover);
+}
+
+.pv-family-header.male {
+  border-left: 4px solid var(--color-genderMaleBorder);
+  background: color-mix(in srgb, var(--color-genderMaleBg) 30%, var(--color-surface) 70%);
+}
+
+.pv-family-header.male:hover {
+  background: color-mix(in srgb, var(--color-genderMaleBg) 40%, var(--color-surface) 60%);
+}
+
+.pv-family-header.female {
+  border-left: 4px solid var(--color-genderFemaleBorder);
+  background: color-mix(in srgb, var(--color-genderFemaleBg) 30%, var(--color-surface) 70%);
+}
+
+.pv-family-header.female:hover {
+  background: color-mix(in srgb, var(--color-genderFemaleBg) 40%, var(--color-surface) 60%);
+}
+
+.pv-family-header-photo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pv-family-header .pv-card-title {
+  flex: 1;
+}
+
+.pv-family-header .pv-card-count {
+  margin-left: auto;
+}
+
+.pv-family-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Child styling with gender color */
+.pv-family-child {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+.pv-family-child.male {
+  border-left: 3px solid var(--color-genderMaleBorder);
+  background: color-mix(in srgb, var(--color-genderMaleBg) 20%, var(--color-background) 80%);
+}
+
+.pv-family-child.female {
+  border-left: 3px solid var(--color-genderFemaleBorder);
+  background: color-mix(in srgb, var(--color-genderFemaleBg) 20%, var(--color-background) 80%);
+}
+
+.pv-family-child .pv-family-member-photo {
+  width: 32px;
+  height: 32px;
+}
+
+.pv-family-child .pv-family-member-name {
+  font-size: 12px;
+}
+
+.pv-family-child .pv-family-member-dates {
+  font-size: 10px;
+}
+
+/* Themed tooltips */
+.has-tooltip {
+  position: relative;
+}
+
+.pv-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--color-text);
+  color: var(--color-background);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pv-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  right: 16px;
+  border: 6px solid transparent;
+  border-bottom-color: var(--color-text);
+}
+
+.has-tooltip:hover .pv-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Tooltip for family chips in bottom bar */
+.pv-family-chip {
+  position: relative;
+}
+
+.pv-family-chip .pv-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  top: auto;
+  right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 9999;
+}
+
+.pv-family-chip .pv-tooltip::before {
+  top: 100%;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  border-bottom-color: transparent;
+  border-top-color: var(--color-text);
+}
+
+/* Show tooltip on chip hover */
+.pv-family-chip:hover .pv-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
 /* Notes card */
 .pv-notes {
   font-size: 13px;
@@ -523,17 +686,22 @@
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
   padding: 12px 24px;
+  overflow: visible !important;
+  position: relative;
+  z-index: 10;
 }
 
 .pv-family-bar-inner {
   max-width: 1400px;
   margin: 0 auto;
+  overflow: visible;
 }
 
 .pv-family-bar-section {
   display: flex;
   align-items: center;
   gap: 16px;
+  overflow: visible;
 }
 
 .pv-family-bar-label {
@@ -548,11 +716,12 @@
 .pv-family-bar-members {
   display: flex;
   gap: 8px;
-  overflow-x: auto;
+  flex-wrap: wrap;
   padding: 4px 0;
 }
 
 .pv-family-chip {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;

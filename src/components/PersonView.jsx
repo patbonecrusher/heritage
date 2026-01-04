@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTheme } from '../contexts/ThemeContext';
 import MediaGallery from './MediaGallery';
 import PersonPhoto from './PersonPhoto';
+import PersonTooltip from './PersonTooltip';
 import PlacePicker from './PlacePicker';
 import PersonPicker from './PersonPicker';
 import { PlaceDropZone, MediaDropZone } from './DropZone';
@@ -1325,7 +1326,7 @@ export default function PersonView({
                 {parents.father ? (
                   <button
                     type="button"
-                    className="pv-parent-card father"
+                    className="pv-parent-card father has-person-tooltip"
                     onClick={() => onSelectPerson?.(parents.father.id)}
                   >
                     <PersonPhoto personId={parents.father.id} width={28} height={28} className="person-photo-round" />
@@ -1335,6 +1336,11 @@ export default function PersonView({
                         {[parents.father.firstName, parents.father.lastName].filter(Boolean).join(' ') || 'Unknown'}
                       </span>
                     </div>
+                    <PersonTooltip
+                      person={parents.father}
+                      spouses={parents.mother ? [parents.mother] : []}
+                      position="below"
+                    />
                   </button>
                 ) : (
                   <div className="pv-parent-card father">
@@ -1349,7 +1355,7 @@ export default function PersonView({
                 {parents.mother ? (
                   <button
                     type="button"
-                    className="pv-parent-card mother"
+                    className="pv-parent-card mother has-person-tooltip"
                     onClick={() => onSelectPerson?.(parents.mother.id)}
                   >
                     <PersonPhoto personId={parents.mother.id} width={28} height={28} className="person-photo-round" />
@@ -1359,6 +1365,11 @@ export default function PersonView({
                         {[parents.mother.firstName, parents.mother.lastName].filter(Boolean).join(' ') || 'Unknown'}
                       </span>
                     </div>
+                    <PersonTooltip
+                      person={parents.mother}
+                      spouses={parents.father ? [parents.father] : []}
+                      position="below"
+                    />
                   </button>
                 ) : (
                   <div className="pv-parent-card mother">
@@ -1475,57 +1486,62 @@ export default function PersonView({
                   </div>
                 </MediaDropZone>
 
-                {/* Family Members Card */}
-                {familyData.length > 0 && (
-                  <div className="pv-card" style={{ marginTop: 20 }}>
-                    <div className="pv-card-header">
-                      <span className="pv-card-icon">👨‍👩‍👧</span>
-                      <span className="pv-card-title">Family</span>
-                      <span className="pv-card-count">({familyData.length} union{familyData.length > 1 ? 's' : ''})</span>
-                    </div>
-                    <div className="pv-card-body">
-                      {familyData.map(({ union, partner, children }) => (
-                        <div key={union.id} style={{ marginBottom: 16 }}>
-                          {partner && (
-                            <div
-                              className="pv-family-member"
-                              onClick={() => onSelectPerson?.(partner.id)}
-                            >
-                              <div className="pv-family-member-photo" />
-                              <div className="pv-family-member-info">
-                                <span className="pv-family-member-role">
-                                  {UNION_TYPES.find(t => t.value === union.type)?.label || 'Partner'}
-                                </span>
-                                <span className="pv-family-member-name">
-                                  {[partner.firstName, partner.lastName].filter(Boolean).join(' ')}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          {children.length > 0 && (
-                            <div style={{ marginLeft: 24, marginTop: 8 }}>
-                              {children.map(child => (
-                                <div
-                                  key={child.id}
-                                  className="pv-family-member"
-                                  onClick={() => onSelectPerson?.(child.id)}
-                                >
-                                  <div className="pv-family-member-photo" />
-                                  <div className="pv-family-member-info">
-                                    <span className="pv-family-member-role">Child</span>
-                                    <span className="pv-family-member-name">
-                                      {[child.firstName, child.lastName].filter(Boolean).join(' ')}
+                {/* Family Cards - One per union/spouse */}
+                {familyData.map(({ union, partner, children }, idx) => {
+                  const partnerName = partner
+                    ? [partner.firstName, partner.lastName].filter(Boolean).join(' ')
+                    : 'Unknown Partner';
+
+                  return (
+                    <div key={union.id} className="pv-card pv-family-card" style={{ marginTop: idx === 0 ? 20 : 12 }}>
+                      <div
+                        className={`pv-card-header pv-family-header has-person-tooltip ${partner?.gender || ''}`}
+                        onClick={() => partner && onSelectPerson?.(partner.id)}
+                        style={{ cursor: partner ? 'pointer' : 'default' }}
+                      >
+                        {partner ? (
+                          <PersonPhoto personId={partner.id} width={28} height={28} className="pv-family-header-photo" />
+                        ) : (
+                          <span className="pv-card-icon">💑</span>
+                        )}
+                        <span className="pv-card-title">{partnerName}</span>
+                        <span className="pv-card-count">
+                          {children.length > 0 && `${children.length} child${children.length > 1 ? 'ren' : ''}`}
+                        </span>
+                        {partner && (
+                          <PersonTooltip person={partner} position="below" />
+                        )}
+                      </div>
+                      {children.length > 0 && (
+                        <div className="pv-card-body pv-family-body">
+                          {children.map(child => {
+                            const childName = [child.firstName, child.lastName].filter(Boolean).join(' ');
+
+                            return (
+                              <div
+                                key={child.id}
+                                className={`pv-family-member pv-family-child has-person-tooltip ${child.gender || ''}`}
+                                onClick={() => onSelectPerson?.(child.id)}
+                              >
+                                <PersonPhoto personId={child.id} width={32} height={32} className="pv-family-member-photo" />
+                                <div className="pv-family-member-info">
+                                  <span className="pv-family-member-name">{childName}</span>
+                                  {(child.birthDate?.year || child.deathDate?.year) && (
+                                    <span className="pv-family-member-dates">
+                                      {child.birthDate?.year && `☆ ${child.birthDate.year}`}
+                                      {child.deathDate?.year && ` † ${child.deathDate.year}`}
                                     </span>
-                                  </div>
+                                  )}
                                 </div>
-                              ))}
-                            </div>
-                          )}
+                                <PersonTooltip person={child} position="below" />
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
 
               {/* Right Column - Notes & Sources */}
@@ -1600,7 +1616,7 @@ export default function PersonView({
                       <button
                         key={child.id}
                         type="button"
-                        className={`pv-family-chip ${child.gender || ''}`}
+                        className={`pv-family-chip has-person-tooltip ${child.gender || ''}`}
                         onClick={() => onSelectPerson?.(child.id)}
                       >
                         <PersonPhoto personId={child.id} width={28} height={28} className="person-photo-round" />
@@ -1613,6 +1629,7 @@ export default function PersonView({
                             {child.deathDate?.year && ` † ${child.deathDate.year}`}
                           </span>
                         </div>
+                        <PersonTooltip person={child} position="above" />
                       </button>
                     ))
                   )}

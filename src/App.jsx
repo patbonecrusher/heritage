@@ -142,7 +142,7 @@ function App() {
   const { isOpen, bundleInfo, createBundle, openBundle, openBundlePath, closeBundle, isLoading, triggerRefresh } = useDatabase();
   const { persons, createPerson, updatePerson: updatePersonDb, deletePerson, getPerson, getPersonFull, fetchPersons } = usePersons();
   const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, getParentUnionForPerson, findOrCreateUnion, fetchAllUnions } = useUnions();
-  const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent } = useEvents();
+  const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent, getAllVitalEvents } = useEvents();
   const { places } = usePlaces();
   const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getCitationsForMedia, createCitation, updateCitation, deleteCitation } = useSources();
   const { getMediaForPerson } = useMedia();
@@ -154,6 +154,7 @@ function App() {
   const [loadedUnions, setLoadedUnions] = useState([]);
   const [loadedParentUnion, setLoadedParentUnion] = useState(null); // Union where person is a child
   const [loadedDataForPersonId, setLoadedDataForPersonId] = useState(null); // Track which person data belongs to
+  const [vitalEvents, setVitalEvents] = useState({}); // Map of personId -> { birthDate, deathDate, birthPlace, deathPlace }
 
   // Loaded citations for selected person (bundle mode)
   const [personCitations, setPersonCitations] = useState([]); // Citations attached to person
@@ -501,6 +502,17 @@ function App() {
       setSelectedPersonId(persons[0].id);
     }
   }, [storageMode, isOpen, persons, selectedPersonId]);
+
+  // Load vital events (birth/death) for all persons when bundle opens
+  useEffect(() => {
+    const loadVitalEvents = async () => {
+      if (storageMode === 'bundle' && isOpen) {
+        const events = await getAllVitalEvents();
+        setVitalEvents(events);
+      }
+    };
+    loadVitalEvents();
+  }, [storageMode, isOpen, getAllVitalEvents, triggerRefresh]);
 
   // Disabled: auto-loading last file on startup
   // The app now starts fresh each time
@@ -1082,14 +1094,19 @@ function App() {
           sources={data.sources || {}}
           onAddSource={handleAddSource}
           allPeople={storageMode === 'bundle'
-            ? persons.map(p => ({
-                id: p.id,
-                firstName: p.given_names || '',
-                lastName: p.surname || '',
-                gender: p.gender || '',
-                // Note: birthDate/deathDate would require loading events for all persons
-                // For now, we skip them in bundle mode's allPeople list
-              }))
+            ? persons.map(p => {
+                const vital = vitalEvents[p.id] || {};
+                return {
+                  id: p.id,
+                  firstName: p.given_names || '',
+                  lastName: p.surname || '',
+                  gender: p.gender || '',
+                  birthDate: vital.birthDate,
+                  deathDate: vital.deathDate,
+                  birthPlace: vital.birthPlace,
+                  deathPlace: vital.deathPlace,
+                };
+              })
             : (data.people || [])}
           existingUnions={unionsForView}
           allUnions={storageMode === 'bundle'
