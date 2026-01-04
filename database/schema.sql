@@ -201,6 +201,7 @@ CREATE TABLE citation (
     event_id TEXT REFERENCES event(id),
     union_id TEXT REFERENCES union_(id),
     person_name_id TEXT REFERENCES person_name(id),
+    media_id TEXT REFERENCES media(id),
 
     -- Citation-specific details
     url TEXT,  -- specific URL (e.g., FamilySearch record link)
@@ -231,6 +232,7 @@ CREATE INDEX idx_citation_person ON citation(person_id);
 CREATE INDEX idx_citation_event ON citation(event_id);
 CREATE INDEX idx_citation_union ON citation(union_id);
 CREATE INDEX idx_citation_person_name ON citation(person_name_id);
+CREATE INDEX idx_citation_media ON citation(media_id);
 
 -- ============================================
 -- MEDIA

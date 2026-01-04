@@ -1,0 +1,219 @@
+/* SourcesLibrary modal styles */
+.sources-library {
+  width: 90vw;
+  max-width: 900px;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.sources-library-toolbar {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  align-items: center;
+}
+
+.sources-search-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.sources-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.sources-filter-select {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.sources-common {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-border);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sources-common-label {
+  font-size: 12px;
+  color: var(--color-textMuted);
+}
+
+.sources-common-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sources-common-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.sources-library-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.sources-loading,
+.sources-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-textMuted);
+}
+
+.sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.source-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.source-item:hover {
+  border-color: var(--color-primary);
+}
+
+.source-icon {
+  font-size: 24px;
+  width: 32px;
+  text-align: center;
+}
+
+.source-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.source-name {
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.source-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--color-textMuted);
+  align-items: center;
+}
+
+.source-type {
+  background: var(--color-surfaceHover);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.source-url {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.source-url:hover {
+  text-decoration: underline;
+}
+
+.source-author {
+  font-style: italic;
+}
+
+.source-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.source-action-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.source-action-btn:hover {
+  background: var(--color-surfaceHover);
+}
+
+.source-action-btn.danger:hover {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+.sources-count {
+  font-size: 13px;
+  color: var(--color-textMuted);
+}
+
+/* Edit/Add dialog */
+.source-edit-dialog {
+  width: 90vw;
+  max-width: 500px;
+}
+
+.source-edit-dialog .dialog-body {
+  padding: 16px;
+}
+
+.source-edit-dialog .form-group {
+  margin-bottom: 16px;
+}
+
+.source-edit-dialog .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.source-edit-dialog .textarea-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.source-edit-dialog .textarea-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Panel content styles are now in LibraryPanel.css using shared .panel-* and .source-item classes */

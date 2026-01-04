@@ -1,0 +1,815 @@
+/* ==========================================
+   New Person View - Card-Based Layout
+   Inspired by Gramps-like genealogy software
+   ========================================== */
+
+/* Main container */
+.person-view-new {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 600px;
+  background: var(--color-background);
+  display: flex;
+  flex-direction: column;
+  overflow: visible !important;
+}
+
+/* Header with photo, name, parents */
+.pv-header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 24px;
+}
+
+.pv-header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Parents row at top */
+.pv-parents-row {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+/* Inline parents (centered in remaining space) */
+.pv-parents-inline {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  justify-content: center;
+}
+
+.pv-parent-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pv-parent-card:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.pv-parent-card.father {
+  border-left: 3px solid var(--color-genderMaleBorder);
+}
+
+.pv-parent-card.mother {
+  border-left: 3px solid var(--color-genderFemaleBorder);
+}
+
+.pv-parent-photo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+.pv-parent-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.pv-parent-label {
+  font-size: 9px;
+  color: var(--color-textMuted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pv-parent-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.pv-parent-dates {
+  font-size: 10px;
+  color: var(--color-textMuted);
+}
+
+/* Main info row: photo + name */
+.pv-main-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pv-photo {
+  width: 70px;
+  height: 90px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+.pv-photo-placeholder {
+  width: 70px;
+  height: 90px;
+  border-radius: 6px;
+  background: var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-textMuted);
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.pv-name-section {
+  min-width: 0;
+  margin-right: 24px;
+}
+
+.pv-name {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 2px 0;
+  line-height: 1.2;
+}
+
+.pv-dates {
+  font-size: 13px;
+  color: var(--color-textMuted);
+}
+
+.pv-children-count {
+  font-size: 12px;
+  color: var(--color-textMuted);
+}
+
+.pv-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Scrollable content area */
+.pv-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.pv-content-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Three-column grid */
+.pv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 280px;
+  gap: 20px;
+}
+
+@media (max-width: 1100px) {
+  .pv-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pv-grid .pv-column-right {
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pv-grid {
+    grid-template-columns: 1fr;
+  }
+  .pv-grid .pv-column-right {
+    grid-column: span 1;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card component */
+.pv-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pv-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 50%, var(--color-background) 50%);
+}
+
+.pv-card-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.pv-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.pv-card-count {
+  font-size: 13px;
+  color: var(--color-textMuted);
+  margin-left: 4px;
+}
+
+.pv-card-body {
+  padding: 16px;
+}
+
+/* Events Timeline */
+.pv-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pv-event {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.pv-event:last-child {
+  padding-bottom: 0;
+}
+
+/* Timeline connector */
+.pv-event::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-border);
+}
+
+.pv-event:last-child::before {
+  display: none;
+}
+
+.pv-event-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.pv-event-icon.birth {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.pv-event-icon.baptism {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.pv-event-icon.marriage {
+  border-color: #ec4899;
+  color: #ec4899;
+}
+
+.pv-event-icon.death {
+  border-color: #6b7280;
+  color: #6b7280;
+}
+
+.pv-event-icon.census {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.pv-event-icon.immigration,
+.pv-event-icon.emigration {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.pv-event-icon.burial {
+  border-color: #78716c;
+  color: #78716c;
+}
+
+.pv-event-icon.service {
+  border-color: #059669;
+  color: #059669;
+}
+
+.pv-event-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.pv-event-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.pv-event-type {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.pv-event-date {
+  font-size: 13px;
+  color: var(--color-textMuted);
+}
+
+.pv-event-age {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  margin-left: auto;
+}
+
+.pv-event-place {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pv-event-place-icon {
+  font-size: 10px;
+}
+
+.pv-event-partner {
+  font-size: 12px;
+  color: var(--color-text);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pv-event-partner-photo {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.pv-event-media {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.pv-event-media-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.pv-event-media-thumb:hover {
+  border-color: var(--color-primary);
+}
+
+/* Media Gallery in card */
+.pv-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.pv-media-item {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pv-media-item:hover {
+  border-color: var(--color-primary);
+  transform: scale(1.02);
+}
+
+.pv-media-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pv-media-caption {
+  font-size: 11px;
+  color: var(--color-textMuted);
+  text-align: center;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Family members card */
+.pv-family-member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pv-family-member:hover {
+  background: var(--color-background);
+}
+
+.pv-family-member-photo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-border);
+}
+
+.pv-family-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pv-family-member-role {
+  font-size: 11px;
+  color: var(--color-textMuted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pv-family-member-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.pv-family-member-dates {
+  display: block;
+  font-size: 11px;
+  color: var(--color-textMuted);
+}
+
+/* Compact family card - needs overflow visible for tooltips */
+.pv-card.pv-family-card {
+  overflow: visible;
+}
+
+.pv-family-header {
+  transition: background 0.15s ease;
+}
+
+.pv-family-header:hover {
+  background: var(--color-surfaceHover);
+}
+
+.pv-family-header.male {
+  border-left: 4px solid var(--color-genderMaleBorder);
+  background: color-mix(in srgb, var(--color-genderMaleBg) 30%, var(--color-surface) 70%);
+}
+
+.pv-family-header.male:hover {
+  background: color-mix(in srgb, var(--color-genderMaleBg) 40%, var(--color-surface) 60%);
+}
+
+.pv-family-header.female {
+  border-left: 4px solid var(--color-genderFemaleBorder);
+  background: color-mix(in srgb, var(--color-genderFemaleBg) 30%, var(--color-surface) 70%);
+}
+
+.pv-family-header.female:hover {
+  background: color-mix(in srgb, var(--color-genderFemaleBg) 40%, var(--color-surface) 60%);
+}
+
+.pv-family-header-photo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.pv-family-header .pv-card-title {
+  flex: 1;
+}
+
+.pv-family-header .pv-card-count {
+  margin-left: auto;
+}
+
+.pv-family-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Child styling with gender color */
+.pv-family-child {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+.pv-family-child.male {
+  border-left: 3px solid var(--color-genderMaleBorder);
+  background: color-mix(in srgb, var(--color-genderMaleBg) 20%, var(--color-background) 80%);
+}
+
+.pv-family-child.female {
+  border-left: 3px solid var(--color-genderFemaleBorder);
+  background: color-mix(in srgb, var(--color-genderFemaleBg) 20%, var(--color-background) 80%);
+}
+
+.pv-family-child .pv-family-member-photo {
+  width: 32px;
+  height: 32px;
+}
+
+.pv-family-child .pv-family-member-name {
+  font-size: 12px;
+}
+
+.pv-family-child .pv-family-member-dates {
+  font-size: 10px;
+}
+
+/* Themed tooltips */
+.has-tooltip {
+  position: relative;
+}
+
+.pv-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--color-text);
+  color: var(--color-background);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pv-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  right: 16px;
+  border: 6px solid transparent;
+  border-bottom-color: var(--color-text);
+}
+
+.has-tooltip:hover .pv-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Tooltip for family chips in bottom bar */
+.pv-family-chip {
+  position: relative;
+}
+
+.pv-family-chip .pv-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  top: auto;
+  right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 9999;
+}
+
+.pv-family-chip .pv-tooltip::before {
+  top: 100%;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  border-bottom-color: transparent;
+  border-top-color: var(--color-text);
+}
+
+/* Show tooltip on chip hover */
+.pv-family-chip:hover .pv-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Notes card */
+.pv-notes {
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* Sources card */
+.pv-source-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pv-source-item:last-child {
+  border-bottom: none;
+}
+
+.pv-source-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.pv-source-detail {
+  font-size: 12px;
+  color: var(--color-textMuted);
+}
+
+/* Bottom Family Bar */
+.pv-family-bar {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  padding: 12px 24px;
+  overflow: visible !important;
+  position: relative;
+  z-index: 10;
+}
+
+.pv-family-bar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.pv-family-bar-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow: visible;
+}
+
+.pv-family-bar-label {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-right: 16px;
+  border-right: 1px solid var(--color-border);
+}
+
+.pv-family-bar-members {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.pv-family-chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pv-family-chip:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.pv-family-chip.male {
+  border-left: 4px solid var(--color-genderMaleBorder);
+  background: color-mix(in srgb, var(--color-genderMaleBg) 30%, var(--color-background) 70%);
+}
+
+.pv-family-chip.female {
+  border-left: 4px solid var(--color-genderFemaleBorder);
+  background: color-mix(in srgb, var(--color-genderFemaleBg) 30%, var(--color-background) 70%);
+}
+
+.pv-family-chip-photo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-border);
+}
+
+.pv-family-chip-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pv-family-chip-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.pv-family-chip-dates {
+  font-size: 10px;
+  color: var(--color-textMuted);
+}
+
+.pv-family-chip-role {
+  font-size: 10px;
+  color: var(--color-textMuted);
+  padding: 2px 6px;
+  background: var(--color-border);
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+/* Empty states */
+.pv-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--color-textMuted);
+  font-size: 13px;
+}
+
+/* Small info cards (right column) */
+.pv-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pv-info-row:last-child {
+  border-bottom: none;
+}
+
+.pv-info-label {
+  font-size: 12px;
+  color: var(--color-textMuted);
+}
+
+.pv-info-value {
+  font-size: 12px;
+  color: var(--color-text);
+  font-weight: 500;
+}

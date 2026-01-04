@@ -39,7 +39,7 @@ export const CONFIDENCE_LEVELS = {
 };
 
 export function useSources() {
-  const { query, get, run, isOpen } = useDatabase();
+  const { query, get, run, isOpen, refreshTrigger } = useDatabase();
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -60,14 +60,14 @@ export function useSources() {
     }
   }, [query, isOpen]);
 
-  // Load sources when bundle opens
+  // Load sources when bundle opens or refresh is triggered
   useEffect(() => {
     if (isOpen) {
       fetchSources();
     } else {
       setSources([]);
     }
-  }, [isOpen, fetchSources]);
+  }, [isOpen, fetchSources, refreshTrigger]);
 
   // Get a source by ID
   const getSource = useCallback(async (id) => {
@@ -190,6 +190,17 @@ export function useSources() {
     `, [unionId]);
   }, [query]);
 
+  // Get citations for a media
+  const getCitationsForMedia = useCallback(async (mediaId) => {
+    return await query(`
+      SELECT c.*, s.name as source_name, s.type as source_type, s.url as source_url
+      FROM citation c
+      JOIN source s ON c.source_id = s.id
+      WHERE c.media_id = ? AND c.deleted_at IS NULL
+      ORDER BY s.name
+    `, [mediaId]);
+  }, [query]);
+
   // Create a citation
   const createCitation = useCallback(async (data) => {
     const id = generateId();
@@ -197,11 +208,11 @@ export function useSources() {
 
     await run(`
       INSERT INTO citation (
-        id, source_id, person_id, event_id, union_id, person_name_id,
+        id, source_id, person_id, event_id, union_id, person_name_id, media_id,
         url, page, volume, entry_number, film_number, item_number, certificate_number,
         accessed_date, transcription, translation, abstract, confidence, notes,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id,
       data.source_id,
@@ -209,6 +220,7 @@ export function useSources() {
       data.event_id || null,
       data.union_id || null,
       data.person_name_id || null,
+      data.media_id || null,
       data.url || null,
       data.page || null,
       data.volume || null,
@@ -319,6 +331,7 @@ export function useSources() {
     getCitationsForPerson,
     getCitationsForEvent,
     getCitationsForUnion,
+    getCitationsForMedia,
     createCitation,
     updateCitation,
     deleteCitation,

@@ -177,9 +177,6 @@ export function createPerson(data = {}) {
     image: data.image || '',
     events: data.events || [],
     colorIndex: data.colorIndex,
-    // Source references
-    birthSources: data.birthSources || [],
-    deathSources: data.deathSources || []
   };
 }
 

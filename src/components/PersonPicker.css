@@ -1,0 +1,122 @@
+.person-picker {
+  position: relative;
+  flex: 1;
+}
+
+.person-picker-input {
+  width: 100%;
+  padding-right: 28px;
+}
+
+.person-picker-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: var(--color-textMuted);
+  color: var(--color-background);
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.person-picker-clear:hover {
+  opacity: 1;
+}
+
+.person-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 2px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000; /* High z-index to appear above dialogs */
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.person-picker-empty {
+  padding: 12px 10px;
+  color: var(--color-textMuted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.person-picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 13px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.person-picker-option:last-child {
+  border-bottom: none;
+}
+
+.person-picker-option:hover,
+.person-picker-option.highlighted {
+  background: var(--color-surface);
+}
+
+.person-picker-option.selected {
+  background: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.person-picker-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.person-picker-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.person-picker-gender {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.person-picker-gender.male {
+  color: #4a90d9;
+}
+
+.person-picker-gender.female {
+  color: #d94a7b;
+}
+
+.person-picker-dates {
+  font-size: 11px;
+  color: var(--color-textMuted);
+  background: var(--color-surface);
+  padding: 2px 6px;
+  border-radius: 3px;
+}

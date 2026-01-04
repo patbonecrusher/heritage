@@ -148,8 +148,8 @@
 
 .remove-tag-btn {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: 4px;
+  right: 4px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -169,21 +169,21 @@
   opacity: 1;
 }
 
-/* Person picker */
+/* Person picker - positioned below face box */
 .person-picker {
   position: absolute;
-  top: 50%;
+  top: calc(100% + 8px);
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   background: var(--bg-secondary, #1a1a1a);
   border: 1px solid var(--border-color, #333);
   border-radius: 8px;
   width: 280px;
-  max-height: 400px;
+  max-height: 300px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  z-index: 10;
+  z-index: 100;
 }
 
 .person-picker-header {
@@ -252,9 +252,27 @@
 
 /* Footer */
 .photo-viewer-footer {
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border-color, #333);
   background: var(--bg-tertiary, #242424);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.photo-viewer-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.photo-viewer-citations {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color, #333);
+}
+
+.photo-viewer-citations .citation-list {
+  font-size: 12px;
 }
 
 .face-count {
@@ -330,6 +348,16 @@
   border-color: #4a9eff;
 }
 
+/* Active moving state */
+.face-box.moving {
+  border-color: #4a9eff;
+  cursor: grabbing;
+}
+
+.face-box {
+  cursor: grab;
+}
+
 /* Zoom and pan */
 .photo-container {
   transform-origin: center center;
@@ -350,12 +378,6 @@
 }
 
 /* Zoom controls */
-.photo-viewer-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .zoom-controls {
   display: flex;
   align-items: center;

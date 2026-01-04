@@ -247,6 +247,48 @@ export function useEvents() {
     return dateStr;
   }, []);
 
+  // Get all birth/death events for all persons (for tooltip display)
+  // Returns a map: { personId: { birthDate: {...}, deathDate: {...} } }
+  const getAllVitalEvents = useCallback(async () => {
+    const events = await query(`
+      SELECT e.person_id, e.type, e.date, e.date_qualifier, p.name as place_name
+      FROM event e
+      LEFT JOIN place p ON e.place_id = p.id
+      WHERE e.type IN ('birth', 'death') AND e.deleted_at IS NULL
+    `);
+
+    const result = {};
+    for (const event of events) {
+      if (!result[event.person_id]) {
+        result[event.person_id] = {};
+      }
+
+      // Parse date to extract year
+      const dateParts = event.date ? event.date.split('-') : [];
+      const year = dateParts[0] || null;
+      const month = dateParts[1] || null;
+      const day = dateParts[2] || null;
+
+      const dateObj = {
+        type: event.date ? (event.date_qualifier === 'about' ? 'approximate' : 'exact') : 'unknown',
+        year,
+        month,
+        day,
+        place: event.place_name,
+      };
+
+      if (event.type === 'birth') {
+        result[event.person_id].birthDate = dateObj;
+        result[event.person_id].birthPlace = event.place_name;
+      } else if (event.type === 'death') {
+        result[event.person_id].deathDate = dateObj;
+        result[event.person_id].deathPlace = event.place_name;
+      }
+    }
+
+    return result;
+  }, [query]);
+
   return {
     getEvent,
     getEventsForPerson,
@@ -254,6 +296,7 @@ export function useEvents() {
     getBirthEvent,
     getDeathEvent,
     getMarriageEvent,
+    getAllVitalEvents,
     createEvent,
     updateEvent,
     deleteEvent,
