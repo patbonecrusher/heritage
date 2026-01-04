@@ -232,6 +232,11 @@ function buildMenu() {
           accelerator: 'CmdOrCtrl+0',
           click: () => mainWindow.webContents.send('menu-fit-view')
         },
+        {
+          label: 'Toggle Library',
+          accelerator: 'CmdOrCtrl+L',
+          click: () => mainWindow.webContents.send('menu-toggle-library')
+        },
         { type: 'separator' },
         {
           label: 'Enable Claude Desktop Integration',

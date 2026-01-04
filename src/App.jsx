@@ -359,8 +359,12 @@ function App() {
   const [pendingSourceCallback, setPendingSourceCallback] = useState(null);
 
   // Library panel (replaces modal libraries)
-  const [libraryPanelOpen, setLibraryPanelOpen] = useState(false);
-  const [libraryActiveTab, setLibraryActiveTab] = useState('media'); // 'media' | 'places'
+  const [libraryPanelOpen, setLibraryPanelOpen] = useState(() => {
+    return localStorage.getItem('heritage-library-panel-open') === 'true';
+  });
+  const [libraryActiveTab, setLibraryActiveTab] = useState(() => {
+    return localStorage.getItem('heritage-library-active-tab') || 'media';
+  });
 
   // Full library modals (for editing/managing)
   const [placesLibraryOpen, setPlacesLibraryOpen] = useState(false);
@@ -496,6 +500,15 @@ function App() {
     }
   }, [storageMode]);
 
+  // Persist library panel state
+  useEffect(() => {
+    localStorage.setItem('heritage-library-panel-open', libraryPanelOpen);
+  }, [libraryPanelOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('heritage-library-active-tab', libraryActiveTab);
+  }, [libraryActiveTab]);
+
   // Select first person when persons load in bundle mode
   useEffect(() => {
     if (storageMode === 'bundle' && isOpen && persons.length > 0 && !selectedPersonId) {
@@ -586,6 +599,14 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (unionDialogOpen) return;
+
+      // Cmd+L to toggle library panel (works even in input fields)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+        e.preventDefault();
+        setLibraryPanelOpen(prev => !prev);
+        return;
+      }
+
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       if (e.key === 'e' || e.key === 'E') {
@@ -955,6 +976,7 @@ function App() {
     window.electronAPI.onMenuAddPerson(() => addNode());
     window.electronAPI.onMenuFitView(() => handleFitView());
     window.electronAPI.onMenuPreferences(() => handleOpenPreferences());
+    window.electronAPI.onMenuToggleLibrary(() => setLibraryPanelOpen(prev => !prev));
 
     return () => {
       if (window.electronAPI?.removeMenuListeners) {
@@ -1671,7 +1693,7 @@ function App() {
     <div className="app">
       <TitleBar
         title="Heritage"
-        subtitle={bundleInfo?.name}
+        subtitle={bundleInfo?.info?.name}
       />
       <Toolbar
         onAddNode={addNode}
@@ -1752,7 +1774,6 @@ function App() {
           activeTab={libraryActiveTab}
           onTabChange={setLibraryActiveTab}
           onToggle={() => setLibraryPanelOpen(!libraryPanelOpen)}
-          onClose={() => setLibraryPanelOpen(false)}
           onOpenPlacesLibrary={() => setPlacesLibraryOpen(true)}
           onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
           onOpenSourcesLibrary={() => setSourcesLibraryOpen(true)}

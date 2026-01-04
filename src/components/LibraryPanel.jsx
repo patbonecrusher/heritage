@@ -3,7 +3,7 @@
  * Supports drag-and-drop of items to PersonView fields
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { MediaPanelContent } from './MediaLibrary';
 import { PlacesPanelContent } from './PlacesLibrary';
 import { SourcesPanelContent } from './SourcesLibrary';
@@ -14,26 +14,10 @@ export default function LibraryPanel({
   activeTab,
   onTabChange,
   onToggle,
-  onClose,
   onOpenPlacesLibrary,
   onOpenMediaLibrary,
   onOpenSourcesLibrary,
 }) {
-  // Handle Escape key to close panel
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose?.();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
   return (
     <div className={`library-panel ${isOpen ? 'open' : 'closed'}`}>
       {/* Toggle button visible when closed */}
