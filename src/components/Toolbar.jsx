@@ -2,8 +2,6 @@ import React from 'react';
 
 export default function Toolbar({
   onAddNode,
-  onExportPng,
-  onExportSvg,
   onSave,
   onLoad,
   onToggleLibrary,
@@ -34,11 +32,6 @@ export default function Toolbar({
       <div className="toolbar-group">
         <button onClick={onSave}>Save</button>
         <button onClick={onLoad}>Open</button>
-      </div>
-
-      <div className="toolbar-group">
-        <button onClick={onExportPng}>Export PNG</button>
-        <button onClick={onExportSvg}>Export SVG</button>
       </div>
 
       {storageMode === 'bundle' && (

@@ -13,7 +13,6 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 
 import TitleBar from './components/TitleBar';
-import Toolbar from './components/Toolbar';
 import Sidebar from './components/Sidebar';
 import PedigreeView from './components/PedigreeView';
 import DescendantsView from './components/DescendantsView';
@@ -1695,18 +1694,6 @@ function App() {
         title="Heritage"
         subtitle={bundleInfo?.info?.name}
       />
-      <Toolbar
-        onAddNode={addNode}
-        onExportPng={handleExportPng}
-        onExportSvg={handleExportSvg}
-        onSave={handleSave}
-        onLoad={handleLoad}
-        onToggleLibrary={() => setLibraryPanelOpen(!libraryPanelOpen)}
-        libraryPanelOpen={libraryPanelOpen}
-        bundleInfo={bundleInfo}
-        storageMode={storageMode}
-      />
-
       <div className="app-content">
         <Sidebar
           data={data}
