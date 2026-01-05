@@ -689,6 +689,17 @@
   font-size: 10px;
 }
 
+.pv-event-cause {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  font-style: italic;
+}
+
+.pv-event-cause-label {
+  font-style: normal;
+  font-weight: 500;
+}
+
 .pv-event-partner {
   font-size: 12px;
   color: var(--color-text);
@@ -703,6 +714,32 @@
   height: 20px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.pv-event-status {
+  margin-top: 4px;
+}
+
+.pv-event-status-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--color-surfaceHover);
+  color: var(--color-textMuted);
+}
+
+.pv-event-prior-status {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-textMuted);
+}
+
+.pv-prior-status-item {
+  display: inline-block;
 }
 
 .pv-event-notes {
@@ -728,6 +765,150 @@
 
 .pv-event-media-thumb:hover {
   border-color: var(--color-primary);
+}
+
+/* Per-event editing styles */
+.pv-add-event-dropdown {
+  position: relative;
+  margin-left: auto;
+}
+
+.pv-add-event-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 160px;
+  overflow: hidden;
+}
+
+.pv-add-event-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.pv-add-event-menu button:hover {
+  background: var(--color-surface);
+}
+
+.pv-event-edit-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-textMuted);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.pv-event:hover .pv-event-edit-btn {
+  opacity: 1;
+}
+
+.pv-event-edit-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.pv-event.editing {
+  background: var(--color-surface);
+  margin: -8px -12px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.pv-event.editing::before {
+  display: none;
+}
+
+.pv-event-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pv-event-edit-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.pv-event-edit-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.pv-event-edit-actions-right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.pv-event-empty {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  font-style: italic;
+}
+
+.pv-event-alive-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--color-success, #10b981);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 10px;
+}
+
+.pv-event.pv-event-alive {
+  opacity: 0.8;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn-danger {
+  background: var(--color-danger, #ef4444);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background: var(--color-dangerHover, #dc2626);
 }
 
 /* Media Gallery in card */

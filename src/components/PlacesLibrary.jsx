@@ -29,7 +29,7 @@ function MapUpdater({ center, zoom }) {
   return null;
 }
 
-export function PlacesLibrary({ onClose }) {
+export function PlacesLibrary({ onClose, onPlacesChanged }) {
   const { isOpen } = useDatabase();
   const { getAllPlaces, createPlace, updatePlace, deletePlace, places: allPlacesForParent } = usePlaces();
 
@@ -291,6 +291,7 @@ export function PlacesLibrary({ onClose }) {
       setIsCreating(false);
       resetForm();
       await loadPlaces();
+      onPlacesChanged?.();
     } catch (err) {
       console.error('Error creating place:', err);
     }
@@ -313,6 +314,7 @@ export function PlacesLibrary({ onClose }) {
       setEditingPlace(null);
       resetForm();
       await loadPlaces();
+      onPlacesChanged?.();
     } catch (err) {
       console.error('Error updating place:', err);
     }
@@ -324,6 +326,7 @@ export function PlacesLibrary({ onClose }) {
       await deletePlace(place.id);
       setDeleteConfirm(null);
       await loadPlaces();
+      onPlacesChanged?.();
     } catch (err) {
       console.error('Error deleting place:', err);
     }
@@ -875,37 +878,14 @@ export default PlacesLibrary;
  * PlacesPanelContent - Embedded panel version for LibraryPanel
  * Simplified list view with draggable items for drag-and-drop to PersonView
  */
-export function PlacesPanelContent({ onOpenFullLibrary }) {
+export function PlacesPanelContent({ onOpenFullLibrary, places: propPlaces }) {
   const { isOpen } = useDatabase();
-  const { getAllPlaces, createPlace } = usePlaces();
 
-  const [places, setPlaces] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load all places
-  useEffect(() => {
-    if (!isOpen) {
-      setPlaces([]);
-      setLoading(false);
-      return;
-    }
-
-    loadPlaces();
-  }, [isOpen]);
-
-  const loadPlaces = async () => {
-    setLoading(true);
-    try {
-      const items = await getAllPlaces();
-      setPlaces(items || []);
-    } catch (err) {
-      console.error('Error loading places:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use passed places prop (from App.jsx usePlaces hook)
+  const places = propPlaces || [];
 
   // Handle drag start
   const handleDragStart = (e, place) => {
@@ -1006,13 +986,11 @@ export function PlacesPanelContent({ onOpenFullLibrary }) {
       </div>
 
       <div className="panel-stats">
-        {loading ? 'Loading...' : `${filteredPlaces.length} places`}
+        {`${filteredPlaces.length} places`}
       </div>
 
       <div className="panel-list">
-        {loading ? (
-          <div className="panel-loading">Loading places...</div>
-        ) : filteredPlaces.length === 0 ? (
+        {filteredPlaces.length === 0 ? (
           <div className="panel-empty">
             {places.length === 0 ? (
               <>

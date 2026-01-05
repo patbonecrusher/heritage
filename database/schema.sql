@@ -116,6 +116,8 @@ CREATE TABLE union_ (
     person2_id TEXT REFERENCES person(id),  -- nullable for unknown spouse
     type TEXT DEFAULT 'marriage',  -- 'marriage', 'partnership', 'common_law', 'unknown'
     status TEXT,  -- 'married', 'divorced', 'annulled', 'widowed', 'separated'
+    prior_status_1 TEXT,  -- person1's marital status before this union: 'single', 'widowed', 'divorced'
+    prior_status_2 TEXT,  -- person2's marital status before this union: 'single', 'widowed', 'divorced'
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),

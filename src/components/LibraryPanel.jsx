@@ -17,6 +17,7 @@ export default function LibraryPanel({
   onOpenPlacesLibrary,
   onOpenMediaLibrary,
   onOpenSourcesLibrary,
+  places,
 }) {
   return (
     <div className={`library-panel ${isOpen ? 'open' : 'closed'}`}>
@@ -68,7 +69,7 @@ export default function LibraryPanel({
             <MediaPanelContent onOpenFullLibrary={onOpenMediaLibrary} />
           )}
           {activeTab === 'places' && (
-            <PlacesPanelContent onOpenFullLibrary={onOpenPlacesLibrary} />
+            <PlacesPanelContent onOpenFullLibrary={onOpenPlacesLibrary} places={places} />
           )}
           {activeTab === 'sources' && (
             <SourcesPanelContent onOpenFullLibrary={onOpenSourcesLibrary} />

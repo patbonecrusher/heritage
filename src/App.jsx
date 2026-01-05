@@ -118,6 +118,12 @@ function dbUnionToPersonViewFormat(dbUnion, currentPersonId) {
     ? dbUnion.person2_id
     : dbUnion.person1_id;
 
+  // Map prior status based on which person is current
+  // prior_status_1 is for person1, prior_status_2 is for person2
+  const isCurrentPerson1 = dbUnion.person1_id === currentPersonId;
+  const priorStatus1 = isCurrentPerson1 ? (dbUnion.prior_status_1 || '') : (dbUnion.prior_status_2 || '');
+  const priorStatus2 = isCurrentPerson1 ? (dbUnion.prior_status_2 || '') : (dbUnion.prior_status_1 || '');
+
   return {
     id: dbUnion.id,
     partner1Id: currentPersonId,
@@ -125,9 +131,12 @@ function dbUnionToPersonViewFormat(dbUnion, currentPersonId) {
     partnerId: partnerId,
     type: dbUnion.type || 'marriage',
     startDate: dbUnion.marriageEvent ? dbEventToDateFormat(dbUnion.marriageEvent) : { type: 'unknown' },
-    startPlace: dbUnion.marriageEvent?.place_name || '',
+    startPlace: dbUnion.marriageEvent?.place_detail || dbUnion.marriageEvent?.place_name || '',
+    startPlaceId: dbUnion.marriageEvent?.place_id || null,
     endDate: null,
     endReason: dbUnion.status || '',
+    priorStatus1: priorStatus1,
+    priorStatus2: priorStatus2,
     childIds: (dbUnion.children || []).map(c => c.id),
     sources: [],
     isExisting: true,
@@ -141,8 +150,8 @@ function App() {
   const { isOpen, bundleInfo, createBundle, openBundle, openBundlePath, closeBundle, isLoading, triggerRefresh } = useDatabase();
   const { persons, createPerson, updatePerson: updatePersonDb, deletePerson, getPerson, getPersonFull, fetchPersons } = usePersons();
   const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, getParentUnionForPerson, findOrCreateUnion, fetchAllUnions } = useUnions();
-  const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent, getAllVitalEvents } = useEvents();
-  const { places, createPlace } = usePlaces();
+  const { upsertBirthEvent, upsertDeathEvent, upsertMarriageEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent, getAllVitalEvents } = useEvents();
+  const { places, createPlace, fetchPlaces } = usePlaces();
   const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getCitationsForMedia, createCitation, updateCitation, deleteCitation } = useSources();
   const { getMediaForPerson } = useMedia();
 
@@ -1194,10 +1203,28 @@ function App() {
                   }
                 } else {
                   // Update existing union
+                  // Need to map priorStatus based on who is person1 in the database
+                  const existingDbUnion = loadedUnions.find(u => u.id === union.id);
+                  const isCurrentPerson1 = existingDbUnion?.person1_id === selectedPersonId;
                   await updateUnion(union.id, {
                     type: union.type,
                     status: union.endReason || null,
+                    // priorStatus1 in PersonView is always the current person's status
+                    // Map it back to the correct database column based on who is person1
+                    prior_status_1: isCurrentPerson1 ? (union.priorStatus1 || null) : (union.priorStatus2 || null),
+                    prior_status_2: isCurrentPerson1 ? (union.priorStatus2 || null) : (union.priorStatus1 || null),
                   });
+
+                  // Update marriage event (date/place)
+                  if (union.startDate && union.startDate.type !== 'unknown') {
+                    const eventData = dateFormatToDbEvent(union.startDate);
+                    await upsertMarriageEvent(union.id, {
+                      date: eventData.date,
+                      date_qualifier: eventData.date_qualifier,
+                      place_detail: union.startPlace || null,
+                      place_id: union.startPlaceId || null,
+                    });
+                  }
 
                   // Sync children - compare existing vs updated
                   const existingUnion = loadedUnions.find(u => u.id === union.id);
@@ -1747,6 +1774,7 @@ function App() {
           onOpenPlacesLibrary={() => setPlacesLibraryOpen(true)}
           onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
           onOpenSourcesLibrary={() => setSourcesLibraryOpen(true)}
+          places={places}
         />
       </div>
 
@@ -1806,7 +1834,7 @@ function App() {
 
       {/* Full Library Modals - for editing/managing */}
       {placesLibraryOpen && (
-        <PlacesLibrary onClose={() => setPlacesLibraryOpen(false)} />
+        <PlacesLibrary onClose={() => setPlacesLibraryOpen(false)} onPlacesChanged={fetchPlaces} />
       )}
       {mediaLibraryOpen && (
         <MediaLibrary onClose={() => setMediaLibraryOpen(false)} />

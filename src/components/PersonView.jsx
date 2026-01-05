@@ -72,6 +72,13 @@ const END_REASONS = [
   { value: 'death', label: 'Death of spouse' },
 ];
 
+const PRIOR_STATUS = [
+  { value: '', label: 'Unknown' },
+  { value: 'single', label: 'Single' },
+  { value: 'widowed', label: 'Widowed' },
+  { value: 'divorced', label: 'Divorced' },
+];
+
 function KeyHint({ children }) {
   return <span className="key-hint">{children}</span>;
 }
@@ -249,26 +256,75 @@ function dateToInputString(date) {
   return parts.join(' ');
 }
 
-function DateInput({ label, value, onChange }) {
-  const [inputText, setInputText] = useState(() => dateToInputString(value));
+function DateInput({ label, value, onChange, parentDate, parentLabel = 'birth' }) {
+  const [inputText, setInputText] = useState(() => value?.dateOffset || dateToInputString(value));
   const [parsed, setParsed] = useState(() => parseDateString(dateToInputString(value)));
   const isEditing = useRef(false);
 
+  // Calculate date from offset string (e.g., +4d, +1w, +2m, +1y)
+  const calculateDateFromOffset = (offsetStr, baseDate) => {
+    if (!baseDate || !['exact', 'approximate', 'unknown_acknowledged'].includes(baseDate.type)) {
+      return null;
+    }
+    const match = offsetStr.match(/^\+(\d+)([dwmy]?)$/i);
+    if (!match) return null;
+
+    const num = parseInt(match[1]);
+    const unit = (match[2] || 'd').toLowerCase();
+
+    const baseYear = parseInt(baseDate.year);
+    const baseMonth = baseDate.month ? parseInt(baseDate.month) - 1 : 0;
+    const baseDay = baseDate.day ? parseInt(baseDate.day) : 1;
+
+    const date = new Date(baseYear, baseMonth, baseDay);
+
+    switch (unit) {
+      case 'd': date.setDate(date.getDate() + num); break;
+      case 'w': date.setDate(date.getDate() + num * 7); break;
+      case 'm': date.setMonth(date.getMonth() + num); break;
+      case 'y': date.setFullYear(date.getFullYear() + num); break;
+    }
+
+    return {
+      type: 'exact',
+      year: String(date.getFullYear()),
+      month: String(date.getMonth() + 1),
+      day: String(date.getDate()),
+      display: `${date.getDate()} ${MONTHS[date.getMonth()].substring(0, 3)} ${date.getFullYear()}`
+    };
+  };
+
   useEffect(() => {
     if (!isEditing.current) {
-      const text = dateToInputString(value);
+      const text = value?.dateOffset || dateToInputString(value);
       setInputText(text);
-      setParsed(parseDateString(text));
+      setParsed(parseDateString(dateToInputString(value)));
     }
   }, [value]);
 
   const handleInputChange = (e) => {
     const text = e.target.value;
     setInputText(text);
-    const result = parseDateString(text);
-    setParsed(result);
-    onChange(result);
+
+    if (text.startsWith('+') && parentDate) {
+      const calculated = calculateDateFromOffset(text, parentDate);
+      if (calculated) {
+        setParsed(calculated);
+        onChange({ ...calculated, dateOffset: text });
+      } else {
+        setParsed({ type: 'unknown', display: 'Invalid offset' });
+        onChange({ type: 'unknown', dateOffset: text });
+      }
+    } else {
+      const result = parseDateString(text);
+      setParsed(result);
+      onChange(result);
+    }
   };
+
+  const placeholder = parentDate
+    ? `1850, Mar 1850, +4d (${parentLabel}+4 days)`
+    : "1850, Mar 1850, 15 Mar 1850, 1850+-5, c.1850";
 
   return (
     <div className="date-input-group">
@@ -281,7 +337,7 @@ function DateInput({ label, value, onChange }) {
           onFocus={() => isEditing.current = true}
           onBlur={() => isEditing.current = false}
           className="text-input smart-date-input"
-          placeholder="1850, Mar 1850, 15 Mar 1850, 1850+-5, c.1850"
+          placeholder={placeholder}
         />
         <span className={`date-preview ${parsed.type === 'unknown' && inputText ? 'error' : ''}`}>
           {parsed.display || 'Unknown'}
@@ -675,9 +731,11 @@ export default function PersonView({
   const [birthPlace, setBirthPlace] = useState('');
   const [birthPlaceId, setBirthPlaceId] = useState(null);
   const [birthEventId, setBirthEventId] = useState(null);
+  const [birthCause, setBirthCause] = useState('');
   const [deathPlace, setDeathPlace] = useState('');
   const [deathPlaceId, setDeathPlaceId] = useState(null);
   const [deathEventId, setDeathEventId] = useState(null);
+  const [deathCause, setDeathCause] = useState('');
   const [colorIndex, setColorIndex] = useState(0);
   const [personSources, setPersonSources] = useState([]);
   const [birthSources, setBirthSources] = useState([]);
@@ -715,15 +773,31 @@ export default function PersonView({
   const [editNickname, setEditNickname] = useState('');
   const [editGender, setEditGender] = useState('');
 
-  // Inline editing state for Events card
-  const [isEditingEvents, setIsEditingEvents] = useState(false);
-  const [editBirthDate, setEditBirthDate] = useState({ type: 'unknown' });
-  const [editBirthPlace, setEditBirthPlace] = useState('');
-  const [editBirthPlaceId, setEditBirthPlaceId] = useState(null);
-  const [editDeathDate, setEditDeathDate] = useState({ type: 'unknown' });
-  const [editDeathPlace, setEditDeathPlace] = useState('');
-  const [editDeathPlaceId, setEditDeathPlaceId] = useState(null);
-  const [editEvents, setEditEvents] = useState([]);
+  // Inline editing state for Events card (per-event editing)
+  const [editingEventId, setEditingEventId] = useState(null); // 'birth', 'death', or event.id
+  const [editEventDate, setEditEventDate] = useState({ type: 'unknown' });
+  const [editEventPlace, setEditEventPlace] = useState('');
+  const [editEventPlaceId, setEditEventPlaceId] = useState(null);
+  const [editEventCause, setEditEventCause] = useState('');
+  const [editUnionEndReason, setEditUnionEndReason] = useState('');
+  const [editUnionPriorStatus1, setEditUnionPriorStatus1] = useState(''); // Current person's status at marriage
+  const [editUnionPriorStatus2, setEditUnionPriorStatus2] = useState(''); // Partner's status at marriage
+  const [editEventType, setEditEventType] = useState(null); // For new events
+  const [addEventDropdownOpen, setAddEventDropdownOpen] = useState(false);
+  const [isAddingNewEvent, setIsAddingNewEvent] = useState(false);
+  const addEventDropdownRef = useRef(null);
+
+  // Close add event dropdown when clicking outside
+  useEffect(() => {
+    if (!addEventDropdownOpen) return;
+    const handleClickOutside = (e) => {
+      if (addEventDropdownRef.current && !addEventDropdownRef.current.contains(e.target)) {
+        setAddEventDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [addEventDropdownOpen]);
 
   // Swipe gesture handling (touch devices)
   const touchStartX = useRef(null);
@@ -834,75 +908,182 @@ export default function PersonView({
     setIsEditingNameGender(false);
   }, []);
 
-  // Start inline editing for Events card
-  const startEditingEvents = useCallback(() => {
-    setEditBirthDate(birthDate || { type: 'unknown' });
-    setEditBirthPlace(birthPlace || '');
-    setEditBirthPlaceId(birthPlaceId || null);
-    setEditDeathDate(deathDate || { type: 'unknown' });
-    setEditDeathPlace(deathPlace || '');
-    setEditDeathPlaceId(deathPlaceId || null);
-    setEditEvents([...events]);
-    setIsEditingEvents(true);
-  }, [birthDate, birthPlace, birthPlaceId, deathDate, deathPlace, deathPlaceId, events]);
+  // Start editing a specific event (or union)
+  const startEditingEvent = useCallback((eventId) => {
+    if (eventId === 'birth') {
+      setEditEventDate(birthDate || { type: 'unknown' });
+      setEditEventPlace(birthPlace || '');
+      setEditEventPlaceId(birthPlaceId || null);
+      setEditEventCause(birthCause || '');
+    } else if (eventId === 'death') {
+      setEditEventDate(deathDate || { type: 'unknown' });
+      setEditEventPlace(deathPlace || '');
+      setEditEventPlaceId(deathPlaceId || null);
+      setEditEventCause(deathCause || '');
+    } else {
+      // Check if it's a union first
+      const union = unions.find(u => u.id === eventId);
+      if (union) {
+        setEditEventDate(union.startDate || { type: 'unknown' });
+        setEditEventPlace(union.startPlace || '');
+        setEditEventPlaceId(union.startPlaceId || null);
+        setEditEventCause(''); // Unions don't have cause
+        setEditUnionEndReason(union.endReason || '');
+        setEditUnionPriorStatus1(union.priorStatus1 || '');
+        setEditUnionPriorStatus2(union.priorStatus2 || '');
+      } else {
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+          // Include dateOffset in the date object for DateInput
+          const dateWithOffset = event.dateOffset
+            ? { ...(event.date || { type: 'unknown' }), dateOffset: event.dateOffset }
+            : (event.date || { type: 'unknown' });
+          setEditEventDate(dateWithOffset);
+          setEditEventPlace(event.place || '');
+          setEditEventPlaceId(event.placeId || null);
+          setEditEventCause(event.cause || '');
+        }
+      }
+    }
+    setEditingEventId(eventId);
+    setIsAddingNewEvent(false);
+  }, [birthDate, birthPlace, birthPlaceId, birthCause, deathDate, deathPlace, deathPlaceId, deathCause, events, unions]);
 
-  // Save inline Events edit
-  const saveEventsEdit = useCallback(() => {
-    // Update main state
-    setBirthDate(editBirthDate);
-    setBirthPlace(editBirthPlace);
-    setBirthPlaceId(editBirthPlaceId);
-    setDeathDate(editDeathDate);
-    setDeathPlace(editDeathPlace);
-    setDeathPlaceId(editDeathPlaceId);
-    setEvents(editEvents);
-    setIsEditingEvents(false);
+  // Save the currently edited event
+  const saveEventEdit = useCallback(() => {
+    if (!editingEventId) return;
 
-    // Trigger save
+    if (editingEventId === 'birth') {
+      setBirthDate(editEventDate);
+      setBirthPlace(editEventPlace);
+      setBirthPlaceId(editEventPlaceId);
+      setBirthCause(editEventCause);
+      if (onSave && person) {
+        onSave({
+          ...person,
+          birthDate: editEventDate,
+          birthPlace: editEventPlace,
+          birthPlaceId: editEventPlaceId,
+          birthCause: editEventCause,
+        });
+      }
+    } else if (editingEventId === 'death') {
+      setDeathDate(editEventDate);
+      setDeathPlace(editEventPlace);
+      setDeathPlaceId(editEventPlaceId);
+      setDeathCause(editEventCause);
+      if (onSave && person) {
+        onSave({
+          ...person,
+          deathDate: editEventDate,
+          deathPlace: editEventPlace,
+          deathPlaceId: editEventPlaceId,
+          deathCause: editEventCause,
+        });
+      }
+    } else if (isAddingNewEvent) {
+      // Adding a new event
+      const { dateOffset, ...dateWithoutOffset } = editEventDate || {};
+      const newEvent = {
+        id: `new-${Date.now()}`,
+        type: editEventType,
+        date: dateWithoutOffset,
+        dateOffset: dateOffset || null,
+        place: editEventPlace,
+        placeId: editEventPlaceId,
+        cause: editEventCause,
+      };
+      const updatedEvents = [...events, newEvent];
+      setEvents(updatedEvents);
+      if (onSave && person) {
+        onSave({
+          ...person,
+          events: updatedEvents,
+        });
+      }
+    } else {
+      // Check if it's a union
+      const unionIndex = unions.findIndex(u => u.id === editingEventId);
+      if (unionIndex !== -1) {
+        // Editing a union
+        const updatedUnions = unions.map(u =>
+          u.id === editingEventId
+            ? { ...u, startDate: editEventDate, startPlace: editEventPlace, startPlaceId: editEventPlaceId, endReason: editUnionEndReason, priorStatus1: editUnionPriorStatus1, priorStatus2: editUnionPriorStatus2 }
+            : u
+        );
+        setUnions(updatedUnions);
+        if (onUnionsChange) {
+          const formattedUnions = updatedUnions
+            .filter(u => u.partnerId)
+            .map(u => ({
+              id: u.id || undefined,
+              partner1Id: person.id,
+              partner2Id: u.partnerId,
+              type: u.type || 'marriage',
+              startDate: u.startDate,
+              startPlace: u.startPlace || '',
+              startPlaceId: u.startPlaceId,
+              endDate: u.endDate,
+              endReason: u.endReason || '',
+              priorStatus1: u.priorStatus1 || '',
+              priorStatus2: u.priorStatus2 || '',
+              childIds: u.childIds || [],
+              sources: u.sources || []
+            }));
+          onUnionsChange(formattedUnions);
+        }
+      } else {
+        // Editing an existing event
+        const { dateOffset, ...dateWithoutOffset } = editEventDate || {};
+        const updatedEvents = events.map(e =>
+          e.id === editingEventId
+            ? { ...e, date: dateWithoutOffset, dateOffset: dateOffset || null, place: editEventPlace, placeId: editEventPlaceId, cause: editEventCause }
+            : e
+        );
+        setEvents(updatedEvents);
+        if (onSave && person) {
+          onSave({
+            ...person,
+            events: updatedEvents,
+          });
+        }
+      }
+    }
+    setEditingEventId(null);
+    setIsAddingNewEvent(false);
+    setEditEventType(null);
+  }, [editingEventId, editEventDate, editEventPlace, editEventPlaceId, editEventCause, editUnionEndReason, editUnionPriorStatus1, editUnionPriorStatus2, editEventType, isAddingNewEvent, events, unions, onSave, onUnionsChange, person]);
+
+  // Cancel editing an event
+  const cancelEventEdit = useCallback(() => {
+    setEditingEventId(null);
+    setIsAddingNewEvent(false);
+    setEditEventType(null);
+  }, []);
+
+  // Start adding a new event of specific type
+  const startAddingEvent = useCallback((type) => {
+    setEditEventType(type);
+    setEditEventDate({ type: 'unknown' });
+    setEditEventPlace('');
+    setEditEventPlaceId(null);
+    setEditEventCause('');
+    setEditingEventId(`new-${type}`);
+    setIsAddingNewEvent(true);
+    setAddEventDropdownOpen(false);
+  }, []);
+
+  // Delete an event
+  const deleteEvent = useCallback((eventId) => {
+    const updatedEvents = events.filter(e => e.id !== eventId);
+    setEvents(updatedEvents);
     if (onSave && person) {
       onSave({
         ...person,
-        birthDate: editBirthDate,
-        birthPlace: editBirthPlace,
-        birthPlaceId: editBirthPlaceId,
-        deathDate: editDeathDate,
-        deathPlace: editDeathPlace,
-        deathPlaceId: editDeathPlaceId,
-        events: editEvents,
+        events: updatedEvents,
       });
     }
-  }, [editBirthDate, editBirthPlace, editBirthPlaceId, editDeathDate, editDeathPlace, editDeathPlaceId, editEvents, onSave, person]);
-
-  // Cancel inline Events edit
-  const cancelEventsEdit = useCallback(() => {
-    setIsEditingEvents(false);
-  }, []);
-
-  // Add new event
-  const addEditEvent = useCallback((type) => {
-    const newEvent = {
-      id: `new-${Date.now()}`,
-      type,
-      date: { type: 'unknown' },
-      place: '',
-      placeId: null,
-    };
-    setEditEvents(prev => [...prev, newEvent]);
-  }, []);
-
-  // Update event in edit mode
-  const updateEditEvent = useCallback((index, field, value) => {
-    setEditEvents(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  }, []);
-
-  // Remove event in edit mode
-  const removeEditEvent = useCallback((index) => {
-    setEditEvents(prev => prev.filter((_, i) => i !== index));
-  }, []);
+  }, [events, onSave, person]);
 
   // Reset to view mode and load data when person changes
   useEffect(() => {
@@ -920,9 +1101,11 @@ export default function PersonView({
       setBirthPlace(person.birthPlace || '');
       setBirthPlaceId(person.birthPlaceId || null);
       setBirthEventId(person.birthEventId || null);
+      setBirthCause(person.birthCause || '');
       setDeathPlace(person.deathPlace || '');
       setDeathPlaceId(person.deathPlaceId || null);
       setDeathEventId(person.deathEventId || null);
+      setDeathCause(person.deathCause || '');
       setColorIndex(person.colorIndex ?? 0);
       setPersonSources(person.sources || []);
       setBirthSources(person.birthSources || []);
@@ -1171,8 +1354,10 @@ export default function PersonView({
             setDeathDate(person.deathDate || { type: 'unknown' });
             setBirthPlace(person.birthPlace || '');
             setBirthPlaceId(person.birthPlaceId || null);
+            setBirthCause(person.birthCause || '');
             setDeathPlace(person.deathPlace || '');
             setDeathPlaceId(person.deathPlaceId || null);
+            setDeathCause(person.deathCause || '');
             setColorIndex(person.colorIndex ?? 0);
             setPersonSources(person.sources || []);
             setBirthSources(person.birthSources || []);
@@ -1338,21 +1523,22 @@ export default function PersonView({
     return `${years}y`;
   };
 
-  // Build unified event list for timeline
+  // Build unified event list for timeline (always includes birth/death for editing)
   const allEvents = useMemo(() => {
     const eventList = [];
 
-    // Birth
-    if (birthDate && birthDate.type !== 'unknown') {
-      eventList.push({
-        id: 'birth',
-        type: 'birth',
-        label: 'Birth',
-        date: birthDate,
-        place: birthPlace,
-        eventId: birthEventId,
-      });
-    }
+    // Birth - always include
+    eventList.push({
+      id: 'birth',
+      type: 'birth',
+      label: 'Birth',
+      date: birthDate,
+      place: birthPlace,
+      placeId: birthPlaceId,
+      cause: birthCause,
+      eventId: birthEventId,
+      hasData: birthDate?.type !== 'unknown' || birthPlace,
+    });
 
     // Other events (baptism, etc.)
     events.forEach(event => {
@@ -1363,14 +1549,20 @@ export default function PersonView({
         label: eventType?.label || event.type,
         date: event.date,
         place: event.place,
+        placeId: event.placeId,
+        cause: event.cause,
         eventId: event.id,
         age: calculateAge(birthDate, event.date),
+        hasData: true,
       });
     });
 
     // Unions/Marriages
     unions.forEach(union => {
       const partner = allPeople.find(p => p.id === union.partnerId);
+      const endReasonLabel = END_REASONS.find(r => r.value === union.endReason)?.label;
+      const priorStatus1Label = PRIOR_STATUS.find(s => s.value === union.priorStatus1)?.label;
+      const priorStatus2Label = PRIOR_STATUS.find(s => s.value === union.priorStatus2)?.label;
       eventList.push({
         id: union.id,
         type: 'marriage',
@@ -1379,33 +1571,72 @@ export default function PersonView({
         place: union.startPlace,
         partner,
         age: calculateAge(birthDate, union.startDate),
+        hasData: true,
+        isUnion: true,
+        endReason: union.endReason,
+        endReasonLabel: endReasonLabel && union.endReason ? endReasonLabel : null,
+        priorStatus1: union.priorStatus1,
+        priorStatus2: union.priorStatus2,
+        priorStatus1Label: priorStatus1Label && union.priorStatus1 ? priorStatus1Label : null,
+        priorStatus2Label: priorStatus2Label && union.priorStatus2 ? priorStatus2Label : null,
       });
     });
 
-    // Death
-    if (deathDate && deathDate.type !== 'unknown' && deathDate.type !== 'alive') {
-      eventList.push({
-        id: 'death',
-        type: 'death',
-        label: 'Death',
-        date: deathDate,
-        place: deathPlace,
-        eventId: deathEventId,
-        age: calculateAge(birthDate, deathDate),
-      });
-    }
+    // Death - always include
+    eventList.push({
+      id: 'death',
+      type: 'death',
+      label: 'Death',
+      date: deathDate,
+      place: deathPlace,
+      placeId: deathPlaceId,
+      cause: deathCause,
+      eventId: deathEventId,
+      age: calculateAge(birthDate, deathDate),
+      hasData: deathDate?.type !== 'unknown' && deathDate?.type !== 'alive' || deathPlace,
+      isAlive: deathDate?.type === 'alive',
+    });
 
-    // Sort by date
+    // Helper to extract year/month/day from various date formats
+    const getDateParts = (date) => {
+      if (!date) return { year: null, month: null, day: null };
+      // Handle object format: { year: '1850', month: '3', day: '15' }
+      if (date.year) return { year: parseInt(date.year), month: parseInt(date.month) || 0, day: parseInt(date.day) || 0 };
+      // Handle ISO string format: "1850-03-15" or "1850-03" or "1850"
+      if (typeof date === 'string') {
+        const parts = date.split('-');
+        return { year: parseInt(parts[0]) || null, month: parseInt(parts[1]) || 0, day: parseInt(parts[2]) || 0 };
+      }
+      return { year: null, month: null, day: null };
+    };
+
+    // Sort by date (birth first, then chronologically, undated events at end)
     return eventList.sort((a, b) => {
-      if (!a.date?.year) return 1;
-      if (!b.date?.year) return -1;
-      const yearDiff = parseInt(a.date.year) - parseInt(b.date.year);
+      // Birth always first
+      if (a.id === 'birth') return -1;
+      if (b.id === 'birth') return 1;
+
+      // Sort by date chronologically
+      const aDate = getDateParts(a.date);
+      const bDate = getDateParts(b.date);
+
+      // Events without dates go to end (death without date goes last)
+      if (!aDate.year && !bDate.year) {
+        // Both undated: death goes last
+        if (a.id === 'death') return 1;
+        if (b.id === 'death') return -1;
+        return 0;
+      }
+      if (!aDate.year) return 1;
+      if (!bDate.year) return -1;
+
+      const yearDiff = aDate.year - bDate.year;
       if (yearDiff !== 0) return yearDiff;
-      const monthDiff = (parseInt(a.date.month) || 0) - (parseInt(b.date.month) || 0);
+      const monthDiff = aDate.month - bDate.month;
       if (monthDiff !== 0) return monthDiff;
-      return (parseInt(a.date.day) || 0) - (parseInt(b.date.day) || 0);
+      return aDate.day - bDate.day;
     });
-  }, [birthDate, birthPlace, birthEventId, deathDate, deathPlace, deathEventId, events, unions, allPeople]);
+  }, [birthDate, birthPlace, birthPlaceId, birthCause, birthEventId, deathDate, deathPlace, deathPlaceId, deathCause, deathEventId, events, unions, allPeople]);
 
   // Count total children
   const totalChildren = familyData.reduce((acc, f) => acc + f.children.length, 0);
@@ -1661,303 +1892,299 @@ export default function PersonView({
                   </div>
                 </div>
 
-                {/* Events Card */}
-                <div className={`pv-card ${isEditingEvents ? 'editing' : ''}`} style={{ marginTop: 12 }}>
+                {/* Events Card - Per-event editing */}
+                <div className="pv-card" style={{ marginTop: 12 }}>
                   <div className="pv-card-header">
                     <span className="pv-card-icon">★</span>
                     <span className="pv-card-title">Events</span>
-                    {!isEditingEvents && (
-                      <>
-                        <span className="pv-card-count">({allEvents.length})</span>
-                        <button
-                          className="pv-card-edit-btn"
-                          onClick={startEditingEvents}
-                          title="Edit events"
-                        >
-                          ✎
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  <div className="pv-card-body">
-                    {isEditingEvents ? (
-                      <>
-                        {/* Birth Event */}
-                        <div className="pv-edit-event-section">
-                          <div className="pv-edit-event-header">
-                            <span className="pv-edit-event-icon birth">★</span>
-                            <span className="pv-edit-event-label">Birth</span>
-                          </div>
-                          <div className="pv-edit-event-fields">
-                            <DateInput
-                              label="Date"
-                              value={editBirthDate}
-                              onChange={setEditBirthDate}
-                            />
-                            <div className="pv-inline-edit-row">
-                              <label className="pv-inline-edit-label">Place</label>
-                              <PlacePicker
-                                value={editBirthPlace}
-                                placeId={editBirthPlaceId}
-                                places={places}
-                                onChange={({ place, placeId }) => {
-                                  setEditBirthPlace(place);
-                                  setEditBirthPlaceId(placeId);
-                                }}
-                                onCreatePlace={onCreatePlace}
-                                placeholder="Birth place"
-                              />
-                            </div>
-                            {birthEventId && (
-                              <>
-                                <div className="pv-inline-edit-row">
-                                  <label className="pv-inline-edit-label">Notes</label>
-                                  <NotesSection
-                                    entityType="event"
-                                    entityId={birthEventId}
-                                    compact
-                                  />
-                                </div>
-                                <div className="pv-inline-edit-row">
-                                  <label className="pv-inline-edit-label">Citations</label>
-                                  <CitationList
-                                    citations={birthCitations}
-                                    onAdd={() => {
-                                      setCitationTarget({ type: 'birth', eventId: birthEventId });
-                                      setEditingCitation(null);
-                                      setCitationDialogOpen(true);
-                                    }}
-                                    onEdit={(citation) => {
-                                      setCitationTarget({ type: 'birth', eventId: birthEventId });
-                                      setEditingCitation(citation);
-                                      setCitationDialogOpen(true);
-                                    }}
-                                    onDelete={(citationId) => onDeleteCitation?.(citationId)}
-                                    isEditing={true}
-                                  />
-                                </div>
-                              </>
-                            )}
-                            {!birthEventId && (
-                              <div className="pv-edit-event-hint">
-                                Save to add notes and citations
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Other Events */}
-                        {editEvents.map((event, index) => {
-                          const eventType = EVENT_TYPES.find(t => t.value === event.type);
-                          const eventCitationsForThis = eventCitations[event.id] || [];
-                          return (
-                            <div key={event.id} className="pv-edit-event-section">
-                              <div className="pv-edit-event-header">
-                                <span className={`pv-edit-event-icon ${event.type}`}>
-                                  {EVENT_ICONS[event.type] || '●'}
-                                </span>
-                                <span className="pv-edit-event-label">{eventType?.label || event.type}</span>
-                                <button
-                                  type="button"
-                                  className="pv-edit-event-remove"
-                                  onClick={() => removeEditEvent(index)}
-                                  title="Remove event"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                              <div className="pv-edit-event-fields">
-                                <DateInput
-                                  label="Date"
-                                  value={event.date || { type: 'unknown' }}
-                                  onChange={(date) => updateEditEvent(index, 'date', date)}
-                                />
-                                <div className="pv-inline-edit-row">
-                                  <label className="pv-inline-edit-label">Place</label>
-                                  <PlacePicker
-                                    value={event.place || ''}
-                                    placeId={event.placeId}
-                                    places={places}
-                                    onChange={({ place, placeId }) => {
-                                      updateEditEvent(index, 'place', place);
-                                      updateEditEvent(index, 'placeId', placeId);
-                                    }}
-                                    onCreatePlace={onCreatePlace}
-                                    placeholder="Event place"
-                                  />
-                                </div>
-                                {/* Only show notes/citations for existing events (not new ones) */}
-                                {!event.id.startsWith('new-') ? (
-                                  <>
-                                    <div className="pv-inline-edit-row">
-                                      <label className="pv-inline-edit-label">Notes</label>
-                                      <NotesSection
-                                        entityType="event"
-                                        entityId={event.id}
-                                        compact
-                                      />
-                                    </div>
-                                    <div className="pv-inline-edit-row">
-                                      <label className="pv-inline-edit-label">Citations</label>
-                                      <CitationList
-                                        citations={eventCitationsForThis}
-                                        onAdd={() => {
-                                          setCitationTarget({ type: 'event', eventId: event.id });
-                                          setEditingCitation(null);
-                                          setCitationDialogOpen(true);
-                                        }}
-                                        onEdit={(citation) => {
-                                          setCitationTarget({ type: 'event', eventId: event.id });
-                                          setEditingCitation(citation);
-                                          setCitationDialogOpen(true);
-                                        }}
-                                        onDelete={(citationId) => onDeleteCitation?.(citationId)}
-                                        isEditing={true}
-                                      />
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="pv-edit-event-hint">
-                                    Save to add notes and citations
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* Death Event */}
-                        <div className="pv-edit-event-section">
-                          <div className="pv-edit-event-header">
-                            <span className="pv-edit-event-icon death">†</span>
-                            <span className="pv-edit-event-label">Death</span>
-                          </div>
-                          <div className="pv-edit-event-fields">
-                            <div className="pv-inline-edit-row">
-                              <label className="pv-inline-edit-label">Status</label>
-                              <div className="pv-inline-edit-toggle">
-                                <button
-                                  type="button"
-                                  className={`toggle-btn ${editDeathDate?.type === 'alive' ? 'active' : ''}`}
-                                  onClick={() => setEditDeathDate({ type: 'alive' })}
-                                >
-                                  Alive
-                                </button>
-                                <button
-                                  type="button"
-                                  className={`toggle-btn ${editDeathDate?.type !== 'alive' ? 'active' : ''}`}
-                                  onClick={() => setEditDeathDate({ type: 'unknown' })}
-                                >
-                                  Deceased
-                                </button>
-                              </div>
-                            </div>
-                            {editDeathDate?.type !== 'alive' && (
-                              <>
-                                <DateInput
-                                  label="Date"
-                                  value={editDeathDate}
-                                  onChange={setEditDeathDate}
-                                />
-                                <div className="pv-inline-edit-row">
-                                  <label className="pv-inline-edit-label">Place</label>
-                                  <PlacePicker
-                                    value={editDeathPlace}
-                                    placeId={editDeathPlaceId}
-                                    places={places}
-                                    onChange={({ place, placeId }) => {
-                                      setEditDeathPlace(place);
-                                      setEditDeathPlaceId(placeId);
-                                    }}
-                                    onCreatePlace={onCreatePlace}
-                                    placeholder="Death place"
-                                  />
-                                </div>
-                                {deathEventId && (
-                                  <>
-                                    <div className="pv-inline-edit-row">
-                                      <label className="pv-inline-edit-label">Notes</label>
-                                      <NotesSection
-                                        entityType="event"
-                                        entityId={deathEventId}
-                                        compact
-                                      />
-                                    </div>
-                                    <div className="pv-inline-edit-row">
-                                      <label className="pv-inline-edit-label">Citations</label>
-                                      <CitationList
-                                        citations={deathCitations}
-                                        onAdd={() => {
-                                          setCitationTarget({ type: 'death', eventId: deathEventId });
-                                          setEditingCitation(null);
-                                          setCitationDialogOpen(true);
-                                        }}
-                                        onEdit={(citation) => {
-                                          setCitationTarget({ type: 'death', eventId: deathEventId });
-                                          setEditingCitation(citation);
-                                          setCitationDialogOpen(true);
-                                        }}
-                                        onDelete={(citationId) => onDeleteCitation?.(citationId)}
-                                        isEditing={true}
-                                      />
-                                    </div>
-                                  </>
-                                )}
-                                {!deathEventId && (
-                                  <div className="pv-edit-event-hint">
-                                    Save to add notes and citations
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Add Event Buttons */}
-                        <div className="pv-add-event-row">
-                          {EVENT_TYPES.map(eventType => (
+                    <div className="pv-add-event-dropdown" ref={addEventDropdownRef}>
+                      <button
+                        className="pv-card-add-btn"
+                        onClick={() => setAddEventDropdownOpen(!addEventDropdownOpen)}
+                        title="Add event"
+                      >
+                        +
+                      </button>
+                      {addEventDropdownOpen && (
+                        <div className="pv-add-event-menu">
+                          {EVENT_TYPES.map(et => (
                             <button
-                              key={eventType.value}
+                              key={et.value}
                               type="button"
-                              className="pv-add-event-btn"
-                              onClick={() => addEditEvent(eventType.value)}
-                              title={`Add ${eventType.label}`}
+                              onClick={() => startAddingEvent(et.value)}
                             >
-                              + {eventType.label}
+                              {EVENT_ICONS[et.value] || '●'} {et.label}
                             </button>
                           ))}
                         </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="pv-card-body">
+                    <div className="pv-events-list">
+                      {allEvents.map((event) => {
+                        const isEditing = editingEventId === event.id;
+                        const eventCitationsForThis = event.type === 'birth' ? birthCitations :
+                          event.type === 'death' ? deathCitations :
+                          (eventCitations[event.id] || []);
 
-                        <div className="pv-inline-edit-actions">
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            onClick={cancelEventsEdit}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={saveEventsEdit}
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        {allEvents.length > 0 ? (
-                          <div className="pv-events-list">
-                            {allEvents.map((event, index) => (
-                              <div key={event.id} className="pv-event">
-                                <div className={`pv-event-icon ${event.type}`}>
-                                  {EVENT_ICONS[event.type] || '●'}
+                        // Skip death if marked alive and not editing
+                        if (event.id === 'death' && event.isAlive && !isEditing) {
+                          return (
+                            <div key={event.id} className="pv-event pv-event-alive">
+                              <div className={`pv-event-icon ${event.type}`}>
+                                {EVENT_ICONS[event.type] || '●'}
+                              </div>
+                              <div className="pv-event-content">
+                                <div className="pv-event-header">
+                                  <span className="pv-event-type">Status</span>
+                                  <span className="pv-event-alive-badge">Alive</span>
                                 </div>
-                                <div className="pv-event-content">
+                              </div>
+                              <button
+                                type="button"
+                                className="pv-event-edit-btn"
+                                onClick={() => startEditingEvent(event.id)}
+                                title="Edit"
+                              >
+                                ✎
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        // Skip events without data in view mode (unless editing)
+                        if (!event.hasData && !isEditing && event.id !== 'birth' && event.id !== 'death') {
+                          return null;
+                        }
+
+                        return (
+                          <div key={event.id} className={`pv-event ${isEditing ? 'editing' : ''}`}>
+                            <div className={`pv-event-icon ${event.type}`}>
+                              {EVENT_ICONS[event.type] || '●'}
+                            </div>
+                            <div className="pv-event-content">
+                              {isEditing ? (
+                                /* Edit mode for this event */
+                                <div className="pv-event-edit-form">
+                                  <div className="pv-event-edit-title">{event.label}</div>
+
+                                  {/* Death status toggle */}
+                                  {event.id === 'death' && (
+                                    <div className="pv-inline-edit-row">
+                                      <label className="pv-inline-edit-label">Status</label>
+                                      <div className="pv-inline-edit-toggle">
+                                        <button
+                                          type="button"
+                                          className={`toggle-btn ${editEventDate?.type === 'alive' ? 'active' : ''}`}
+                                          onClick={() => setEditEventDate({ type: 'alive' })}
+                                        >
+                                          Alive
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={`toggle-btn ${editEventDate?.type !== 'alive' ? 'active' : ''}`}
+                                          onClick={() => setEditEventDate(prev => prev?.type === 'alive' ? { type: 'unknown' } : prev)}
+                                        >
+                                          Deceased
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Date/Place fields (hidden for alive status) */}
+                                  {!(event.id === 'death' && editEventDate?.type === 'alive') && (
+                                    <>
+                                      <DateInput
+                                        label="Date"
+                                        value={editEventDate}
+                                        onChange={setEditEventDate}
+                                        parentDate={event.type === 'burial' ? deathDate : (event.id !== 'birth' ? birthDate : null)}
+                                        parentLabel={event.type === 'burial' ? 'death' : 'birth'}
+                                      />
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">Place</label>
+                                        <PlacePicker
+                                          value={editEventPlace}
+                                          placeId={editEventPlaceId}
+                                          places={places}
+                                          onChange={({ place, placeId }) => {
+                                            setEditEventPlace(place);
+                                            setEditEventPlaceId(placeId);
+                                          }}
+                                          onCreatePlace={onCreatePlace}
+                                          placeholder={`${event.label} place`}
+                                        />
+                                      </div>
+                                      {/* Cause/Reason field (not for unions) */}
+                                      {!event.isUnion && (
+                                        <div className="pv-inline-edit-row">
+                                          <label className="pv-inline-edit-label">
+                                            {event.type === 'death' ? 'Cause' : 'Reason'}
+                                          </label>
+                                          <input
+                                            type="text"
+                                            className="text-input"
+                                            value={editEventCause}
+                                            onChange={(e) => setEditEventCause(e.target.value)}
+                                            placeholder={event.type === 'death' ? 'Cause of death' : 'Reason/cause'}
+                                          />
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {/* Notes/Citations for existing events */}
+                                  {event.eventId && !event.isUnion && !(event.id === 'death' && editEventDate?.type === 'alive') && (
+                                    <>
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">Notes</label>
+                                        <NotesSection
+                                          entityType="event"
+                                          entityId={event.eventId}
+                                          compact
+                                        />
+                                      </div>
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">Citations</label>
+                                        <CitationList
+                                          citations={eventCitationsForThis}
+                                          onAdd={() => {
+                                            setCitationTarget({ type: event.type, eventId: event.eventId });
+                                            setEditingCitation(null);
+                                            setCitationDialogOpen(true);
+                                          }}
+                                          onEdit={(citation) => {
+                                            setCitationTarget({ type: event.type, eventId: event.eventId });
+                                            setEditingCitation(citation);
+                                            setCitationDialogOpen(true);
+                                          }}
+                                          onDelete={(citationId) => onDeleteCitation?.(citationId)}
+                                          isEditing={true}
+                                        />
+                                      </div>
+                                    </>
+                                  )}
+
+                                  {/* End reason and Notes/Citations for unions/marriages */}
+                                  {event.isUnion && (
+                                    <>
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">Status</label>
+                                        <select
+                                          className="text-input"
+                                          value={editUnionEndReason}
+                                          onChange={(e) => setEditUnionEndReason(e.target.value)}
+                                        >
+                                          {END_REASONS.map(r => (
+                                            <option key={r.value} value={r.value}>{r.label}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">
+                                          {firstName || 'Person'}'s prior status
+                                        </label>
+                                        <select
+                                          className="text-input"
+                                          value={editUnionPriorStatus1}
+                                          onChange={(e) => setEditUnionPriorStatus1(e.target.value)}
+                                        >
+                                          {PRIOR_STATUS.map(s => (
+                                            <option key={s.value} value={s.value}>{s.label}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">
+                                          {event.partner?.firstName || 'Partner'}'s prior status
+                                        </label>
+                                        <select
+                                          className="text-input"
+                                          value={editUnionPriorStatus2}
+                                          onChange={(e) => setEditUnionPriorStatus2(e.target.value)}
+                                        >
+                                          {PRIOR_STATUS.map(s => (
+                                            <option key={s.value} value={s.value}>{s.label}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">Notes</label>
+                                        <NotesSection
+                                          entityType="union"
+                                          entityId={event.id}
+                                          compact
+                                        />
+                                      </div>
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">Citations</label>
+                                        <CitationList
+                                          citations={unionCitations[event.id] || []}
+                                          onAdd={() => {
+                                            setCitationTarget({ type: 'union', unionId: event.id });
+                                            setEditingCitation(null);
+                                            setCitationDialogOpen(true);
+                                          }}
+                                          onEdit={(citation) => {
+                                            setCitationTarget({ type: 'union', unionId: event.id });
+                                            setEditingCitation(citation);
+                                            setCitationDialogOpen(true);
+                                          }}
+                                          onDelete={(citationId) => onDeleteCitation?.(citationId)}
+                                          isEditing={true}
+                                        />
+                                      </div>
+                                    </>
+                                  )}
+
+                                  {/* Hint for new events */}
+                                  {!event.eventId && !isAddingNewEvent && (
+                                    <div className="pv-edit-event-hint">
+                                      Save to add notes and citations
+                                    </div>
+                                  )}
+
+                                  {/* Save/Cancel/Delete buttons */}
+                                  <div className="pv-event-edit-actions">
+                                    {/* Delete button for non-birth/death events */}
+                                    {event.id !== 'birth' && event.id !== 'death' && !isAddingNewEvent && (
+                                      <button
+                                        type="button"
+                                        className="btn-danger btn-small"
+                                        onClick={() => {
+                                          deleteEvent(event.id);
+                                          cancelEventEdit();
+                                        }}
+                                        title="Delete event"
+                                      >
+                                        Delete
+                                      </button>
+                                    )}
+                                    <div className="pv-event-edit-actions-right">
+                                      <button
+                                        type="button"
+                                        className="btn-secondary btn-small"
+                                        onClick={cancelEventEdit}
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn-primary btn-small"
+                                        onClick={saveEventEdit}
+                                      >
+                                        Save
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                /* View mode for this event */
+                                <>
                                   <div className="pv-event-header">
                                     <span className="pv-event-type">{event.label}</span>
-                                    {event.date && event.date.type !== 'unknown' && (
+                                    {event.date && event.date.type !== 'unknown' && event.date.type !== 'alive' && (
                                       <span className="pv-event-date">
                                         {event.date.display || formatSingleDate(event.date)}
                                       </span>
@@ -1972,31 +2199,130 @@ export default function PersonView({
                                       {event.place}
                                     </div>
                                   )}
+                                  {event.cause && (
+                                    <div className="pv-event-cause">
+                                      <span className="pv-event-cause-label">
+                                        {event.type === 'death' ? 'Cause: ' : 'Reason: '}
+                                      </span>
+                                      {event.cause}
+                                    </div>
+                                  )}
                                   {event.partner && (
                                     <div className="pv-event-partner">
                                       <span className="pv-event-partner-photo" />
                                       {[event.partner.firstName, event.partner.lastName].filter(Boolean).join(' ')}
                                     </div>
                                   )}
-                                  {event.eventId && <EventMedia eventId={event.eventId} />}
-                                  {event.eventId && (
-                                    <div className="pv-event-notes">
-                                      <NotesSection
-                                        entityType="event"
-                                        entityId={event.eventId}
-                                        compact
-                                      />
+                                  {event.endReasonLabel && (
+                                    <div className="pv-event-status">
+                                      <span className="pv-event-status-badge">{event.endReasonLabel}</span>
                                     </div>
                                   )}
+                                  {(event.priorStatus1Label || event.priorStatus2Label) && (
+                                    <div className="pv-event-prior-status">
+                                      {event.priorStatus1Label && (
+                                        <span className="pv-prior-status-item">
+                                          {firstName || 'Person'}: {event.priorStatus1Label}
+                                        </span>
+                                      )}
+                                      {event.priorStatus2Label && (
+                                        <span className="pv-prior-status-item">
+                                          {event.partner?.firstName || 'Partner'}: {event.priorStatus2Label}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {event.eventId && <EventMedia eventId={event.eventId} />}
+                                  {/* Show placeholder for empty birth/death */}
+                                  {!event.hasData && (event.id === 'birth' || event.id === 'death') && (
+                                    <div className="pv-event-empty">Not recorded</div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                            {/* Edit button */}
+                            {!isEditing && (
+                              <button
+                                type="button"
+                                className="pv-event-edit-btn"
+                                onClick={() => startEditingEvent(event.id)}
+                                title="Edit"
+                              >
+                                ✎
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* New event being added */}
+                      {isAddingNewEvent && (
+                        <div className="pv-event editing">
+                          <div className={`pv-event-icon ${editEventType}`}>
+                            {EVENT_ICONS[editEventType] || '●'}
+                          </div>
+                          <div className="pv-event-content">
+                            <div className="pv-event-edit-form">
+                              <div className="pv-event-edit-title">
+                                {EVENT_TYPES.find(t => t.value === editEventType)?.label || editEventType}
+                              </div>
+                              <DateInput
+                                label="Date"
+                                value={editEventDate}
+                                onChange={setEditEventDate}
+                                parentDate={editEventType === 'burial' ? deathDate : birthDate}
+                                parentLabel={editEventType === 'burial' ? 'death' : 'birth'}
+                              />
+                              <div className="pv-inline-edit-row">
+                                <label className="pv-inline-edit-label">Place</label>
+                                <PlacePicker
+                                  value={editEventPlace}
+                                  placeId={editEventPlaceId}
+                                  places={places}
+                                  onChange={({ place, placeId }) => {
+                                    setEditEventPlace(place);
+                                    setEditEventPlaceId(placeId);
+                                  }}
+                                  onCreatePlace={onCreatePlace}
+                                  placeholder="Event place"
+                                />
+                              </div>
+                              <div className="pv-inline-edit-row">
+                                <label className="pv-inline-edit-label">Reason</label>
+                                <input
+                                  type="text"
+                                  className="text-input"
+                                  value={editEventCause}
+                                  onChange={(e) => setEditEventCause(e.target.value)}
+                                  placeholder="Reason/cause"
+                                />
+                              </div>
+                              <div className="pv-edit-event-hint">
+                                Save to add notes and citations
+                              </div>
+                              <div className="pv-event-edit-actions">
+                                <div className="pv-event-edit-actions-right">
+                                  <button
+                                    type="button"
+                                    className="btn-secondary btn-small"
+                                    onClick={cancelEventEdit}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-primary btn-small"
+                                    onClick={saveEventEdit}
+                                  >
+                                    Save
+                                  </button>
                                 </div>
                               </div>
-                            ))}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="pv-empty">No events recorded</div>
-                        )}
-                      </>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2124,14 +2450,6 @@ export default function PersonView({
                           })}
                         </div>
                       )}
-                      {/* Union Notes */}
-                      <div className="pv-family-notes">
-                        <NotesSection
-                          entityType="union"
-                          entityId={union.id}
-                          compact
-                        />
-                      </div>
                     </div>
                   );
                 })}

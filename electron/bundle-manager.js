@@ -354,6 +354,19 @@ class BundleManager {
           updateMedia.run(newPath, newThumbPath, media.id);
         }
       }
+
+      // v4: Add prior_status_1 and prior_status_2 to union_ table
+      const unionColumns = db.pragma('table_info(union_)');
+      const hasPriorStatus1 = unionColumns.some(col => col.name === 'prior_status_1');
+      if (!hasPriorStatus1) {
+        console.log('Adding prior_status_1 column to union_ table');
+        db.exec('ALTER TABLE union_ ADD COLUMN prior_status_1 TEXT');
+      }
+      const hasPriorStatus2 = unionColumns.some(col => col.name === 'prior_status_2');
+      if (!hasPriorStatus2) {
+        console.log('Adding prior_status_2 column to union_ table');
+        db.exec('ALTER TABLE union_ ADD COLUMN prior_status_2 TEXT');
+      }
     } finally {
       db.close();
     }
