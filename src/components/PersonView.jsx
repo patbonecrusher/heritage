@@ -682,6 +682,8 @@ export default function PersonView({
   const [personSources, setPersonSources] = useState([]);
   const [birthSources, setBirthSources] = useState([]);
   const [deathSources, setDeathSources] = useState([]);
+  const [birthNotes, setBirthNotes] = useState('');
+  const [deathNotes, setDeathNotes] = useState('');
   const [events, setEvents] = useState([]);
   const [unions, setUnions] = useState([]);
   const [birthExpanded, setBirthExpanded] = useState(true);
@@ -720,9 +722,11 @@ export default function PersonView({
   const [editBirthDate, setEditBirthDate] = useState({ type: 'unknown' });
   const [editBirthPlace, setEditBirthPlace] = useState('');
   const [editBirthPlaceId, setEditBirthPlaceId] = useState(null);
+  const [editBirthNotes, setEditBirthNotes] = useState('');
   const [editDeathDate, setEditDeathDate] = useState({ type: 'unknown' });
   const [editDeathPlace, setEditDeathPlace] = useState('');
   const [editDeathPlaceId, setEditDeathPlaceId] = useState(null);
+  const [editDeathNotes, setEditDeathNotes] = useState('');
   const [editEvents, setEditEvents] = useState([]);
 
   // Swipe gesture handling (touch devices)
@@ -839,12 +843,14 @@ export default function PersonView({
     setEditBirthDate(birthDate || { type: 'unknown' });
     setEditBirthPlace(birthPlace || '');
     setEditBirthPlaceId(birthPlaceId || null);
+    setEditBirthNotes(birthNotes || '');
     setEditDeathDate(deathDate || { type: 'unknown' });
     setEditDeathPlace(deathPlace || '');
     setEditDeathPlaceId(deathPlaceId || null);
+    setEditDeathNotes(deathNotes || '');
     setEditEvents([...events]);
     setIsEditingEvents(true);
-  }, [birthDate, birthPlace, birthPlaceId, deathDate, deathPlace, deathPlaceId, events]);
+  }, [birthDate, birthPlace, birthPlaceId, birthNotes, deathDate, deathPlace, deathPlaceId, deathNotes, events]);
 
   // Save inline Events edit
   const saveEventsEdit = useCallback(() => {
@@ -852,9 +858,11 @@ export default function PersonView({
     setBirthDate(editBirthDate);
     setBirthPlace(editBirthPlace);
     setBirthPlaceId(editBirthPlaceId);
+    setBirthNotes(editBirthNotes);
     setDeathDate(editDeathDate);
     setDeathPlace(editDeathPlace);
     setDeathPlaceId(editDeathPlaceId);
+    setDeathNotes(editDeathNotes);
     setEvents(editEvents);
     setIsEditingEvents(false);
 
@@ -865,13 +873,15 @@ export default function PersonView({
         birthDate: editBirthDate,
         birthPlace: editBirthPlace,
         birthPlaceId: editBirthPlaceId,
+        birthNotes: editBirthNotes,
         deathDate: editDeathDate,
         deathPlace: editDeathPlace,
         deathPlaceId: editDeathPlaceId,
+        deathNotes: editDeathNotes,
         events: editEvents,
       });
     }
-  }, [editBirthDate, editBirthPlace, editBirthPlaceId, editDeathDate, editDeathPlace, editDeathPlaceId, editEvents, onSave, person]);
+  }, [editBirthDate, editBirthPlace, editBirthPlaceId, editBirthNotes, editDeathDate, editDeathPlace, editDeathPlaceId, editDeathNotes, editEvents, onSave, person]);
 
   // Cancel inline Events edit
   const cancelEventsEdit = useCallback(() => {
@@ -886,6 +896,7 @@ export default function PersonView({
       date: { type: 'unknown' },
       place: '',
       placeId: null,
+      notes: '',
     };
     setEditEvents(prev => [...prev, newEvent]);
   }, []);
@@ -927,6 +938,8 @@ export default function PersonView({
       setPersonSources(person.sources || []);
       setBirthSources(person.birthSources || []);
       setDeathSources(person.deathSources || []);
+      setBirthNotes(person.birthNotes || '');
+      setDeathNotes(person.deathNotes || '');
       setEvents(person.events || []);
 
       // Load existing unions for this person
@@ -1696,15 +1709,43 @@ export default function PersonView({
                             />
                             <div className="pv-inline-edit-row">
                               <label className="pv-inline-edit-label">Place</label>
-                              <PlaceDropZone
+                              <PlacePicker
                                 value={editBirthPlace}
                                 placeId={editBirthPlaceId}
+                                places={places}
                                 onChange={({ place, placeId }) => {
                                   setEditBirthPlace(place);
                                   setEditBirthPlaceId(placeId);
                                 }}
                                 placeholder="Birth place"
-                                places={places}
+                              />
+                            </div>
+                            <div className="pv-inline-edit-row">
+                              <label className="pv-inline-edit-label">Notes</label>
+                              <textarea
+                                className="pv-edit-notes-textarea"
+                                value={editBirthNotes}
+                                onChange={(e) => setEditBirthNotes(e.target.value)}
+                                placeholder="Notes about the birth..."
+                                rows={2}
+                              />
+                            </div>
+                            <div className="pv-inline-edit-row">
+                              <label className="pv-inline-edit-label">Citations</label>
+                              <CitationList
+                                citations={birthCitations}
+                                onAdd={() => {
+                                  setCitationTarget({ type: 'birth', eventId: birthEventId });
+                                  setEditingCitation(null);
+                                  setCitationDialogOpen(true);
+                                }}
+                                onEdit={(citation) => {
+                                  setCitationTarget({ type: 'birth', eventId: birthEventId });
+                                  setEditingCitation(citation);
+                                  setCitationDialogOpen(true);
+                                }}
+                                onDelete={(citationId) => onDeleteCitation?.(citationId)}
+                                isEditing={true}
                               />
                             </div>
                           </div>
@@ -1713,6 +1754,7 @@ export default function PersonView({
                         {/* Other Events */}
                         {editEvents.map((event, index) => {
                           const eventType = EVENT_TYPES.find(t => t.value === event.type);
+                          const eventCitationsForThis = eventCitations[event.id] || [];
                           return (
                             <div key={event.id} className="pv-edit-event-section">
                               <div className="pv-edit-event-header">
@@ -1737,17 +1779,48 @@ export default function PersonView({
                                 />
                                 <div className="pv-inline-edit-row">
                                   <label className="pv-inline-edit-label">Place</label>
-                                  <PlaceDropZone
+                                  <PlacePicker
                                     value={event.place || ''}
                                     placeId={event.placeId}
+                                    places={places}
                                     onChange={({ place, placeId }) => {
                                       updateEditEvent(index, 'place', place);
                                       updateEditEvent(index, 'placeId', placeId);
                                     }}
                                     placeholder="Event place"
-                                    places={places}
                                   />
                                 </div>
+                                <div className="pv-inline-edit-row">
+                                  <label className="pv-inline-edit-label">Notes</label>
+                                  <textarea
+                                    className="pv-edit-notes-textarea"
+                                    value={event.notes || ''}
+                                    onChange={(e) => updateEditEvent(index, 'notes', e.target.value)}
+                                    placeholder="Notes about this event..."
+                                    rows={2}
+                                  />
+                                </div>
+                                {/* Only show citations for existing events (not new ones) */}
+                                {!event.id.startsWith('new-') && (
+                                  <div className="pv-inline-edit-row">
+                                    <label className="pv-inline-edit-label">Citations</label>
+                                    <CitationList
+                                      citations={eventCitationsForThis}
+                                      onAdd={() => {
+                                        setCitationTarget({ type: 'event', eventId: event.id });
+                                        setEditingCitation(null);
+                                        setCitationDialogOpen(true);
+                                      }}
+                                      onEdit={(citation) => {
+                                        setCitationTarget({ type: 'event', eventId: event.id });
+                                        setEditingCitation(citation);
+                                        setCitationDialogOpen(true);
+                                      }}
+                                      onDelete={(citationId) => onDeleteCitation?.(citationId)}
+                                      isEditing={true}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -1788,15 +1861,43 @@ export default function PersonView({
                                 />
                                 <div className="pv-inline-edit-row">
                                   <label className="pv-inline-edit-label">Place</label>
-                                  <PlaceDropZone
+                                  <PlacePicker
                                     value={editDeathPlace}
                                     placeId={editDeathPlaceId}
+                                    places={places}
                                     onChange={({ place, placeId }) => {
                                       setEditDeathPlace(place);
                                       setEditDeathPlaceId(placeId);
                                     }}
                                     placeholder="Death place"
-                                    places={places}
+                                  />
+                                </div>
+                                <div className="pv-inline-edit-row">
+                                  <label className="pv-inline-edit-label">Notes</label>
+                                  <textarea
+                                    className="pv-edit-notes-textarea"
+                                    value={editDeathNotes}
+                                    onChange={(e) => setEditDeathNotes(e.target.value)}
+                                    placeholder="Notes about the death..."
+                                    rows={2}
+                                  />
+                                </div>
+                                <div className="pv-inline-edit-row">
+                                  <label className="pv-inline-edit-label">Citations</label>
+                                  <CitationList
+                                    citations={deathCitations}
+                                    onAdd={() => {
+                                      setCitationTarget({ type: 'death', eventId: deathEventId });
+                                      setEditingCitation(null);
+                                      setCitationDialogOpen(true);
+                                    }}
+                                    onEdit={(citation) => {
+                                      setCitationTarget({ type: 'death', eventId: deathEventId });
+                                      setEditingCitation(citation);
+                                      setCitationDialogOpen(true);
+                                    }}
+                                    onDelete={(citationId) => onDeleteCitation?.(citationId)}
+                                    isEditing={true}
                                   />
                                 </div>
                               </>

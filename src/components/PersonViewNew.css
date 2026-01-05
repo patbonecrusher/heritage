@@ -505,6 +505,29 @@
   gap: 12px;
 }
 
+.pv-edit-notes-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 50px;
+}
+
+.pv-edit-notes-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.pv-edit-notes-textarea::placeholder {
+  color: var(--color-textMuted);
+}
+
 .pv-add-event-row {
   display: flex;
   flex-wrap: wrap;
