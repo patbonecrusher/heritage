@@ -976,13 +976,30 @@ function App() {
     window.electronAPI.onMenuFitView(() => handleFitView());
     window.electronAPI.onMenuPreferences(() => handleOpenPreferences());
     window.electronAPI.onMenuToggleLibrary(() => setLibraryPanelOpen(prev => !prev));
+    window.electronAPI.onMenuViewPedigree(() => {
+      setViewMode('focused');
+      setFocusedView('pedigree');
+    });
+    window.electronAPI.onMenuViewDescendants(() => {
+      setViewMode('focused');
+      setFocusedView('descendants');
+    });
+    window.electronAPI.onMenuViewPerson(() => {
+      if (selectedPersonId) {
+        setViewMode('focused');
+        setFocusedView('person');
+      }
+    });
+    window.electronAPI.onMenuViewCanvas(() => {
+      setViewMode('canvas');
+    });
 
     return () => {
       if (window.electronAPI?.removeMenuListeners) {
         window.electronAPI.removeMenuListeners();
       }
     };
-  }, [handleNew, handleLoad, handleSave, handleExportPng, handleExportSvg, addNode, handleFitView, handleOpenPreferences]);
+  }, [handleNew, handleLoad, handleSave, handleExportPng, handleExportSvg, addNode, handleFitView, handleOpenPreferences, selectedPersonId]);
 
   // Render main view based on mode
   const renderMainView = () => {
@@ -1709,49 +1726,6 @@ function App() {
         />
 
         <div className="main-view">
-          {/* View mode toggle */}
-          <div className="view-toggle">
-            <span className="view-toggle-label">View:</span>
-            <button
-              className={`view-toggle-btn ${viewMode === 'focused' ? 'active' : ''}`}
-              onClick={() => setViewMode('focused')}
-            >
-              Focused
-            </button>
-            <button
-              className={`view-toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`}
-              onClick={() => setViewMode('canvas')}
-            >
-              Canvas
-            </button>
-
-            {viewMode === 'focused' && (
-              <>
-                <div className="view-toggle-separator" />
-                <button
-                  className={`view-toggle-btn ${focusedView === 'pedigree' ? 'active' : ''}`}
-                  onClick={() => setFocusedView('pedigree')}
-                >
-                  Pedigree
-                </button>
-                <button
-                  className={`view-toggle-btn ${focusedView === 'descendants' ? 'active' : ''}`}
-                  onClick={() => setFocusedView('descendants')}
-                >
-                  Descendants
-                </button>
-                <button
-                  className={`view-toggle-btn ${focusedView === 'person' ? 'active' : ''}`}
-                  onClick={() => setFocusedView('person')}
-                  disabled={!selectedPersonId}
-                  title={selectedPersonId ? 'View selected person' : 'Select a person first'}
-                >
-                  Person
-                </button>
-              </>
-            )}
-          </div>
-
           {renderMainView()}
         </div>
 

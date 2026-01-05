@@ -191,6 +191,47 @@
   border-color: var(--color-primary);
 }
 
+.library-panel-content .panel-filter-buttons {
+  display: flex;
+  gap: 2px;
+  background: var(--color-surface);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.library-panel-content .panel-filter-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-textMuted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.library-panel-content .panel-filter-btn:hover {
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.library-panel-content .panel-filter-btn.active {
+  background: var(--color-background);
+  color: var(--color-text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.library-panel-content .panel-toolbar-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.library-panel-content .panel-toolbar-actions button {
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
 .library-panel-content .panel-list {
   flex: 1;
   overflow-y: auto;

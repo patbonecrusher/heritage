@@ -8,6 +8,49 @@ import { useDatabase } from '../data/DatabaseContext';
 import PhotoViewer from './PhotoViewer';
 import './MediaLibrary.css';
 
+// Icons for media types
+const MEDIA_ICONS = {
+  photo: '📷',
+  document: '📄',
+  certificate: '📜',
+  headstone: '🪦',
+  newspaper: '📰',
+  map: '🗺️',
+  other: '📎'
+};
+
+// Check if media can be displayed as an image
+const isDisplayableImage = (item) => {
+  // Explicitly reject PDFs and documents by extension first
+  const ext = item.path?.split('.').pop()?.toLowerCase() || item.filename?.split('.').pop()?.toLowerCase();
+
+  if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'xls', 'xlsx'].includes(ext)) {
+    return false;
+  }
+
+  // Reject by mime type
+  if (item.mime_type === 'application/pdf') return false;
+  if (item.mime_type?.startsWith('application/')) return false;
+
+  // Check for image types
+  if (item.mime_type?.startsWith('image/')) return true;
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
+};
+
+// Get icon for media item
+const getMediaIcon = (item) => {
+  // Check mime type first for non-image files
+  if (item.mime_type === 'application/pdf') return '📄';
+  if (item.mime_type?.startsWith('application/')) return '📄';
+
+  // Check extension for legacy data
+  const ext = item.path?.split('.').pop()?.toLowerCase() || item.filename?.split('.').pop()?.toLowerCase();
+  if (ext === 'pdf') return '📄';
+  if (['doc', 'docx', 'txt', 'rtf'].includes(ext)) return '📄';
+
+  return MEDIA_ICONS[item.type] || MEDIA_ICONS.other;
+};
+
 export function MediaLibrary({ onClose }) {
   const { isOpen, triggerRefresh } = useDatabase();
   const { getAllMedia, importAndCreateMedia, deleteMediaRecord, updateMedia } = useMedia();
@@ -18,7 +61,7 @@ export function MediaLibrary({ onClose }) {
   const [filter, setFilter] = useState('all'); // all, photo, document, etc.
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null); // media item to delete
-  const [editingMedia, setEditingMedia] = useState(null); // media item being edited
+  const [viewMode, setViewMode] = useState('grid'); // grid or list
 
   // Handle Escape key to close
   useEffect(() => {
@@ -83,23 +126,6 @@ export function MediaLibrary({ onClose }) {
       triggerRefresh();
     } catch (err) {
       console.error('Error deleting media:', err);
-    }
-  };
-
-  // Save media edits
-  const handleSaveEdit = async () => {
-    if (!editingMedia) return;
-    try {
-      await updateMedia(editingMedia.id, {
-        title: editingMedia.title,
-        description: editingMedia.description,
-        type: editingMedia.type,
-        date_taken: editingMedia.date_taken,
-      });
-      setEditingMedia(null);
-      await refreshMedia();
-    } catch (err) {
-      console.error('Error saving media:', err);
     }
   };
 
@@ -172,6 +198,23 @@ export function MediaLibrary({ onClose }) {
             </select>
           </div>
 
+          <div className="media-library-view-toggle">
+            <button
+              className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+            >
+              ▦
+            </button>
+            <button
+              className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              ☰
+            </button>
+          </div>
+
           <div className="media-library-actions">
             <button
               className="btn-secondary"
@@ -210,7 +253,7 @@ export function MediaLibrary({ onClose }) {
                 <p>No media matches your search</p>
               )}
             </div>
-          ) : (
+          ) : viewMode === 'grid' ? (
             <div className="media-library-grid">
               {filteredMedia.map(item => (
                 <div key={item.id} className="media-library-item">
@@ -220,7 +263,7 @@ export function MediaLibrary({ onClose }) {
                     title={item.filename}
                   >
                     <div className="media-item-preview">
-                      {item.thumbnailFullPath || item.fullPath ? (
+                      {isDisplayableImage(item) && (item.thumbnailFullPath || item.fullPath) ? (
                         <img
                           src={item.thumbnailFullPath || item.fullPath}
                           alt={item.title || item.filename}
@@ -228,11 +271,7 @@ export function MediaLibrary({ onClose }) {
                         />
                       ) : (
                         <div className="media-item-icon">
-                          {item.type === 'document' ? '📄' :
-                           item.type === 'certificate' ? '📜' :
-                           item.type === 'headstone' ? '🪦' :
-                           item.type === 'newspaper' ? '📰' :
-                           item.type === 'map' ? '🗺️' : '📷'}
+                          {getMediaIcon(item)}
                         </div>
                       )}
                     </div>
@@ -256,9 +295,9 @@ export function MediaLibrary({ onClose }) {
                     className="media-item-edit"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditingMedia({ ...item });
+                      setSelectedMedia(item);
                     }}
-                    title="Edit"
+                    title="View & Edit"
                   >
                     ✎
                   </button>
@@ -281,6 +320,82 @@ export function MediaLibrary({ onClose }) {
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="media-library-list">
+              {filteredMedia.map(item => (
+                <div
+                  key={item.id}
+                  className="media-list-item"
+                  onClick={() => setSelectedMedia(item)}
+                >
+                  <div className="media-list-thumbnail">
+                    {isDisplayableImage(item) && (item.thumbnailFullPath || item.fullPath) ? (
+                      <img
+                        src={item.thumbnailFullPath || item.fullPath}
+                        alt={item.title || item.filename}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="media-item-icon">
+                        {getMediaIcon(item)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="media-list-info">
+                    <div className="media-list-title">
+                      {item.title || item.filename}
+                    </div>
+                    <div className="media-list-filename">
+                      {item.filename}
+                    </div>
+                    {item.description && (
+                      <div className="media-list-description">
+                        {item.description}
+                      </div>
+                    )}
+                  </div>
+                  <div className="media-list-meta">
+                    <span className="media-list-type">
+                      {MEDIA_TYPES[item.type] || item.type}
+                    </span>
+                    {item.date_taken && (
+                      <span className="media-list-date">{item.date_taken}</span>
+                    )}
+                    {item.linked_persons && (
+                      <span className="media-list-persons">{item.linked_persons}</span>
+                    )}
+                  </div>
+                  <div className="media-list-badges">
+                    {item.face_count > 0 && (
+                      <span className="media-badge face-badge">{item.face_count}</span>
+                    )}
+                    {item.citation_count > 0 && (
+                      <span className="media-badge citation-badge">{item.citation_count}</span>
+                    )}
+                  </div>
+                  <div className="media-list-actions">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMedia(item);
+                      }}
+                      title="View & Edit"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteConfirm(item);
+                      }}
+                      title="Delete"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -289,9 +404,15 @@ export function MediaLibrary({ onClose }) {
             mediaId={selectedMedia.id}
             imageSrc={selectedMedia.fullPath}
             mediaPath={selectedMedia.path}
+            title={selectedMedia.title}
+            filename={selectedMedia.filename}
+            mediaType={selectedMedia.type}
+            mimeType={selectedMedia.mime_type}
+            description={selectedMedia.description}
+            dateTaken={selectedMedia.date_taken}
             onClose={() => {
               setSelectedMedia(null);
-              refreshMedia(); // Refresh in case faces were tagged
+              refreshMedia(); // Refresh in case data was changed
             }}
             hasNext={filteredMedia.findIndex(m => m.id === selectedMedia.id) < filteredMedia.length - 1}
             hasPrevious={filteredMedia.findIndex(m => m.id === selectedMedia.id) > 0}
@@ -337,91 +458,6 @@ export function MediaLibrary({ onClose }) {
                   onClick={() => handleDelete(deleteConfirm, true)}
                 >
                   Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {editingMedia && (
-          <div className="delete-confirm-overlay">
-            <div className="media-edit-dialog">
-              <h3>Edit Media</h3>
-              <div className="media-edit-preview">
-                {editingMedia.thumbnailFullPath || editingMedia.fullPath ? (
-                  <img
-                    src={editingMedia.thumbnailFullPath || editingMedia.fullPath}
-                    alt={editingMedia.title || editingMedia.filename}
-                  />
-                ) : (
-                  <div className="media-item-icon">
-                    {MEDIA_TYPES[editingMedia.type] || editingMedia.type}
-                  </div>
-                )}
-              </div>
-              <div className="media-edit-fields">
-                <label>
-                  Title
-                  <input
-                    type="text"
-                    value={editingMedia.title || ''}
-                    onChange={(e) => setEditingMedia({
-                      ...editingMedia,
-                      title: e.target.value
-                    })}
-                    placeholder={editingMedia.filename}
-                  />
-                </label>
-                <label>
-                  Description
-                  <textarea
-                    value={editingMedia.description || ''}
-                    onChange={(e) => setEditingMedia({
-                      ...editingMedia,
-                      description: e.target.value
-                    })}
-                    placeholder="Add a description..."
-                    rows={3}
-                  />
-                </label>
-                <label>
-                  Type
-                  <select
-                    value={editingMedia.type || 'photo'}
-                    onChange={(e) => setEditingMedia({
-                      ...editingMedia,
-                      type: e.target.value
-                    })}
-                  >
-                    {Object.entries(MEDIA_TYPES).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Date Taken
-                  <input
-                    type="date"
-                    value={editingMedia.date_taken || ''}
-                    onChange={(e) => setEditingMedia({
-                      ...editingMedia,
-                      date_taken: e.target.value
-                    })}
-                  />
-                </label>
-              </div>
-              <div className="delete-confirm-actions">
-                <button
-                  className="btn-secondary"
-                  onClick={() => setEditingMedia(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn-primary"
-                  onClick={handleSaveEdit}
-                >
-                  Save
                 </button>
               </div>
             </div>
@@ -506,8 +542,16 @@ export function MediaPanelContent({ onOpenFullLibrary }) {
 
   // Filter and search media
   const filteredMedia = media.filter(item => {
-    if (filter !== 'all' && item.type !== filter) {
-      return false;
+    if (filter !== 'all') {
+      if (filter === 'photo') {
+        // Show images only
+        if (!isDisplayableImage(item)) return false;
+      } else if (filter === 'document') {
+        // Show non-images only
+        if (isDisplayableImage(item)) return false;
+      } else if (item.type !== filter) {
+        return false;
+      }
     }
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -523,18 +567,6 @@ export function MediaPanelContent({ onOpenFullLibrary }) {
   });
 
   const mediaTypes = [...new Set(media.map(m => m.type))].filter(Boolean);
-
-  // Get media icon
-  const getMediaIcon = (type) => {
-    switch (type) {
-      case 'document': return '📄';
-      case 'certificate': return '📜';
-      case 'headstone': return '🪦';
-      case 'newspaper': return '📰';
-      case 'map': return '🗺️';
-      default: return '📷';
-    }
-  };
 
   if (!isOpen) {
     return (
@@ -556,28 +588,38 @@ export function MediaPanelContent({ onOpenFullLibrary }) {
       </div>
 
       <div className="panel-toolbar">
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
-          <option value="all">All</option>
-          {mediaTypes.map(type => (
-            <option key={type} value={type}>
-              {MEDIA_TYPES[type] || type}
-            </option>
-          ))}
-        </select>
-        <button onClick={() => handleImport('photos')}>+ Photo</button>
-        <button onClick={() => handleImport('documents')}>+ Doc</button>
-        {onOpenFullLibrary && (
+        <div className="panel-filter-buttons">
           <button
-            className="btn-secondary btn-small"
-            onClick={onOpenFullLibrary}
-            title="Open full library to manage media"
+            className={`panel-filter-btn ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
           >
-            Manage
+            All
           </button>
-        )}
+          <button
+            className={`panel-filter-btn ${filter === 'photo' ? 'active' : ''}`}
+            onClick={() => setFilter('photo')}
+          >
+            📷
+          </button>
+          <button
+            className={`panel-filter-btn ${filter === 'document' ? 'active' : ''}`}
+            onClick={() => setFilter('document')}
+          >
+            📄
+          </button>
+        </div>
+        <div className="panel-toolbar-actions">
+          <button onClick={() => handleImport('photos')} title="Add Photo">+📷</button>
+          <button onClick={() => handleImport('documents')} title="Add Document">+📄</button>
+          {onOpenFullLibrary && (
+            <button
+              onClick={onOpenFullLibrary}
+              title="Open full library"
+            >
+              ⚙
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="panel-stats">
@@ -618,7 +660,7 @@ export function MediaPanelContent({ onOpenFullLibrary }) {
                   onClick={() => setSelectedMedia(item)}
                   title={tooltip}
                 >
-                  {item.thumbnailFullPath || item.fullPath ? (
+                  {isDisplayableImage(item) ? (
                     <img
                       src={item.thumbnailFullPath || item.fullPath}
                       alt={item.title || item.filename}
@@ -626,7 +668,7 @@ export function MediaPanelContent({ onOpenFullLibrary }) {
                     />
                   ) : (
                     <div className="media-item-icon">
-                      {getMediaIcon(item.type)}
+                      {getMediaIcon(item)}
                     </div>
                   )}
                   <div className="media-item-badges">
@@ -656,6 +698,12 @@ export function MediaPanelContent({ onOpenFullLibrary }) {
           mediaId={selectedMedia.id}
           imageSrc={selectedMedia.fullPath}
           mediaPath={selectedMedia.path}
+          title={selectedMedia.title}
+          filename={selectedMedia.filename}
+          mediaType={selectedMedia.type}
+          mimeType={selectedMedia.mime_type}
+          description={selectedMedia.description}
+          dateTaken={selectedMedia.date_taken}
           onClose={() => {
             setSelectedMedia(null);
             refreshMedia(); // Refresh in case faces were tagged

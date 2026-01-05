@@ -6,26 +6,47 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { detectFaces, loadModels } from '../utils/faceDetector';
 import { useMedia } from '../data/useMedia';
 import { usePersons } from '../data/usePersons';
+import { useSources } from '../data/useSources';
 import { useDatabase } from '../data/DatabaseContext';
 import CitationList from './CitationList';
+import CitationDialog from './CitationDialog';
 import NotesSection from './NotesSection';
 import './PhotoViewer.css';
+
+// Media type options
+const MEDIA_TYPE_OPTIONS = {
+  photo: 'Photo',
+  document: 'Document',
+  certificate: 'Certificate',
+  headstone: 'Headstone',
+  newspaper: 'Newspaper',
+  map: 'Map',
+  audio: 'Audio',
+  video: 'Video',
+  other: 'Other',
+};
 
 export function PhotoViewer({
   mediaId,
   imageSrc,
   mediaPath,
+  title: initialTitle,
+  filename,
+  mediaType: initialMediaType,
+  mimeType,
+  description: initialDescription,
+  dateTaken: initialDateTaken,
   onClose,
   onNext,
   onPrevious,
   hasNext = false,
   hasPrevious = false,
-  citations = [],
-  onAddCitation,
-  onEditCitation,
-  onDeleteCitation,
-  dbSources = [],
 }) {
+  // Check if this is an image that supports face detection
+  const isImage = mimeType?.startsWith('image/') ||
+    ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(
+      (filename || '').split('.').pop()?.toLowerCase()
+    );
   const containerRef = useRef(null);
   const imageRef = useRef(null);
   const photoContainerRef = useRef(null);
@@ -53,9 +74,34 @@ export function PhotoViewer({
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
-  const { getFaceTags, createFaceTag, updateFaceTag, deleteFaceTag } = useMedia();
+  const { getFaceTags, createFaceTag, updateFaceTag, deleteFaceTag, updateMedia } = useMedia();
   const { persons } = usePersons();
   const { triggerRefresh } = useDatabase();
+  const { getCitationsForMedia, createCitation, updateCitation, deleteCitation } = useSources();
+
+  // Title editing state
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(initialTitle || '');
+  const titleInputRef = useRef(null);
+
+  // Media metadata state
+  const [description, setDescription] = useState(initialDescription || '');
+  const [currentType, setCurrentType] = useState(initialMediaType || 'photo');
+  const [dateTaken, setDateTaken] = useState(initialDateTaken || '');
+
+  // Sync state when media changes (navigation)
+  useEffect(() => {
+    setEditedTitle(initialTitle || '');
+    setDescription(initialDescription || '');
+    setCurrentType(initialMediaType || 'photo');
+    setDateTaken(initialDateTaken || '');
+    setIsEditingTitle(false);
+  }, [mediaId, initialTitle, initialDescription, initialMediaType, initialDateTaken]);
+
+  // Citation state
+  const [citations, setCitations] = useState([]);
+  const [citationDialogOpen, setCitationDialogOpen] = useState(false);
+  const [editingCitation, setEditingCitation] = useState(null);
 
   // Load face detection models on mount
   useEffect(() => {
@@ -72,6 +118,109 @@ export function PhotoViewer({
       });
     }
   }, [mediaId, getFaceTags]);
+
+  // Load citations for this media
+  useEffect(() => {
+    if (mediaId) {
+      getCitationsForMedia(mediaId).then(cites => {
+        setCitations(cites || []);
+      });
+    }
+  }, [mediaId, getCitationsForMedia]);
+
+  // Refresh citations
+  const refreshCitations = async () => {
+    if (mediaId) {
+      const cites = await getCitationsForMedia(mediaId);
+      setCitations(cites || []);
+    }
+  };
+
+  // Handle add citation
+  const handleAddCitation = () => {
+    setEditingCitation(null);
+    setCitationDialogOpen(true);
+  };
+
+  // Handle edit citation
+  const handleEditCitation = (citation) => {
+    setEditingCitation(citation);
+    setCitationDialogOpen(true);
+  };
+
+  // Handle delete citation
+  const handleDeleteCitation = async (citationId) => {
+    await deleteCitation(citationId);
+    await refreshCitations();
+  };
+
+  // Handle save citation
+  const handleSaveCitation = async (data) => {
+    if (editingCitation) {
+      await updateCitation(editingCitation.id, data);
+    } else {
+      await createCitation(data);
+    }
+    setCitationDialogOpen(false);
+    setEditingCitation(null);
+    await refreshCitations();
+  };
+
+  // Focus title input when editing starts
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  // Handle title save
+  const handleSaveTitle = async () => {
+    if (mediaId && editedTitle !== initialTitle) {
+      await updateMedia(mediaId, { title: editedTitle || null });
+      triggerRefresh();
+    }
+    setIsEditingTitle(false);
+  };
+
+  // Handle title key press
+  const handleTitleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveTitle();
+    } else if (e.key === 'Escape') {
+      setEditedTitle(initialTitle || '');
+      setIsEditingTitle(false);
+    }
+  };
+
+  // Handle field changes with auto-save
+  const handleDescriptionChange = async (value) => {
+    setDescription(value);
+  };
+
+  const handleDescriptionBlur = async () => {
+    if (mediaId && description !== initialDescription) {
+      await updateMedia(mediaId, { description: description || null });
+      triggerRefresh();
+    }
+  };
+
+  const handleTypeChange = async (value) => {
+    setCurrentType(value);
+    if (mediaId) {
+      await updateMedia(mediaId, { type: value });
+      triggerRefresh();
+    }
+  };
+
+  const handleDateChange = async (value) => {
+    setDateTaken(value);
+    if (mediaId) {
+      await updateMedia(mediaId, { date_taken: value || null });
+      triggerRefresh();
+    }
+  };
 
   // Handle image load
   const handleImageLoad = useCallback(() => {
@@ -529,19 +678,50 @@ export function PhotoViewer({
               ›
             </button>
           </div>
-          <div className="photo-viewer-title">Photo Viewer</div>
+          <div className="photo-viewer-title-section">
+            {isEditingTitle ? (
+              <input
+                ref={titleInputRef}
+                type="text"
+                className="photo-viewer-title-input"
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onBlur={handleSaveTitle}
+                onKeyDown={handleTitleKeyDown}
+                placeholder={filename || 'Enter title...'}
+              />
+            ) : (
+              <div
+                className="photo-viewer-title editable"
+                onClick={() => {
+                  setEditedTitle(editedTitle || filename || '');
+                  setIsEditingTitle(true);
+                }}
+                title="Click to edit title"
+              >
+                {editedTitle || filename || 'Media Viewer'}
+                <span className="edit-icon">✎</span>
+              </div>
+            )}
+            {filename && (
+              <div className="photo-viewer-filename">{filename}</div>
+            )}
+          </div>
           <div className="photo-viewer-actions">
-            <button
-              className="detect-faces-btn"
-              onClick={runDetection}
-              disabled={!modelsReady || detecting || !imageLoaded}
-            >
-              {detecting ? 'Detecting...' : modelsReady ? 'Detect Faces' : 'Loading models...'}
-            </button>
+            {isImage && (
+              <button
+                className="detect-faces-btn"
+                onClick={runDetection}
+                disabled={!modelsReady || detecting || !imageLoaded}
+              >
+                {detecting ? 'Detecting...' : modelsReady ? 'Detect Faces' : 'Loading models...'}
+              </button>
+            )}
             <button className="close-btn" onClick={onClose}>Close</button>
           </div>
         </div>
 
+        <div className="photo-viewer-main">
         <div className="photo-viewer-content">
           <div
             className={`photo-container ${isPanning ? 'panning' : ''} ${scale > 1 ? 'zoomed' : ''}`}
@@ -674,8 +854,82 @@ export function PhotoViewer({
           </div>
         </div>
 
-        <div className="photo-viewer-footer">
-          <div className="photo-viewer-footer-row">
+        <div className="photo-viewer-sidebar">
+          <div className="photo-viewer-sidebar-content">
+            {/* Details Section */}
+            <div className="photo-viewer-info-section">
+              <div className="photo-viewer-section-title">Details</div>
+              <div className="photo-viewer-fields">
+                <label className="photo-viewer-field">
+                  <span className="field-label">Description</span>
+                  <textarea
+                    value={description}
+                    onChange={(e) => handleDescriptionChange(e.target.value)}
+                    onBlur={handleDescriptionBlur}
+                    placeholder="Add a description..."
+                    rows={2}
+                  />
+                </label>
+                <label className="photo-viewer-field">
+                  <span className="field-label">Type</span>
+                  <select
+                    value={currentType}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                  >
+                    {Object.entries(MEDIA_TYPE_OPTIONS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="photo-viewer-field">
+                  <span className="field-label">Date Taken</span>
+                  <input
+                    type="date"
+                    value={dateTaken}
+                    onChange={(e) => handleDateChange(e.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {isImage && (
+              <div className="photo-viewer-info-section">
+                <div className="photo-viewer-section-title">Face Tags</div>
+                <div className="face-count">
+                  {savedFaceTags.length > 0 ? (
+                    <span>{savedFaceTags.length} tagged</span>
+                  ) : (
+                    <span className="empty-text">No faces tagged</span>
+                  )}
+                  {detectedFaces.length > 0 && (
+                    <span>{detectedFaces.length} detected (untagged)</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="photo-viewer-info-section">
+              <div className="photo-viewer-section-title">Sources</div>
+              <CitationList
+                citations={citations}
+                onAdd={handleAddCitation}
+                onEdit={handleEditCitation}
+                onDelete={handleDeleteCitation}
+                isEditing={true}
+              />
+            </div>
+
+            <div className="photo-viewer-info-section">
+              <div className="photo-viewer-section-title">Notes</div>
+              <NotesSection
+                entityType="media"
+                entityId={mediaId}
+                compact
+              />
+            </div>
+          </div>
+
+          <div className="photo-viewer-sidebar-footer">
             <div className="zoom-controls">
               <span className="zoom-level">{Math.round(scale * 100)}%</span>
               {scale !== 1 && (
@@ -684,35 +938,21 @@ export function PhotoViewer({
                 </button>
               )}
             </div>
-            <div className="face-count">
-              {savedFaceTags.length > 0 && (
-                <span>{savedFaceTags.length} tagged</span>
-              )}
-              {detectedFaces.length > 0 && (
-                <span>{detectedFaces.length} detected (untagged)</span>
-              )}
-            </div>
-          </div>
-
-          <div className="photo-viewer-citations">
-            <CitationList
-              citations={citations}
-              onAdd={onAddCitation}
-              onEdit={onEditCitation}
-              onDelete={onDeleteCitation}
-              isEditing={true}
-            />
-          </div>
-
-          <div className="photo-viewer-notes">
-            <div className="photo-viewer-section-title">Notes</div>
-            <NotesSection
-              entityType="media"
-              entityId={mediaId}
-              compact
-            />
           </div>
         </div>
+        </div>
+
+        <CitationDialog
+          isOpen={citationDialogOpen}
+          initialData={editingCitation}
+          entityType="media"
+          entityId={mediaId}
+          onSave={handleSaveCitation}
+          onClose={() => {
+            setCitationDialogOpen(false);
+            setEditingCitation(null);
+          }}
+        />
       </div>
     </div>
   );
