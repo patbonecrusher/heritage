@@ -707,6 +707,14 @@ export default function PersonView({
   // Portrait photo viewer state
   const [portraitMedia, setPortraitMedia] = useState(null);
 
+  // Inline editing state for Name & Gender card
+  const [isEditingNameGender, setIsEditingNameGender] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editMaidenName, setEditMaidenName] = useState('');
+  const [editNickname, setEditNickname] = useState('');
+  const [editGender, setEditGender] = useState('');
+
   // Swipe gesture handling (touch devices)
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
@@ -777,6 +785,44 @@ export default function PersonView({
       }, 100);
     }
   }, [isEditing, canNavigateBack, canNavigateForward, onNavigateBack, onNavigateForward]);
+
+  // Start inline editing for Name & Gender card
+  const startEditingNameGender = useCallback(() => {
+    setEditFirstName(firstName);
+    setEditLastName(lastName);
+    setEditMaidenName(maidenName);
+    setEditNickname(nickname);
+    setEditGender(gender);
+    setIsEditingNameGender(true);
+  }, [firstName, lastName, maidenName, nickname, gender]);
+
+  // Save inline Name & Gender edit
+  const saveNameGenderEdit = useCallback(() => {
+    // Update the main state
+    setFirstName(editFirstName);
+    setLastName(editLastName);
+    setMaidenName(editMaidenName);
+    setNickname(editNickname);
+    setGender(editGender);
+    setIsEditingNameGender(false);
+
+    // Trigger save to persist changes
+    if (onSave && person) {
+      onSave({
+        ...person,
+        firstName: editFirstName,
+        lastName: editLastName,
+        maidenName: editMaidenName,
+        nickname: editNickname,
+        gender: editGender,
+      });
+    }
+  }, [editFirstName, editLastName, editMaidenName, editNickname, editGender, onSave, person]);
+
+  // Cancel inline Name & Gender edit
+  const cancelNameGenderEdit = useCallback(() => {
+    setIsEditingNameGender(false);
+  }, []);
 
   // Reset to view mode and load data when person changes
   useEffect(() => {
@@ -1404,7 +1450,139 @@ export default function PersonView({
             <div className="pv-grid">
               {/* Left Column - Events Timeline */}
               <div className="pv-column-left">
-                <div className="pv-card">
+                {/* Name & Gender Card */}
+                <div className={`pv-card ${isEditingNameGender ? 'editing' : ''}`}>
+                  <div className="pv-card-header">
+                    <span className="pv-card-icon">👤</span>
+                    <span className="pv-card-title">Name & Gender</span>
+                    {!isEditingNameGender && (
+                      <button
+                        className="pv-card-edit-btn"
+                        onClick={startEditingNameGender}
+                        title="Edit name & gender"
+                      >
+                        ✎
+                      </button>
+                    )}
+                  </div>
+                  <div className="pv-card-body">
+                    {isEditingNameGender ? (
+                      <>
+                        <div className="pv-inline-edit-row">
+                          <label className="pv-inline-edit-label">First Name</label>
+                          <input
+                            type="text"
+                            className="pv-inline-edit-input"
+                            value={editFirstName}
+                            onChange={(e) => setEditFirstName(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <div className="pv-inline-edit-row">
+                          <label className="pv-inline-edit-label">Last Name</label>
+                          <input
+                            type="text"
+                            className="pv-inline-edit-input"
+                            value={editLastName}
+                            onChange={(e) => setEditLastName(e.target.value)}
+                          />
+                        </div>
+                        <div className="pv-inline-edit-row">
+                          <label className="pv-inline-edit-label">Maiden Name</label>
+                          <input
+                            type="text"
+                            className="pv-inline-edit-input"
+                            value={editMaidenName}
+                            onChange={(e) => setEditMaidenName(e.target.value)}
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div className="pv-inline-edit-row">
+                          <label className="pv-inline-edit-label">Nickname</label>
+                          <input
+                            type="text"
+                            className="pv-inline-edit-input"
+                            value={editNickname}
+                            onChange={(e) => setEditNickname(e.target.value)}
+                            placeholder="Optional"
+                          />
+                        </div>
+                        <div className="pv-inline-edit-row">
+                          <label className="pv-inline-edit-label">Gender</label>
+                          <div className="pv-inline-edit-toggle">
+                            <button
+                              type="button"
+                              className={`toggle-btn male ${editGender === 'male' ? 'active' : ''}`}
+                              onClick={() => setEditGender('male')}
+                            >
+                              Male
+                            </button>
+                            <button
+                              type="button"
+                              className={`toggle-btn female ${editGender === 'female' ? 'active' : ''}`}
+                              onClick={() => setEditGender('female')}
+                            >
+                              Female
+                            </button>
+                            <button
+                              type="button"
+                              className={`toggle-btn ${editGender === '' ? 'active' : ''}`}
+                              onClick={() => setEditGender('')}
+                            >
+                              Unknown
+                            </button>
+                          </div>
+                        </div>
+                        <div className="pv-inline-edit-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={cancelNameGenderEdit}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={saveNameGenderEdit}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="pv-info-row">
+                          <span className="pv-info-label">First Name</span>
+                          <span className="pv-info-value">{firstName || '—'}</span>
+                        </div>
+                        <div className="pv-info-row">
+                          <span className="pv-info-label">Last Name</span>
+                          <span className="pv-info-value">{lastName || '—'}</span>
+                        </div>
+                        {maidenName && (
+                          <div className="pv-info-row">
+                            <span className="pv-info-label">Maiden Name</span>
+                            <span className="pv-info-value">{maidenName}</span>
+                          </div>
+                        )}
+                        {nickname && (
+                          <div className="pv-info-row">
+                            <span className="pv-info-label">Nickname</span>
+                            <span className="pv-info-value">{nickname}</span>
+                          </div>
+                        )}
+                        <div className="pv-info-row">
+                          <span className="pv-info-label">Gender</span>
+                          <span className="pv-info-value">{gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : 'Unknown'}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Events Card */}
+                <div className="pv-card" style={{ marginTop: 12 }}>
                   <div className="pv-card-header">
                     <span className="pv-card-icon">★</span>
                     <span className="pv-card-title">Events</span>
@@ -1601,29 +1779,9 @@ export default function PersonView({
 
               {/* Right Column - Sources */}
               <div className="pv-column-right">
-                {/* Info Card */}
-                <div className="pv-card">
-                  <div className="pv-card-header">
-                    <span className="pv-card-icon">ℹ️</span>
-                    <span className="pv-card-title">Info</span>
-                  </div>
-                  <div className="pv-card-body">
-                    <div className="pv-info-row">
-                      <span className="pv-info-label">Gender</span>
-                      <span className="pv-info-value">{gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : 'Unknown'}</span>
-                    </div>
-                    {maidenName && (
-                      <div className="pv-info-row">
-                        <span className="pv-info-label">Maiden Name</span>
-                        <span className="pv-info-value">{maidenName}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 {/* Sources Card */}
                 {personSources.length > 0 && (
-                  <div className="pv-card" style={{ marginTop: 12 }}>
+                  <div className="pv-card">
                     <div className="pv-card-header">
                       <span className="pv-card-icon">📚</span>
                       <span className="pv-card-title">Sources</span>

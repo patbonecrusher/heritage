@@ -270,8 +270,152 @@
   background: var(--color-primaryHover, #3a8eef);
 }
 
+.pv-card-edit-btn {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-textMuted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pv-card-edit-btn:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
 .pv-card-body {
   padding: 16px;
+}
+
+/* Card editing state */
+.pv-card.editing {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+/* Inline edit styles */
+.pv-inline-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.pv-inline-edit-row:last-of-type {
+  margin-bottom: 16px;
+}
+
+.pv-inline-edit-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-textMuted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pv-inline-edit-input {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bgSecondary);
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.pv-inline-edit-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.pv-inline-edit-input::placeholder {
+  color: var(--color-textMuted);
+  opacity: 0.6;
+}
+
+.pv-inline-edit-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.pv-inline-edit-toggle .toggle-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bgSecondary);
+  color: var(--color-textMuted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pv-inline-edit-toggle .toggle-btn:hover {
+  border-color: var(--color-textMuted);
+}
+
+.pv-inline-edit-toggle .toggle-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.pv-inline-edit-toggle .toggle-btn.male.active {
+  background: var(--color-male, #4a9eff);
+  border-color: var(--color-male, #4a9eff);
+}
+
+.pv-inline-edit-toggle .toggle-btn.female.active {
+  background: var(--color-female, #ff6b9d);
+  border-color: var(--color-female, #ff6b9d);
+}
+
+.pv-inline-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.pv-inline-edit-actions .btn-secondary,
+.pv-inline-edit-actions .btn-primary {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pv-inline-edit-actions .btn-secondary {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-textMuted);
+}
+
+.pv-inline-edit-actions .btn-secondary:hover {
+  background: var(--color-bgSecondary);
+  color: var(--color-text);
+}
+
+.pv-inline-edit-actions .btn-primary {
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: white;
+}
+
+.pv-inline-edit-actions .btn-primary:hover {
+  background: var(--color-primaryHover, #3a8eef);
 }
 
 /* Events Timeline */

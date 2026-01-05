@@ -1247,6 +1247,7 @@ function App() {
                   given_names: updatedData.firstName,
                   surname: updatedData.lastName,
                   surname_at_birth: updatedData.maidenName,
+                  nickname: updatedData.nickname,
                   gender: updatedData.gender,
                   notes: updatedData.notes,
                   is_living: isLiving ? 1 : 0,
