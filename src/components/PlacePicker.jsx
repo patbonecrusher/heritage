@@ -1,5 +1,5 @@
 /**
- * PlacePicker - Searchable dropdown for selecting places
+ * PlacePicker - Searchable dropdown for selecting places with add option
  */
 
 import { useState, useRef, useEffect } from 'react';
@@ -10,11 +10,13 @@ export function PlacePicker({
   placeId,
   places = [],
   onChange,
+  onCreatePlace,
   placeholder = "Select or type place..."
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState(value || '');
   const [highlightIndex, setHighlightIndex] = useState(-1);
+  const [isCreating, setIsCreating] = useState(false);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -22,6 +24,17 @@ export function PlacePicker({
   const filteredPlaces = places.filter(place =>
     place.name?.toLowerCase().includes(searchText.toLowerCase())
   ).slice(0, 10); // Limit to 10 results
+
+  // Check if there's an exact match
+  const hasExactMatch = filteredPlaces.some(
+    place => place.name?.toLowerCase() === searchText.toLowerCase()
+  );
+
+  // Show "Add new place" option if text is entered and no exact match
+  const showAddOption = searchText.trim() && !hasExactMatch && onCreatePlace;
+
+  // Total items including add option
+  const totalItems = filteredPlaces.length + (showAddOption ? 1 : 0);
 
   // Sync searchText with value prop
   useEffect(() => {
@@ -54,6 +67,24 @@ export function PlacePicker({
     onChange({ place: place.name, placeId: place.id });
   };
 
+  const handleAddNewPlace = async () => {
+    if (!searchText.trim() || !onCreatePlace) return;
+
+    setIsCreating(true);
+    try {
+      const newPlace = await onCreatePlace(searchText.trim());
+      if (newPlace) {
+        setSearchText(newPlace.name);
+        setIsOpen(false);
+        onChange({ place: newPlace.name, placeId: newPlace.id });
+      }
+    } catch (err) {
+      console.error('Error creating place:', err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (!isOpen && e.key === 'ArrowDown') {
       setIsOpen(true);
@@ -65,24 +96,28 @@ export function PlacePicker({
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightIndex(prev =>
-        prev < filteredPlaces.length - 1 ? prev + 1 : prev
+        prev < totalItems - 1 ? prev + 1 : prev
       );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightIndex(prev => prev > 0 ? prev - 1 : 0);
     } else if (e.key === 'Enter' && highlightIndex >= 0) {
       e.preventDefault();
-      handleSelectPlace(filteredPlaces[highlightIndex]);
+      if (highlightIndex < filteredPlaces.length) {
+        handleSelectPlace(filteredPlaces[highlightIndex]);
+      } else if (showAddOption) {
+        handleAddNewPlace();
+      }
     } else if (e.key === 'Escape') {
       setIsOpen(false);
     }
   };
 
   const handleFocus = () => {
-    if (places.length > 0) {
-      setIsOpen(true);
-    }
+    setIsOpen(true);
   };
+
+  const showDropdown = isOpen && (filteredPlaces.length > 0 || showAddOption);
 
   return (
     <div className="place-picker" ref={containerRef}>
@@ -101,7 +136,7 @@ export function PlacePicker({
           📍
         </span>
       )}
-      {isOpen && filteredPlaces.length > 0 && (
+      {showDropdown && (
         <div className="place-picker-dropdown">
           {filteredPlaces.map((place, index) => (
             <button
@@ -117,6 +152,20 @@ export function PlacePicker({
               )}
             </button>
           ))}
+          {showAddOption && (
+            <button
+              type="button"
+              className={`place-picker-option place-picker-add ${highlightIndex === filteredPlaces.length ? 'highlighted' : ''}`}
+              onClick={handleAddNewPlace}
+              onMouseEnter={() => setHighlightIndex(filteredPlaces.length)}
+              disabled={isCreating}
+            >
+              <span className="place-picker-add-icon">+</span>
+              <span className="place-picker-add-text">
+                {isCreating ? 'Adding...' : `Add "${searchText.trim()}" to places`}
+              </span>
+            </button>
+          )}
         </div>
       )}
     </div>

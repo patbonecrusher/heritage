@@ -528,6 +528,13 @@
   color: var(--color-textMuted);
 }
 
+.pv-edit-event-hint {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  font-style: italic;
+  padding: 8px 0;
+}
+
 .pv-add-event-row {
   display: flex;
   flex-wrap: wrap;

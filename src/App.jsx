@@ -142,7 +142,7 @@ function App() {
   const { persons, createPerson, updatePerson: updatePersonDb, deletePerson, getPerson, getPersonFull, fetchPersons } = usePersons();
   const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, getParentUnionForPerson, findOrCreateUnion, fetchAllUnions } = useUnions();
   const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent, getAllVitalEvents } = useEvents();
-  const { places } = usePlaces();
+  const { places, createPlace } = usePlaces();
   const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getCitationsForMedia, createCitation, updateCitation, deleteCitation } = useSources();
   const { getMediaForPerson } = useMedia();
 
@@ -1082,11 +1082,9 @@ function App() {
             birthPlace: eventsReady ? (loadedBirthEvent?.place_detail || loadedBirthEvent?.place_name || '') : '',
             birthPlaceId: eventsReady ? (loadedBirthEvent?.place_id || null) : null,
             birthEventId: eventsReady ? (loadedBirthEvent?.id || null) : null,
-            birthNotes: eventsReady ? (loadedBirthEvent?.notes || '') : '',
             deathPlace: eventsReady ? (loadedDeathEvent?.place_detail || loadedDeathEvent?.place_name || '') : '',
             deathPlaceId: eventsReady ? (loadedDeathEvent?.place_id || null) : null,
             deathEventId: eventsReady ? (loadedDeathEvent?.id || null) : null,
-            deathNotes: eventsReady ? (loadedDeathEvent?.notes || '') : '',
             // Convert other events from database format (only if loaded for this person)
             events: eventsReady ? loadedOtherEvents.map(e => ({
               id: e.id,
@@ -1095,7 +1093,6 @@ function App() {
               place: e.place_detail || e.place_name || '',
               placeId: e.place_id || null,
               description: e.description || '',
-              notes: e.notes || '',
             })) : [],
             sources: [],
           }
@@ -1264,7 +1261,6 @@ function App() {
                     date_qualifier: birthEventData.date_qualifier,
                     place_id: updatedData.birthPlaceId || null,
                     place_detail: updatedData.birthPlace || null,
-                    notes: updatedData.birthNotes || null,
                   });
                 }
 
@@ -1276,7 +1272,6 @@ function App() {
                     date_qualifier: deathEventData.date_qualifier,
                     place_id: updatedData.deathPlaceId || null,
                     place_detail: updatedData.deathPlace || null,
-                    notes: updatedData.deathNotes || null,
                   });
                 }
 
@@ -1305,7 +1300,6 @@ function App() {
                       place_id: event.placeId || null,
                       place_detail: event.place || null,
                       description: event.description || null,
-                      notes: event.notes || null,
                     });
                   } else {
                     // Update existing event
@@ -1316,7 +1310,6 @@ function App() {
                       place_id: event.placeId || null,
                       place_detail: event.place || null,
                       description: event.description || null,
-                      notes: event.notes || null,
                     });
                   }
                 }
@@ -1359,6 +1352,14 @@ function App() {
           onNavigateForward={navigateForward}
           canNavigateForward={canNavigateForward}
           places={places}
+          onCreatePlace={async (name) => {
+            if (storageMode === 'bundle') {
+              const id = await createPlace({ name });
+              // Return the created place object
+              return { id, name };
+            }
+            return null;
+          }}
           onParentsChange={async ({ personId, fatherId, motherId }) => {
             if (storageMode === 'bundle') {
               // Handle parent changes in bundle mode via database
