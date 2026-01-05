@@ -73,6 +73,7 @@ CREATE TABLE person (
     given_names TEXT,
     surname TEXT,
     surname_at_birth TEXT,  -- maiden name
+    nickname TEXT,
     gender TEXT,  -- 'male', 'female', 'unknown'
     is_living INTEGER DEFAULT 0,  -- 1 if person is still alive
     primary_photo_id TEXT,  -- references media(id), defined later

@@ -715,6 +715,16 @@ export default function PersonView({
   const [editNickname, setEditNickname] = useState('');
   const [editGender, setEditGender] = useState('');
 
+  // Inline editing state for Events card
+  const [isEditingEvents, setIsEditingEvents] = useState(false);
+  const [editBirthDate, setEditBirthDate] = useState({ type: 'unknown' });
+  const [editBirthPlace, setEditBirthPlace] = useState('');
+  const [editBirthPlaceId, setEditBirthPlaceId] = useState(null);
+  const [editDeathDate, setEditDeathDate] = useState({ type: 'unknown' });
+  const [editDeathPlace, setEditDeathPlace] = useState('');
+  const [editDeathPlaceId, setEditDeathPlaceId] = useState(null);
+  const [editEvents, setEditEvents] = useState([]);
+
   // Swipe gesture handling (touch devices)
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
@@ -822,6 +832,76 @@ export default function PersonView({
   // Cancel inline Name & Gender edit
   const cancelNameGenderEdit = useCallback(() => {
     setIsEditingNameGender(false);
+  }, []);
+
+  // Start inline editing for Events card
+  const startEditingEvents = useCallback(() => {
+    setEditBirthDate(birthDate || { type: 'unknown' });
+    setEditBirthPlace(birthPlace || '');
+    setEditBirthPlaceId(birthPlaceId || null);
+    setEditDeathDate(deathDate || { type: 'unknown' });
+    setEditDeathPlace(deathPlace || '');
+    setEditDeathPlaceId(deathPlaceId || null);
+    setEditEvents([...events]);
+    setIsEditingEvents(true);
+  }, [birthDate, birthPlace, birthPlaceId, deathDate, deathPlace, deathPlaceId, events]);
+
+  // Save inline Events edit
+  const saveEventsEdit = useCallback(() => {
+    // Update main state
+    setBirthDate(editBirthDate);
+    setBirthPlace(editBirthPlace);
+    setBirthPlaceId(editBirthPlaceId);
+    setDeathDate(editDeathDate);
+    setDeathPlace(editDeathPlace);
+    setDeathPlaceId(editDeathPlaceId);
+    setEvents(editEvents);
+    setIsEditingEvents(false);
+
+    // Trigger save
+    if (onSave && person) {
+      onSave({
+        ...person,
+        birthDate: editBirthDate,
+        birthPlace: editBirthPlace,
+        birthPlaceId: editBirthPlaceId,
+        deathDate: editDeathDate,
+        deathPlace: editDeathPlace,
+        deathPlaceId: editDeathPlaceId,
+        events: editEvents,
+      });
+    }
+  }, [editBirthDate, editBirthPlace, editBirthPlaceId, editDeathDate, editDeathPlace, editDeathPlaceId, editEvents, onSave, person]);
+
+  // Cancel inline Events edit
+  const cancelEventsEdit = useCallback(() => {
+    setIsEditingEvents(false);
+  }, []);
+
+  // Add new event
+  const addEditEvent = useCallback((type) => {
+    const newEvent = {
+      id: `new-${Date.now()}`,
+      type,
+      date: { type: 'unknown' },
+      place: '',
+      placeId: null,
+    };
+    setEditEvents(prev => [...prev, newEvent]);
+  }, []);
+
+  // Update event in edit mode
+  const updateEditEvent = useCallback((index, field, value) => {
+    setEditEvents(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }, []);
+
+  // Remove event in edit mode
+  const removeEditEvent = useCallback((index) => {
+    setEditEvents(prev => prev.filter((_, i) => i !== index));
   }, []);
 
   // Reset to view mode and load data when person changes
@@ -1582,60 +1662,231 @@ export default function PersonView({
                 </div>
 
                 {/* Events Card */}
-                <div className="pv-card" style={{ marginTop: 12 }}>
+                <div className={`pv-card ${isEditingEvents ? 'editing' : ''}`} style={{ marginTop: 12 }}>
                   <div className="pv-card-header">
                     <span className="pv-card-icon">★</span>
                     <span className="pv-card-title">Events</span>
-                    <span className="pv-card-count">({allEvents.length})</span>
+                    {!isEditingEvents && (
+                      <>
+                        <span className="pv-card-count">({allEvents.length})</span>
+                        <button
+                          className="pv-card-edit-btn"
+                          onClick={startEditingEvents}
+                          title="Edit events"
+                        >
+                          ✎
+                        </button>
+                      </>
+                    )}
                   </div>
                   <div className="pv-card-body">
-                    {allEvents.length > 0 ? (
-                      <div className="pv-events-list">
-                        {allEvents.map((event, index) => (
-                          <div key={event.id} className="pv-event">
-                            <div className={`pv-event-icon ${event.type}`}>
-                              {EVENT_ICONS[event.type] || '●'}
-                            </div>
-                            <div className="pv-event-content">
-                              <div className="pv-event-header">
-                                <span className="pv-event-type">{event.label}</span>
-                                {event.date && event.date.type !== 'unknown' && (
-                                  <span className="pv-event-date">
-                                    {event.date.display || formatSingleDate(event.date)}
-                                  </span>
-                                )}
-                                {event.age && (
-                                  <span className="pv-event-age">~{event.age}</span>
-                                )}
-                              </div>
-                              {event.place && (
-                                <div className="pv-event-place">
-                                  <span className="pv-event-place-icon">📍</span>
-                                  {event.place}
-                                </div>
-                              )}
-                              {event.partner && (
-                                <div className="pv-event-partner">
-                                  <span className="pv-event-partner-photo" />
-                                  {[event.partner.firstName, event.partner.lastName].filter(Boolean).join(' ')}
-                                </div>
-                              )}
-                              {event.eventId && <EventMedia eventId={event.eventId} />}
-                              {event.eventId && (
-                                <div className="pv-event-notes">
-                                  <NotesSection
-                                    entityType="event"
-                                    entityId={event.eventId}
-                                    compact
-                                  />
-                                </div>
-                              )}
+                    {isEditingEvents ? (
+                      <>
+                        {/* Birth Event */}
+                        <div className="pv-edit-event-section">
+                          <div className="pv-edit-event-header">
+                            <span className="pv-edit-event-icon birth">★</span>
+                            <span className="pv-edit-event-label">Birth</span>
+                          </div>
+                          <div className="pv-edit-event-fields">
+                            <DateInput
+                              label="Date"
+                              value={editBirthDate}
+                              onChange={setEditBirthDate}
+                            />
+                            <div className="pv-inline-edit-row">
+                              <label className="pv-inline-edit-label">Place</label>
+                              <PlaceDropZone
+                                value={editBirthPlace}
+                                placeId={editBirthPlaceId}
+                                onChange={({ place, placeId }) => {
+                                  setEditBirthPlace(place);
+                                  setEditBirthPlaceId(placeId);
+                                }}
+                                placeholder="Birth place"
+                                places={places}
+                              />
                             </div>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+
+                        {/* Other Events */}
+                        {editEvents.map((event, index) => {
+                          const eventType = EVENT_TYPES.find(t => t.value === event.type);
+                          return (
+                            <div key={event.id} className="pv-edit-event-section">
+                              <div className="pv-edit-event-header">
+                                <span className={`pv-edit-event-icon ${event.type}`}>
+                                  {EVENT_ICONS[event.type] || '●'}
+                                </span>
+                                <span className="pv-edit-event-label">{eventType?.label || event.type}</span>
+                                <button
+                                  type="button"
+                                  className="pv-edit-event-remove"
+                                  onClick={() => removeEditEvent(index)}
+                                  title="Remove event"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              <div className="pv-edit-event-fields">
+                                <DateInput
+                                  label="Date"
+                                  value={event.date || { type: 'unknown' }}
+                                  onChange={(date) => updateEditEvent(index, 'date', date)}
+                                />
+                                <div className="pv-inline-edit-row">
+                                  <label className="pv-inline-edit-label">Place</label>
+                                  <PlaceDropZone
+                                    value={event.place || ''}
+                                    placeId={event.placeId}
+                                    onChange={({ place, placeId }) => {
+                                      updateEditEvent(index, 'place', place);
+                                      updateEditEvent(index, 'placeId', placeId);
+                                    }}
+                                    placeholder="Event place"
+                                    places={places}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Death Event */}
+                        <div className="pv-edit-event-section">
+                          <div className="pv-edit-event-header">
+                            <span className="pv-edit-event-icon death">†</span>
+                            <span className="pv-edit-event-label">Death</span>
+                          </div>
+                          <div className="pv-edit-event-fields">
+                            <div className="pv-inline-edit-row">
+                              <label className="pv-inline-edit-label">Status</label>
+                              <div className="pv-inline-edit-toggle">
+                                <button
+                                  type="button"
+                                  className={`toggle-btn ${editDeathDate?.type === 'alive' ? 'active' : ''}`}
+                                  onClick={() => setEditDeathDate({ type: 'alive' })}
+                                >
+                                  Alive
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`toggle-btn ${editDeathDate?.type !== 'alive' ? 'active' : ''}`}
+                                  onClick={() => setEditDeathDate({ type: 'unknown' })}
+                                >
+                                  Deceased
+                                </button>
+                              </div>
+                            </div>
+                            {editDeathDate?.type !== 'alive' && (
+                              <>
+                                <DateInput
+                                  label="Date"
+                                  value={editDeathDate}
+                                  onChange={setEditDeathDate}
+                                />
+                                <div className="pv-inline-edit-row">
+                                  <label className="pv-inline-edit-label">Place</label>
+                                  <PlaceDropZone
+                                    value={editDeathPlace}
+                                    placeId={editDeathPlaceId}
+                                    onChange={({ place, placeId }) => {
+                                      setEditDeathPlace(place);
+                                      setEditDeathPlaceId(placeId);
+                                    }}
+                                    placeholder="Death place"
+                                    places={places}
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Add Event Buttons */}
+                        <div className="pv-add-event-row">
+                          {EVENT_TYPES.map(eventType => (
+                            <button
+                              key={eventType.value}
+                              type="button"
+                              className="pv-add-event-btn"
+                              onClick={() => addEditEvent(eventType.value)}
+                              title={`Add ${eventType.label}`}
+                            >
+                              + {eventType.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="pv-inline-edit-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={cancelEventsEdit}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={saveEventsEdit}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </>
                     ) : (
-                      <div className="pv-empty">No events recorded</div>
+                      <>
+                        {allEvents.length > 0 ? (
+                          <div className="pv-events-list">
+                            {allEvents.map((event, index) => (
+                              <div key={event.id} className="pv-event">
+                                <div className={`pv-event-icon ${event.type}`}>
+                                  {EVENT_ICONS[event.type] || '●'}
+                                </div>
+                                <div className="pv-event-content">
+                                  <div className="pv-event-header">
+                                    <span className="pv-event-type">{event.label}</span>
+                                    {event.date && event.date.type !== 'unknown' && (
+                                      <span className="pv-event-date">
+                                        {event.date.display || formatSingleDate(event.date)}
+                                      </span>
+                                    )}
+                                    {event.age && (
+                                      <span className="pv-event-age">~{event.age}</span>
+                                    )}
+                                  </div>
+                                  {event.place && (
+                                    <div className="pv-event-place">
+                                      <span className="pv-event-place-icon">📍</span>
+                                      {event.place}
+                                    </div>
+                                  )}
+                                  {event.partner && (
+                                    <div className="pv-event-partner">
+                                      <span className="pv-event-partner-photo" />
+                                      {[event.partner.firstName, event.partner.lastName].filter(Boolean).join(' ')}
+                                    </div>
+                                  )}
+                                  {event.eventId && <EventMedia eventId={event.eventId} />}
+                                  {event.eventId && (
+                                    <div className="pv-event-notes">
+                                      <NotesSection
+                                        entityType="event"
+                                        entityId={event.eventId}
+                                        compact
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="pv-empty">No events recorded</div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

@@ -277,6 +277,13 @@ class BundleManager {
         db.exec('ALTER TABLE person ADD COLUMN is_living INTEGER DEFAULT 0');
       }
 
+      // Ensure nickname column exists
+      const hasNickname = personColumns.some(col => col.name === 'nickname');
+      if (!hasNickname) {
+        console.log('Adding nickname column to person table');
+        db.exec('ALTER TABLE person ADD COLUMN nickname TEXT');
+      }
+
       // v2: Add media_id to citation table for media citations
       const citationColumns = db.pragma('table_info(citation)');
       const hasMediaId = citationColumns.some(col => col.name === 'media_id');
