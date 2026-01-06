@@ -716,9 +716,7 @@ export default function PersonView({
 }) {
   const { theme } = useTheme();
   const { triggerRefresh } = useDatabase();
-  const firstInputRef = useRef(null);
 
-  const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState('');
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
@@ -750,6 +748,7 @@ export default function PersonView({
   const [showNewParentDialog, setShowNewParentDialog] = useState(null);
   const [newParentFirstName, setNewParentFirstName] = useState('');
   const [newParentLastName, setNewParentLastName] = useState('');
+  const [selectedExistingParentId, setSelectedExistingParentId] = useState(''); // For selecting existing person as parent
   const [showFamilyPanel, setShowFamilyPanel] = useState(true);
   const [showNewFamilyDialog, setShowNewFamilyDialog] = useState(null); // { type: 'child', unionId } or { type: 'partner' }
   const [newFamilyFirstName, setNewFamilyFirstName] = useState('');
@@ -810,7 +809,7 @@ export default function PersonView({
   }, []);
 
   const handleTouchEnd = useCallback((e) => {
-    if (touchStartX.current === null || isEditing) return;
+    if (touchStartX.current === null) return;
 
     const touchEndX = e.changedTouches[0].clientX;
     const touchEndY = e.changedTouches[0].clientY;
@@ -831,14 +830,12 @@ export default function PersonView({
 
     touchStartX.current = null;
     touchStartY.current = null;
-  }, [isEditing, canNavigateBack, canNavigateForward, onNavigateBack, onNavigateForward]);
+  }, [canNavigateBack, canNavigateForward, onNavigateBack, onNavigateForward]);
 
   // Trackpad swipe handling (macOS two-finger swipe)
   const wheelAccumulator = useRef({ x: 0, y: 0, timeout: null });
 
   const handleWheel = useCallback((e) => {
-    if (isEditing) return;
-
     // Check if this is a horizontal swipe gesture (trackpad)
     // Trackpad swipes have wheelDeltaX and are typically larger values
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 2 && Math.abs(e.deltaX) > 10) {
@@ -868,7 +865,7 @@ export default function PersonView({
         wheelAccumulator.current.x = 0;
       }, 100);
     }
-  }, [isEditing, canNavigateBack, canNavigateForward, onNavigateBack, onNavigateForward]);
+  }, [canNavigateBack, canNavigateForward, onNavigateBack, onNavigateForward]);
 
   // Start inline editing for Name & Gender card
   const startEditingNameGender = useCallback(() => {
@@ -1085,9 +1082,8 @@ export default function PersonView({
     }
   }, [events, onSave, person]);
 
-  // Reset to view mode and load data when person changes
+  // Load data when person changes
   useEffect(() => {
-    setIsEditing(false);
     if (person) {
       setTitle(person.title || '');
       setFirstName(person.firstName || '');
@@ -1138,9 +1134,9 @@ export default function PersonView({
     }
   }, [person?.id, person?.events, person?.birthDate, person?.deathDate]); // Reset when person data changes
 
-  // Update unions when existingUnions changes (but don't reset edit mode)
+  // Update unions when existingUnions changes
   useEffect(() => {
-    if (person && !isEditing) {
+    if (person) {
       const personUnions = existingUnions
         .filter(u => u.partner1Id === person.id || u.partner2Id === person.id)
         .map(u => ({
@@ -1150,74 +1146,29 @@ export default function PersonView({
         }));
       setUnions(personUnions);
     }
-  }, [existingUnions, person?.id, isEditing]);
+  }, [existingUnions, person?.id]);
 
-  // Focus first input when entering edit mode
-  useEffect(() => {
-    if (isEditing && firstInputRef.current) {
-      setTimeout(() => firstInputRef.current?.focus(), 50);
+  // Find parents (needed by keyboard shortcuts)
+  const parents = useMemo(() => {
+    if (!person) return { father: null, mother: null };
+    // Need to pass both people and unions for getParentIds to work
+    const parentIds = getParentIds({ people: allPeople, unions: existingUnions }, person.id);
+    const parentPeople = parentIds.map(id => allPeople.find(p => p.id === id)).filter(Boolean);
+
+    // Sort by gender: male (father) first, female (mother) second
+    const father = parentPeople.find(p => p.gender === 'male');
+    const mother = parentPeople.find(p => p.gender === 'female');
+
+    // If genders aren't set, just use order
+    if (!father && !mother && parentPeople.length >= 2) {
+      return { father: parentPeople[0], mother: parentPeople[1] };
     }
-  }, [isEditing]);
-
-  const handleSubmit = useCallback((e) => {
-    e?.preventDefault();
-
-    const name = [firstName, middleName, lastName].filter(Boolean).join(' ') || 'Unknown';
-    const dates = formatDatesDisplay(birthDate, deathDate);
-
-    // Convert unions back to proper format and notify parent
-    if (onUnionsChange && person) {
-      const updatedUnions = unions
-        .filter(u => u.partnerId) // Only include unions with a partner selected
-        .map(u => ({
-          id: u.id || `union-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          partner1Id: person.id,
-          partner2Id: u.partnerId,
-          type: u.type || 'marriage',
-          startDate: u.startDate,
-          startPlace: u.startPlace || '',
-          endDate: u.endDate,
-          endReason: u.endReason || '',
-          childIds: u.childIds || [],
-          sources: u.sources || []
-        }));
-      onUnionsChange(updatedUnions);
+    if (!father && !mother && parentPeople.length === 1) {
+      return { father: parentPeople[0], mother: null };
     }
 
-    // Notify about parent changes
-    if (onParentsChange && person) {
-      onParentsChange({
-        personId: person.id,
-        fatherId: selectedFatherId || null,
-        motherId: selectedMotherId || null
-      });
-    }
-
-    onSave({
-      name,
-      title,
-      firstName,
-      middleName,
-      lastName,
-      maidenName,
-      nickname,
-      gender,
-      birthDate,
-      deathDate,
-      birthPlace,
-      birthPlaceId,
-      deathPlace,
-      deathPlaceId,
-      dates,
-      colorIndex,
-      sources: personSources,
-      birthSources,
-      deathSources,
-      events,
-    });
-
-    setIsEditing(false);
-  }, [title, firstName, middleName, lastName, maidenName, nickname, gender, birthDate, deathDate, birthPlace, birthPlaceId, deathPlace, deathPlaceId, colorIndex, personSources, birthSources, deathSources, events, unions, person, onSave, onUnionsChange, selectedFatherId, selectedMotherId, onParentsChange]);
+    return { father, mother };
+  }, [person?.id, existingUnions, allPeople]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1228,19 +1179,38 @@ export default function PersonView({
           e.preventDefault();
           setShowNewParentDialog(null);
         }
-        if (e.key === 'Enter' && (newParentFirstName || newParentLastName)) {
+        if (e.key === 'Enter' && (selectedExistingParentId || newParentFirstName || newParentLastName)) {
           e.preventDefault();
-          const gender = showNewParentDialog === 'father' ? 'male' : 'female';
-          const newId = onCreatePerson?.({
-            firstName: newParentFirstName,
-            lastName: newParentLastName,
-            gender
-          });
-          if (newId) {
+          let parentIdToAdd = null;
+
+          if (selectedExistingParentId) {
+            parentIdToAdd = selectedExistingParentId;
+          } else if (newParentFirstName || newParentLastName) {
+            const gender = showNewParentDialog === 'father' ? 'male' : 'female';
+            parentIdToAdd = onCreatePerson?.({
+              firstName: newParentFirstName,
+              lastName: newParentLastName,
+              gender
+            });
+          }
+
+          if (parentIdToAdd) {
+            const newFatherId = showNewParentDialog === 'father' ? parentIdToAdd : (selectedFatherId || parents.father?.id || null);
+            const newMotherId = showNewParentDialog === 'mother' ? parentIdToAdd : (selectedMotherId || parents.mother?.id || null);
+
             if (showNewParentDialog === 'father') {
-              setSelectedFatherId(newId);
+              setSelectedFatherId(parentIdToAdd);
             } else {
-              setSelectedMotherId(newId);
+              setSelectedMotherId(parentIdToAdd);
+            }
+
+            // Immediately save the parent change
+            if (onParentsChange && person) {
+              onParentsChange({
+                personId: person.id,
+                fatherId: newFatherId,
+                motherId: newMotherId
+              });
             }
           }
           setShowNewParentDialog(null);
@@ -1314,87 +1284,18 @@ export default function PersonView({
       }
 
       // Navigate back: Alt+Left or Cmd+[
-      if (canNavigateBack && !isEditing) {
+      if (canNavigateBack) {
         if ((e.altKey && e.key === 'ArrowLeft') || ((e.ctrlKey || e.metaKey) && e.key === '[')) {
           e.preventDefault();
           onNavigateBack?.();
           return;
         }
       }
-
-      // Cmd+E to toggle edit mode
-      if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
-        e.preventDefault();
-        if (isEditing) {
-          handleSubmit(e);
-        } else {
-          setIsEditing(true);
-        }
-        return;
-      }
-
-      if (isEditing) {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-          e.preventDefault();
-          handleSubmit(e);
-        }
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          setIsEditing(false);
-          // Reload person data to discard changes
-          if (person) {
-            setTitle(person.title || '');
-            setFirstName(person.firstName || '');
-            setMiddleName(person.middleName || '');
-            setLastName(person.lastName || '');
-            setMaidenName(person.maidenName || '');
-            setNickname(person.nickname || '');
-            setGender(person.gender || '');
-            setBirthDate(person.birthDate || { type: 'exact' });
-            setDeathDate(person.deathDate || { type: 'unknown' });
-            setBirthPlace(person.birthPlace || '');
-            setBirthPlaceId(person.birthPlaceId || null);
-            setBirthCause(person.birthCause || '');
-            setDeathPlace(person.deathPlace || '');
-            setDeathPlaceId(person.deathPlaceId || null);
-            setDeathCause(person.deathCause || '');
-            setColorIndex(person.colorIndex ?? 0);
-            setPersonSources(person.sources || []);
-            setBirthSources(person.birthSources || []);
-            setDeathSources(person.deathSources || []);
-            setEvents(person.events || []);
-            const personUnions = existingUnions
-              .filter(u => u.partner1Id === person.id || u.partner2Id === person.id)
-              .map(u => ({
-                ...u,
-                partnerId: u.partner1Id === person.id ? u.partner2Id : u.partner1Id,
-                isExisting: true
-              }));
-            setUnions(personUnions);
-          }
-        }
-        if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && e.target.tagName !== 'TEXTAREA') {
-          e.preventDefault();
-          const form = e.target.closest('form');
-          if (form) {
-            const focusable = Array.from(form.querySelectorAll('input, select, textarea, button'));
-            const currentIndex = focusable.indexOf(e.target);
-            if (currentIndex !== -1 && currentIndex < focusable.length - 1) {
-              focusable[currentIndex + 1].focus();
-            }
-          }
-        }
-        if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '3') {
-          e.preventDefault();
-          const genders = ['male', 'female', 'other'];
-          setGender(genders[parseInt(e.key) - 1]);
-        }
-      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleSubmit, isEditing, person, existingUnions, showNewParentDialog, newParentFirstName, newParentLastName, onCreatePerson, showNewFamilyDialog, newFamilyFirstName, newFamilyLastName, newFamilyGender, unions, onUnionsChange, canNavigateBack, onNavigateBack]);
+  }, [showNewParentDialog, newParentFirstName, newParentLastName, selectedExistingParentId, selectedFatherId, selectedMotherId, parents, onParentsChange, person, onCreatePerson, showNewFamilyDialog, newFamilyFirstName, newFamilyLastName, newFamilyGender, unions, onUnionsChange, canNavigateBack, onNavigateBack]);
 
   const formatDatesDisplay = (birth, death) => {
     let birthStr = formatSingleDate(birth);
@@ -1436,28 +1337,6 @@ export default function PersonView({
 
   const displayName = [title, firstName, middleName, lastName].filter(Boolean).join(' ') || 'Unknown';
   const fullDates = formatDatesDisplay(birthDate, deathDate);
-
-  // Find parents
-  const parents = useMemo(() => {
-    if (!person) return { father: null, mother: null };
-    // Need to pass both people and unions for getParentIds to work
-    const parentIds = getParentIds({ people: allPeople, unions: existingUnions }, person.id);
-    const parentPeople = parentIds.map(id => allPeople.find(p => p.id === id)).filter(Boolean);
-
-    // Sort by gender: male (father) first, female (mother) second
-    const father = parentPeople.find(p => p.gender === 'male');
-    const mother = parentPeople.find(p => p.gender === 'female');
-
-    // If genders aren't set, just use order
-    if (!father && !mother && parentPeople.length >= 2) {
-      return { father: parentPeople[0], mother: parentPeople[1] };
-    }
-    if (!father && !mother && parentPeople.length === 1) {
-      return { father: parentPeople[0], mother: null };
-    }
-
-    return { father, mother };
-  }, [person?.id, existingUnions, allPeople]);
 
   // Get all descendants to prevent circular parent relationships
   const descendantIds = useMemo(() => {
@@ -1641,9 +1520,8 @@ export default function PersonView({
   // Count total children
   const totalChildren = familyData.reduce((acc, f) => acc + f.children.length, 0);
 
-  // Read-only summary view - NEW CARD-BASED LAYOUT
-  if (!isEditing) {
-    return (
+  // Card-based view layout
+  return (
       <div
         className="person-view-new"
         ref={containerRef}
@@ -1702,13 +1580,23 @@ export default function PersonView({
                     />
                   </button>
                 ) : (
-                  <div className="pv-parent-card father">
-                    <div className="pv-parent-photo" />
+                  <button
+                    type="button"
+                    className="pv-parent-card father pv-parent-add"
+                    onClick={() => {
+                      setSelectedExistingParentId('');
+                      setNewParentFirstName('');
+                      setNewParentLastName(lastName || '');
+                      setShowNewParentDialog('father');
+                    }}
+                    title="Add father"
+                  >
+                    <div className="pv-parent-photo pv-parent-photo-add">+</div>
                     <div className="pv-parent-info">
                       <span className="pv-parent-label">Father</span>
-                      <span className="pv-parent-name">Unknown</span>
+                      <span className="pv-parent-name">Add...</span>
                     </div>
-                  </div>
+                  </button>
                 )}
 
                 {parents.mother ? (
@@ -1732,24 +1620,24 @@ export default function PersonView({
                     />
                   </button>
                 ) : (
-                  <div className="pv-parent-card mother">
-                    <div className="pv-parent-photo" />
+                  <button
+                    type="button"
+                    className="pv-parent-card mother pv-parent-add"
+                    onClick={() => {
+                      setSelectedExistingParentId('');
+                      setNewParentFirstName('');
+                      setNewParentLastName('');
+                      setShowNewParentDialog('mother');
+                    }}
+                    title="Add mother"
+                  >
+                    <div className="pv-parent-photo pv-parent-photo-add">+</div>
                     <div className="pv-parent-info">
                       <span className="pv-parent-label">Mother</span>
-                      <span className="pv-parent-name">Unknown</span>
+                      <span className="pv-parent-name">Add...</span>
                     </div>
-                  </div>
+                  </button>
                 )}
-              </div>
-
-              <div className="pv-header-actions">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => setIsEditing(true)}
-                >
-                  Edit <KeyHint>⌘E</KeyHint>
-                </button>
               </div>
             </div>
           </div>
@@ -2693,930 +2581,123 @@ export default function PersonView({
             </div>
           </div>
         )}
-      </div>
-    );
-  }
 
-  // Edit mode
-  return (
-    <div
-      className="person-view person-view-editing"
-      ref={containerRef}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onWheel={handleWheel}
-    >
-      <div className="person-view-header">
-        <div className="person-view-header-left">
-          {canNavigateBack && (
-            <button
-              type="button"
-              className="btn-back"
-              onClick={onNavigateBack}
-              title="Go back"
-            >
-              ←
-            </button>
-          )}
-          <h2>{displayName || 'New Person'}</h2>
-        </div>
-        <div className="person-view-shortcuts">
-          <span><KeyHint>Esc</KeyHint> Cancel</span>
-          <span><KeyHint>⌘↵</KeyHint> Save</span>
-        </div>
-      </div>
-
-      <div className="person-view-parents person-view-parents-fixed person-view-parents-edit">
-        <div className="parent-card-container">
-          <div className="parent-card-edit">
-            <span className="parent-label">Father</span>
-            <div className="parent-picker-row">
-              <PersonPicker
-                value={selectedFatherId}
-                people={allPeople}
-                onChange={(personId) => setSelectedFatherId(personId || '')}
-                placeholder="Search for father..."
-                excludeIds={[person?.id, ...Array.from(descendantIds)].filter(Boolean)}
-                filterFn={(p) => p.gender !== 'female'}
-              />
-              <button
-                type="button"
-                className="btn-create-parent"
-                onClick={() => {
-                  setNewParentFirstName('');
-                  setNewParentLastName(lastName || '');
-                  setShowNewParentDialog('father');
-                }}
-                title="Create new person"
-              >
-                +
-              </button>
-            </div>
-          </div>
-
-          <div className="parent-card-edit">
-            <span className="parent-label">Mother</span>
-            <div className="parent-picker-row">
-              <PersonPicker
-                value={selectedMotherId}
-                people={allPeople}
-                onChange={(personId) => setSelectedMotherId(personId || '')}
-                placeholder="Search for mother..."
-                excludeIds={[person?.id, ...Array.from(descendantIds)].filter(Boolean)}
-                filterFn={(p) => p.gender !== 'male'}
-              />
-              <button
-                type="button"
-                className="btn-create-parent"
-                onClick={() => {
-                  setNewParentFirstName('');
-                  setNewParentLastName('');
-                  setShowNewParentDialog('mother');
-                }}
-                title="Create new person"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="person-view-form">
-        <div className="edit-view-scrollable">
-          <div className="edit-view-section">
-            <h3 className="edit-view-section-title">Name</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="field-label">First Name</label>
-                <input
-                  ref={firstInputRef}
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="text-input"
-                  placeholder="First name"
-                />
+        {/* New Parent Dialog - View Mode */}
+        {showNewParentDialog && (
+          <div className="dialog-overlay" onClick={() => setShowNewParentDialog(null)} onWheel={e => e.stopPropagation()}>
+            <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
+              <div className="dialog-header">
+                <h3>Add {showNewParentDialog === 'father' ? 'Father' : 'Mother'}</h3>
               </div>
-              <div className="form-group">
-                <label className="field-label">Last Name</label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="text-input"
-                  placeholder="Last name"
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="field-label">Middle Name</label>
-                <input
-                  type="text"
-                  value={middleName}
-                  onChange={(e) => setMiddleName(e.target.value)}
-                  className="text-input"
-                  placeholder="Middle name"
-                />
-              </div>
-              <div className="form-group">
-                <label className="field-label">Maiden Name</label>
-                <input
-                  type="text"
-                  value={maidenName}
-                  onChange={(e) => setMaidenName(e.target.value)}
-                  className="text-input"
-                  placeholder="If applicable"
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="field-label">Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="text-input"
-                  placeholder="Dr., Rev., Sir..."
-                />
-              </div>
-              <div className="form-group">
-                <label className="field-label">Nickname</label>
-                <input
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  className="text-input"
-                  placeholder="Known as..."
-                />
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="field-label">Gender <span className="label-hint">(⌘1-3)</span></label>
-                <ToggleGroup
-                  options={[
-                    { value: 'male', label: 'Male', className: 'gender-male' },
-                    { value: 'female', label: 'Female', className: 'gender-female' },
-                    { value: 'other', label: 'Other' },
-                  ]}
-                  value={gender}
-                  onChange={setGender}
-                  name="gender"
-                />
-              </div>
-              <div className="form-group">
-                <label className="field-label">Card Color</label>
-                <div className="color-picker" role="radiogroup">
-                  {theme.colors.nodeColors.map((c, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      role="radio"
-                      aria-checked={colorIndex === i}
-                      aria-label={`Color ${i + 1}`}
-                      className={`color-option ${colorIndex === i ? 'active' : ''}`}
-                      style={{ background: c }}
-                      onClick={() => setColorIndex(i)}
-                      tabIndex={colorIndex === i ? 0 : -1}
-                    >
-                      {colorIndex === i && <span className="color-check">✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Person Citations */}
-            <div className="form-group person-sources-group">
-              <label className="field-label">
-                Citations
-                {personCitations.length > 0 && ` [${personCitations.length}]`}
-              </label>
-              <CitationList
-                citations={personCitations}
-                onAdd={() => {
-                  setCitationTarget({ type: 'person', personId: person?.id });
-                  setEditingCitation(null);
-                  setCitationDialogOpen(true);
-                }}
-                onEdit={(citation) => {
-                  setCitationTarget({ type: 'person', personId: person?.id });
-                  setEditingCitation(citation);
-                  setCitationDialogOpen(true);
-                }}
-                onDelete={(citationId) => onDeleteCitation?.(citationId)}
-                isEditing={true}
-              />
-            </div>
-          </div>
-
-          <MediaDropZone
-            eventId={birthEventId}
-            onMediaLinked={() => triggerRefresh?.()}
-            className="section-drop-zone"
-            label="Drop media to link to birth"
-          >
-            <div className="edit-view-section">
-              <h3 className="edit-view-section-title">Birth</h3>
-              <div className={`life-event-section ${birthExpanded ? 'expanded' : 'collapsed'}`}>
-                <div
-                  className="life-event-header"
-                  onClick={() => {
-                    const hasData = (birthDate && birthDate.type !== 'unknown') || birthPlace;
-                    if (hasData) setBirthExpanded(!birthExpanded);
-                  }}
-                  style={{ cursor: (birthDate?.type !== 'unknown' || birthPlace) ? 'pointer' : 'default' }}
-                >
-                  <div className="life-event-header-left">
-                    {(birthDate?.type !== 'unknown' || birthPlace) && (
-                      <span className="event-chevron">{birthExpanded ? '▼' : '▶'}</span>
-                    )}
-                    {!birthExpanded && (
-                      <span className="life-event-summary">
-                        {[
-                          birthDate?.type !== 'unknown' ? formatSingleDate(birthDate) : null,
-                          birthPlace
-                        ].filter(Boolean).join(' · ') || 'No details'}
-                        {birthSources.length > 0 && ` [${birthSources.length}]`}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {birthExpanded && (
-                  <div className="life-event-fields">
-                    <DateInput
-                      label="Date"
-                      value={birthDate}
-                      onChange={setBirthDate}
-                    />
-                    <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                      <label className="field-label">Place</label>
-                      <PlaceDropZone
-                        value={birthPlace}
-                        placeId={birthPlaceId}
-                        places={places}
-                        onChange={({ place, placeId }) => {
-                          setBirthPlace(place);
-                          setBirthPlaceId(placeId);
-                        }}
-                        placeholder="City, Country"
-                      />
-                    </div>
-                    <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                      <label className="field-label">Citations</label>
-                      <CitationList
-                        citations={birthCitations}
-                        onAdd={() => {
-                          setCitationTarget({ type: 'birth', eventId: birthEventId });
-                          setEditingCitation(null);
-                          setCitationDialogOpen(true);
-                        }}
-                        onEdit={(citation) => {
-                          setCitationTarget({ type: 'birth', eventId: birthEventId });
-                          setEditingCitation(citation);
-                          setCitationDialogOpen(true);
-                        }}
-                        onDelete={(citationId) => onDeleteCitation?.(citationId)}
-                        isEditing={true}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </MediaDropZone>
-
-          <MediaDropZone
-            eventId={deathEventId}
-            onMediaLinked={() => triggerRefresh?.()}
-            className="section-drop-zone"
-            label="Drop media to link to death"
-          >
-            <div className="edit-view-section">
-              <h3 className="edit-view-section-title">{deathDate?.type === 'alive' ? 'Status' : 'Death'}</h3>
-              <div className={`life-event-section ${deathExpanded ? 'expanded' : 'collapsed'}`}>
-                <div
-                  className="life-event-header"
-                  onClick={() => {
-                    const hasData = (deathDate && deathDate.type !== 'unknown') || deathPlace;
-                    if (hasData) setDeathExpanded(!deathExpanded);
-                  }}
-                  style={{ cursor: (deathDate?.type !== 'unknown' || deathPlace) ? 'pointer' : 'default' }}
-                >
-                  <div className="life-event-header-left">
-                    {(deathDate?.type !== 'unknown' || deathPlace) && (
-                      <span className="event-chevron">{deathExpanded ? '▼' : '▶'}</span>
-                    )}
-                    {!deathExpanded && (
-                      <span className="life-event-summary">
-                        {deathDate?.type === 'alive'
-                          ? 'Living'
-                          : ([
-                              deathDate?.type !== 'unknown' ? formatSingleDate(deathDate) : null,
-                              deathPlace
-                            ].filter(Boolean).join(' · ') || 'No details')
-                        }
-                        {deathSources.length > 0 && ` [${deathSources.length}]`}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {deathExpanded && (
-                  <div className="life-event-fields">
-                    <DateInput
-                      label="Date"
-                      value={deathDate}
-                      onChange={setDeathDate}
-                    />
-                    <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                      <label className="field-label">Place</label>
-                      <PlaceDropZone
-                        value={deathPlace}
-                        placeId={deathPlaceId}
-                        places={places}
-                        onChange={({ place, placeId }) => {
-                          setDeathPlace(place);
-                          setDeathPlaceId(placeId);
-                        }}
-                        placeholder="City, Country"
-                      />
-                    </div>
-                    <div className="form-group" style={{ marginTop: '12px', marginBottom: 0 }}>
-                      <label className="field-label">Citations</label>
-                      <CitationList
-                        citations={deathCitations}
-                        onAdd={() => {
-                          setCitationTarget({ type: 'death', eventId: deathEventId });
-                          setEditingCitation(null);
-                          setCitationDialogOpen(true);
-                        }}
-                        onEdit={(citation) => {
-                          setCitationTarget({ type: 'death', eventId: deathEventId });
-                          setEditingCitation(citation);
-                          setCitationDialogOpen(true);
-                        }}
-                        onDelete={(citationId) => onDeleteCitation?.(citationId)}
-                        isEditing={true}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </MediaDropZone>
-
-          <div className="edit-view-section">
-            <h3 className="edit-view-section-title">Additional Events</h3>
-            <div className="events-section">
-              <div className="events-header">
-                <div className="add-event-dropdown">
-                  <select
-                    className="add-event-select"
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        const newEvent = {
-                          id: Date.now().toString(),
-                          type: e.target.value,
-                          date: { type: 'unknown' },
-                          place: '',
-                          sources: [],
-                        };
-                        setEvents([...events, newEvent]);
-                        e.target.value = '';
+              <div className="dialog-body">
+                {/* Select existing person */}
+                <div className="form-group">
+                  <label className="field-label">Select Existing Person</label>
+                  <PersonPicker
+                    value={selectedExistingParentId}
+                    people={allPeople}
+                    onChange={(personId) => {
+                      setSelectedExistingParentId(personId || '');
+                      if (personId) {
+                        setNewParentFirstName('');
+                        setNewParentLastName('');
                       }
                     }}
-                  >
-                    <option value="">+ Add Event...</option>
-                    {EVENT_TYPES
-                      .filter(type => {
-                        const hasValidDate = (date) => date && date.type !== 'unknown';
-                        const isDead = (date) => hasValidDate(date) && date.type !== 'alive';
-                        if (type.requires === 'birth') {
-                          return hasValidDate(birthDate);
-                        }
-                        if (type.requires === 'death') {
-                          return isDead(deathDate);
-                        }
-                        return true;
-                      })
-                      .map(type => (
-                        <option key={type.value} value={type.value}>{type.label}</option>
-                      ))}
-                  </select>
+                    placeholder={`Search for ${showNewParentDialog}...`}
+                    excludeIds={[
+                      person?.id,
+                      parents.father?.id,
+                      parents.mother?.id
+                    ].filter(Boolean)}
+                  />
                 </div>
-              </div>
-              {events.map((event, index) => {
-                const eventType = EVENT_TYPES.find(t => t.value === event.type);
-                const parentDate = eventType?.requires === 'birth' ? birthDate :
-                                   eventType?.requires === 'death' ? deathDate : null;
-                return (
-                  <MediaDropZone
-                    key={event.id}
-                    eventId={event.id}
-                    onMediaLinked={() => triggerRefresh?.()}
-                    className="event-drop-zone"
-                    label={`Drop media to link to ${eventType?.label || event.type}`}
-                  >
-                    <EventEntry
-                      event={event}
-                      parentDate={parentDate}
-                      places={places}
-                      onChange={(updated) => {
-                        const newEvents = [...events];
-                        newEvents[index] = updated;
-                        setEvents(newEvents);
-                      }}
-                      onRemove={() => {
-                        setEvents(events.filter((_, i) => i !== index));
-                      }}
-                      sources={sources}
-                      onAddSource={onAddSource}
-                      citations={eventCitations[event.id] || []}
-                      onAddCitation={() => {
-                        setCitationTarget({ type: 'event', eventId: event.id });
-                        setEditingCitation(null);
-                        setCitationDialogOpen(true);
-                      }}
-                      onEditCitation={(citation) => {
-                        setCitationTarget({ type: 'event', eventId: event.id });
-                        setEditingCitation(citation);
-                        setCitationDialogOpen(true);
-                      }}
-                      onDeleteCitation={(citationId) => onDeleteCitation?.(citationId)}
-                    />
-                  </MediaDropZone>
-                );
-              })}
-            </div>
-          </div>
 
-          <div className="edit-view-section">
-            <h3 className="edit-view-section-title">Unions</h3>
-            <div className="events-section">
-              <div className="events-header">
+                {/* Divider when not selecting existing */}
+                {!selectedExistingParentId && (
+                  <div style={{ textAlign: 'center', color: 'var(--color-textMuted)', margin: '12px 0', fontSize: '12px' }}>
+                    — or create new person —
+                  </div>
+                )}
+
+                {/* New person fields (hidden when existing person selected) */}
+                {!selectedExistingParentId && (
+                  <>
+                    <div className="form-group">
+                      <label className="field-label">First Name</label>
+                      <input
+                        type="text"
+                        value={newParentFirstName}
+                        onChange={(e) => setNewParentFirstName(e.target.value)}
+                        className="text-input"
+                        placeholder="First name"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="field-label">Last Name</label>
+                      <input
+                        type="text"
+                        value={newParentLastName}
+                        onChange={(e) => setNewParentLastName(e.target.value)}
+                        className="text-input"
+                        placeholder="Last name"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="dialog-footer">
                 <button
                   type="button"
                   className="btn-secondary"
-                  style={{ fontSize: '13px', padding: '6px 12px' }}
-                  onClick={() => {
-                    const newUnion = {
-                      id: `union-new-${Date.now()}`,
-                      partnerId: '',
-                      type: 'marriage',
-                      startDate: { type: 'unknown' },
-                      startPlace: '',
-                      endDate: null,
-                      endReason: '',
-                      childIds: [],
-                      sources: [],
-                      isNew: true
-                    };
-                    setUnions([...unions, newUnion]);
-                  }}
+                  onClick={() => setShowNewParentDialog(null)}
                 >
-                  + Add Union
+                  Cancel
                 </button>
-              </div>
-              {unions.length === 0 && (
-                <p style={{ color: 'var(--color-textMuted)', fontSize: '13px', marginTop: '8px' }}>
-                  No unions recorded
-                </p>
-              )}
-              {unions.map((union, index) => (
-                <UnionEntry
-                  key={union.id}
-                  union={union}
-                  allPeople={allPeople}
-                  currentPersonId={person?.id}
-                  sources={sources}
-                  onAddSource={onAddSource}
-                  onChange={(updated) => {
-                    const newUnions = [...unions];
-                    newUnions[index] = updated;
-                    setUnions(newUnions);
-                  }}
-                  onRemove={() => {
-                    setUnions(unions.filter((_, i) => i !== index));
-                  }}
-                  citations={unionCitations[union.id] || []}
-                  onAddCitation={() => {
-                    setCitationTarget({ type: 'union', unionId: union.id });
-                    setEditingCitation(null);
-                    setCitationDialogOpen(true);
-                  }}
-                  onEditCitation={(citation) => {
-                    setCitationTarget({ type: 'union', unionId: union.id });
-                    setEditingCitation(citation);
-                    setCitationDialogOpen(true);
-                  }}
-                  onDeleteCitation={(citationId) => onDeleteCitation?.(citationId)}
-                />
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        <div className="person-view-footer">
-          <button type="button" className="btn-secondary" onClick={() => setIsEditing(false)}>
-            Cancel
-          </button>
-          <button type="submit" className="btn-primary">
-            Save <KeyHint>⌘↵</KeyHint>
-          </button>
-        </div>
-      </form>
-
-      {/* Family Panel - Spouses and Children (Edit Mode) */}
-      <div className="family-panel">
-        <button
-          type="button"
-          className="family-panel-toggle"
-          onClick={() => setShowFamilyPanel(!showFamilyPanel)}
-        >
-          <span className="family-panel-toggle-icon">{showFamilyPanel ? '▼' : '▲'}</span>
-          <span>Family ({familyData.reduce((acc, f) => acc + f.children.length, 0)} children)</span>
-        </button>
-
-        {showFamilyPanel && (
-          <div className="family-panel-content">
-            {familyData.map(({ union, partner, children }) => (
-              <div key={union.id} className="family-row">
-                <div className="family-partner">
-                  {partner ? (
-                    <button
-                      type="button"
-                      className={`family-person-card ${partner.gender === 'male' ? 'gender-male' : partner.gender === 'female' ? 'gender-female' : ''}`}
-                      onClick={() => onSelectPerson?.(partner.id)}
-                    >
-                      {partner.image && (
-                        <img src={partner.image} alt="" className="family-person-photo" />
-                      )}
-                      <div className="family-person-info">
-                        <span className="family-person-name">
-                          {[partner.firstName, partner.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                        </span>
-                        <span className="family-person-dates">
-                          {partner.birthDate?.year && `☆ ${partner.birthDate.year}`}
-                          {partner.birthDate?.year && partner.deathDate?.year && ' '}
-                          {partner.deathDate?.year && `† ${partner.deathDate.year}`}
-                        </span>
-                      </div>
-                    </button>
-                  ) : (
-                    <div className="family-person-card family-person-unknown">
-                      <span className="family-person-name">Unknown Partner</span>
-                    </div>
-                  )}
-                  <span className="family-partner-label">Partner</span>
-                </div>
-
-                <div className="family-children-section">
-                  <span className="family-children-label">Children</span>
-                  <div className="family-children">
-                    {children.map(child => (
-                      <button
-                        key={child.id}
-                        type="button"
-                        className={`family-person-card ${child.gender === 'male' ? 'gender-male' : child.gender === 'female' ? 'gender-female' : ''}`}
-                        onClick={() => onSelectPerson?.(child.id)}
-                      >
-                        {child.image && (
-                          <img src={child.image} alt="" className="family-person-photo" />
-                        )}
-                        <div className="family-person-info">
-                          <span className="family-person-name">
-                            {[child.firstName, child.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                          </span>
-                          <span className="family-person-dates">
-                            {child.birthDate?.year && `☆ ${child.birthDate.year}`}
-                            {child.birthDate?.year && child.deathDate?.year && ' '}
-                            {child.deathDate?.year && `† ${child.deathDate.year}`}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                    {/* Add Child button */}
-                    <button
-                      type="button"
-                      className="family-person-card family-add-card"
-                      onClick={() => {
-                        setNewFamilyFirstName('');
-                        setNewFamilyLastName(lastName || '');
-                        setNewFamilyGender('');
-                        setSelectedExistingChildId('');
-                        setShowNewFamilyDialog({ type: 'child', unionId: union.id });
-                      }}
-                    >
-                      <span className="family-add-icon">+</span>
-                      <span className="family-add-label">Add Child</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {/* Add Partner row */}
-            <div className="family-row family-add-partner-row">
-              <div className="family-partner">
                 <button
                   type="button"
-                  className="family-person-card family-add-card"
+                  className="btn-primary"
                   onClick={() => {
-                    setNewFamilyFirstName('');
-                    setNewFamilyLastName('');
-                    setNewFamilyGender('');
-                    setShowNewFamilyDialog({ type: 'partner' });
+                    let parentIdToAdd = null;
+
+                    if (selectedExistingParentId) {
+                      parentIdToAdd = selectedExistingParentId;
+                    } else if (onCreatePerson && (newParentFirstName || newParentLastName)) {
+                      const gender = showNewParentDialog === 'father' ? 'male' : 'female';
+                      parentIdToAdd = onCreatePerson({
+                        firstName: newParentFirstName,
+                        lastName: newParentLastName,
+                        gender
+                      });
+                    }
+
+                    if (parentIdToAdd) {
+                      const newFatherId = showNewParentDialog === 'father' ? parentIdToAdd : (selectedFatherId || parents.father?.id || null);
+                      const newMotherId = showNewParentDialog === 'mother' ? parentIdToAdd : (selectedMotherId || parents.mother?.id || null);
+
+                      if (showNewParentDialog === 'father') {
+                        setSelectedFatherId(parentIdToAdd);
+                      } else {
+                        setSelectedMotherId(parentIdToAdd);
+                      }
+
+                      if (onParentsChange && person) {
+                        onParentsChange({
+                          personId: person.id,
+                          fatherId: newFatherId,
+                          motherId: newMotherId
+                        });
+                      }
+                    }
+                    setShowNewParentDialog(null);
                   }}
+                  disabled={!selectedExistingParentId && !newParentFirstName && !newParentLastName}
                 >
-                  <span className="family-add-icon">+</span>
-                  <span className="family-add-label">Add Partner</span>
+                  Add
                 </button>
-                <span className="family-partner-label">New Partner</span>
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* New Parent Dialog */}
-      {showNewParentDialog && (
-        <div className="dialog-overlay" onClick={() => setShowNewParentDialog(null)} onWheel={e => e.stopPropagation()}>
-          <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="dialog-header">
-              <h3>Add New {showNewParentDialog === 'father' ? 'Father' : 'Mother'}</h3>
-            </div>
-            <div className="dialog-body">
-              <div className="form-group">
-                <label className="field-label">First Name</label>
-                <input
-                  type="text"
-                  value={newParentFirstName}
-                  onChange={(e) => setNewParentFirstName(e.target.value)}
-                  className="text-input"
-                  placeholder="First name"
-                  autoFocus
-                />
-              </div>
-              <div className="form-group">
-                <label className="field-label">Last Name</label>
-                <input
-                  type="text"
-                  value={newParentLastName}
-                  onChange={(e) => setNewParentLastName(e.target.value)}
-                  className="text-input"
-                  placeholder="Last name"
-                />
-              </div>
-            </div>
-            <div className="dialog-footer">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowNewParentDialog(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  if (onCreatePerson && (newParentFirstName || newParentLastName)) {
-                    const gender = showNewParentDialog === 'father' ? 'male' : 'female';
-                    const newId = onCreatePerson({
-                      firstName: newParentFirstName,
-                      lastName: newParentLastName,
-                      gender
-                    });
-                    if (newId) {
-                      if (showNewParentDialog === 'father') {
-                        setSelectedFatherId(newId);
-                      } else {
-                        setSelectedMotherId(newId);
-                      }
-                    }
-                  }
-                  setShowNewParentDialog(null);
-                }}
-                disabled={!newParentFirstName && !newParentLastName}
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Family Member Dialog (Child or Partner) */}
-      {showNewFamilyDialog && (
-        <div className="dialog-overlay" onClick={() => setShowNewFamilyDialog(null)} onWheel={e => e.stopPropagation()}>
-          <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="dialog-header">
-              <h3>Add {showNewFamilyDialog.type === 'child' ? 'Child' : 'Partner'}</h3>
-            </div>
-            <div className="dialog-body">
-              {/* Select existing person (for child only) */}
-              {showNewFamilyDialog.type === 'child' && (
-                <div className="form-group">
-                  <label className="field-label">Select Existing Person</label>
-                  <PersonPicker
-                    value={selectedExistingChildId}
-                    people={allPeople}
-                    onChange={(personId) => {
-                      setSelectedExistingChildId(personId || '');
-                      if (personId) {
-                        // Clear the new person fields when selecting existing
-                        setNewFamilyFirstName('');
-                        setNewFamilyLastName('');
-                        setNewFamilyGender('');
-                      }
-                    }}
-                    placeholder="Search for existing person..."
-                    excludeIds={[
-                      person?.id,
-                      ...(unions.find(u => u.id === showNewFamilyDialog.unionId)?.childIds || [])
-                    ].filter(Boolean)}
-                  />
-                </div>
-              )}
-
-              {/* Divider when showing both options */}
-              {showNewFamilyDialog.type === 'child' && !selectedExistingChildId && (
-                <div style={{ textAlign: 'center', color: 'var(--color-textMuted)', margin: '12px 0', fontSize: '12px' }}>
-                  — or create new person —
-                </div>
-              )}
-
-              {/* New person fields (hidden when existing person selected for child) */}
-              {(!selectedExistingChildId || showNewFamilyDialog.type !== 'child') && (
-                <>
-                  <div className="form-group">
-                    <label className="field-label">First Name</label>
-                    <input
-                      type="text"
-                      value={newFamilyFirstName}
-                      onChange={(e) => setNewFamilyFirstName(e.target.value)}
-                      className="text-input"
-                      placeholder="First name"
-                      autoFocus={showNewFamilyDialog.type !== 'child'}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="field-label">Last Name</label>
-                    <input
-                      type="text"
-                      value={newFamilyLastName}
-                      onChange={(e) => setNewFamilyLastName(e.target.value)}
-                      className="text-input"
-                      placeholder="Last name"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="field-label">Gender</label>
-                    <ToggleGroup
-                      options={[
-                        { value: 'male', label: 'Male', className: 'gender-male' },
-                        { value: 'female', label: 'Female', className: 'gender-female' },
-                        { value: 'other', label: 'Other' },
-                      ]}
-                      value={newFamilyGender}
-                      onChange={setNewFamilyGender}
-                      name="new-family-gender"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="dialog-footer">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowNewFamilyDialog(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  let childIdToAdd = null;
-
-                  // Check if we're adding an existing person as child
-                  if (showNewFamilyDialog.type === 'child' && selectedExistingChildId) {
-                    childIdToAdd = selectedExistingChildId;
-                  } else if (onCreatePerson && (newFamilyFirstName || newFamilyLastName)) {
-                    // Create new person
-                    childIdToAdd = onCreatePerson({
-                      firstName: newFamilyFirstName,
-                      lastName: newFamilyLastName,
-                      gender: newFamilyGender || ''
-                    });
-                  }
-
-                  if (childIdToAdd && person) {
-                    let updatedUnions;
-                    if (showNewFamilyDialog.type === 'child') {
-                      // Add child to the union
-                      const unionId = showNewFamilyDialog.unionId;
-                      updatedUnions = unions.map(u =>
-                        u.id === unionId
-                          ? { ...u, childIds: [...(u.childIds || []), childIdToAdd] }
-                          : u
-                      );
-                    } else if (showNewFamilyDialog.type === 'partner') {
-                      // Create a new union with this partner
-                      const newUnion = {
-                        id: `union-new-${Date.now()}`,
-                        partnerId: childIdToAdd,
-                        type: 'marriage',
-                        startDate: { type: 'unknown' },
-                        startPlace: '',
-                        endDate: null,
-                        endReason: '',
-                        childIds: [],
-                        sources: [],
-                        isNew: true
-                      };
-                      updatedUnions = [...unions, newUnion];
-                    }
-
-                    if (updatedUnions) {
-                      setUnions(updatedUnions);
-                      // Save immediately
-                      if (onUnionsChange) {
-                        const formattedUnions = updatedUnions
-                          .filter(u => u.partnerId)
-                          .map(u => ({
-                            id: u.id || `union-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                            partner1Id: person.id,
-                            partner2Id: u.partnerId,
-                            type: u.type || 'marriage',
-                            startDate: u.startDate,
-                            startPlace: u.startPlace || '',
-                            endDate: u.endDate,
-                            endReason: u.endReason || '',
-                            childIds: u.childIds || [],
-                            sources: u.sources || []
-                          }));
-                        onUnionsChange(formattedUnions);
-                      }
-                    }
-                  }
-                  setShowNewFamilyDialog(null);
-                }}
-                disabled={!selectedExistingChildId && !newFamilyFirstName && !newFamilyLastName}
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Citation Dialog */}
-      <CitationDialog
-        isOpen={citationDialogOpen}
-        onClose={() => {
-          setCitationDialogOpen(false);
-          setEditingCitation(null);
-          setCitationTarget(null);
-        }}
-        onSave={(citationData) => {
-          if (editingCitation) {
-            onUpdateCitation?.(editingCitation.id, citationData);
-          } else {
-            onCreateCitation?.({
-              ...citationData,
-              person_id: citationTarget?.personId,
-              event_id: citationTarget?.eventId,
-              union_id: citationTarget?.unionId,
-              media_id: citationTarget?.mediaId
-            });
-          }
-          setCitationDialogOpen(false);
-          setEditingCitation(null);
-          setCitationTarget(null);
-        }}
-        initialData={editingCitation}
-        sources={dbSources}
-        targetType={citationTarget?.type}
-      />
-
-      {portraitMedia && (
-        <PhotoViewer
-          mediaId={portraitMedia.id}
-          imageSrc={portraitMedia.fullPath}
-          mediaPath={portraitMedia.path}
-          onClose={() => setPortraitMedia(null)}
-        />
-      )}
-    </div>
   );
 }
