@@ -1492,6 +1492,27 @@ function App() {
               });
             }
           }}
+          onRemoveChild={async (unionId, childId) => {
+            if (storageMode === 'bundle') {
+              // Remove child from union in database
+              await removeChild(unionId, childId);
+              // Reload unions
+              const reloadedUnions = await getUnionsForPerson(selectedPersonId);
+              setLoadedUnions(reloadedUnions || []);
+              // Also refresh the global unions list for pedigree/descendants views
+              await fetchAllUnions();
+            } else {
+              // Legacy mode - remove child from union
+              setData(prev => ({
+                ...prev,
+                unions: prev.unions.map(u =>
+                  u.id === unionId
+                    ? { ...u, childIds: (u.childIds || []).filter(id => id !== childId) }
+                    : u
+                )
+              }));
+            }
+          }}
           onCreatePerson={({ firstName, lastName, gender }) => {
             if (storageMode === 'bundle') {
               // Generate ID upfront so we can return it immediately

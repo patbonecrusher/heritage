@@ -707,7 +707,7 @@ function UnionEntry({ union, onChange, onRemove, allPeople, currentPersonId, sou
 
 export default function PersonView({
   person, onSave, onCancel, sources = {}, onAddSource, allPeople = [], existingUnions = [],
-  onUnionsChange, onSelectPerson, onParentsChange, onCreatePerson, onNavigateBack, canNavigateBack,
+  onUnionsChange, onSelectPerson, onParentsChange, onCreatePerson, onRemoveChild, onNavigateBack, canNavigateBack,
   onNavigateForward, canNavigateForward, places = [], onCreatePlace,
   // Citation props
   personCitations = [], birthCitations = [], deathCitations = [], eventCitations = {}, unionCitations = {},
@@ -1560,14 +1560,35 @@ export default function PersonView({
               {/* Parents inline */}
               <div className="pv-parents-inline">
                 {parents.father ? (
-                  <button
-                    type="button"
-                    className="pv-parent-card father has-person-tooltip"
-                    onClick={() => onSelectPerson?.(parents.father.id)}
-                    title={[parents.father.firstName, parents.father.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                  >
-                    <PersonPhoto personId={parents.father.id} width={28} height={28} className="person-photo-round" />
-                    <div className="pv-parent-info">
+                  <div className="pv-parent-card father has-person-tooltip">
+                    <button
+                      type="button"
+                      className="pv-remove-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onParentsChange?.({
+                          personId: person.id,
+                          fatherId: null,
+                          motherId: parents.mother?.id || null
+                        });
+                      }}
+                      title="Remove father"
+                    >
+                      ×
+                    </button>
+                    <PersonPhoto
+                      personId={parents.father.id}
+                      width={28}
+                      height={28}
+                      className="person-photo-round"
+                      onClick={() => onSelectPerson?.(parents.father.id)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <div
+                      className="pv-parent-info"
+                      onClick={() => onSelectPerson?.(parents.father.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <span className="pv-parent-label">Father</span>
                       <span className="pv-parent-name">
                         {[parents.father.firstName, parents.father.lastName].filter(Boolean).join(' ') || 'Unknown'}
@@ -1578,7 +1599,7 @@ export default function PersonView({
                       spouses={parents.mother ? [parents.mother] : []}
                       position="below"
                     />
-                  </button>
+                  </div>
                 ) : (
                   <button
                     type="button"
@@ -1600,14 +1621,35 @@ export default function PersonView({
                 )}
 
                 {parents.mother ? (
-                  <button
-                    type="button"
-                    className="pv-parent-card mother has-person-tooltip"
-                    onClick={() => onSelectPerson?.(parents.mother.id)}
-                    title={[parents.mother.firstName, parents.mother.lastName].filter(Boolean).join(' ') || 'Unknown'}
-                  >
-                    <PersonPhoto personId={parents.mother.id} width={28} height={28} className="person-photo-round" />
-                    <div className="pv-parent-info">
+                  <div className="pv-parent-card mother has-person-tooltip">
+                    <button
+                      type="button"
+                      className="pv-remove-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onParentsChange?.({
+                          personId: person.id,
+                          fatherId: parents.father?.id || null,
+                          motherId: null
+                        });
+                      }}
+                      title="Remove mother"
+                    >
+                      ×
+                    </button>
+                    <PersonPhoto
+                      personId={parents.mother.id}
+                      width={28}
+                      height={28}
+                      className="person-photo-round"
+                      onClick={() => onSelectPerson?.(parents.mother.id)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <div
+                      className="pv-parent-info"
+                      onClick={() => onSelectPerson?.(parents.mother.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <span className="pv-parent-label">Mother</span>
                       <span className="pv-parent-name">
                         {[parents.mother.firstName, parents.mother.lastName].filter(Boolean).join(' ') || 'Unknown'}
@@ -1618,7 +1660,7 @@ export default function PersonView({
                       spouses={parents.father ? [parents.father] : []}
                       position="below"
                     />
-                  </button>
+                  </div>
                 ) : (
                   <button
                     type="button"
@@ -2322,6 +2364,17 @@ export default function PersonView({
                                 className={`pv-family-member pv-family-child has-person-tooltip ${child.gender || ''}`}
                                 onClick={() => onSelectPerson?.(child.id)}
                               >
+                                <button
+                                  type="button"
+                                  className="pv-remove-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemoveChild?.(union.id, child.id);
+                                  }}
+                                  title="Remove child from family"
+                                >
+                                  ×
+                                </button>
                                 <PersonPhoto personId={child.id} width={32} height={32} className="pv-family-member-photo" />
                                 <div className="pv-family-member-info">
                                   <span className="pv-family-member-name">{childName}</span>
@@ -2377,15 +2430,35 @@ export default function PersonView({
                 <div className="pv-family-bar-members">
                   {familyData.flatMap(({ union, partner, children }) =>
                     children.map(child => (
-                      <button
+                      <div
                         key={child.id}
-                        type="button"
                         className={`pv-family-chip has-person-tooltip ${child.gender || ''}`}
-                        onClick={() => onSelectPerson?.(child.id)}
                         title={[child.firstName, child.lastName].filter(Boolean).join(' ')}
                       >
-                        <PersonPhoto personId={child.id} width={28} height={28} className="person-photo-round" />
-                        <div className="pv-family-chip-info">
+                        <button
+                          type="button"
+                          className="pv-remove-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveChild?.(union.id, child.id);
+                          }}
+                          title="Remove child from family"
+                        >
+                          ×
+                        </button>
+                        <PersonPhoto
+                          personId={child.id}
+                          width={28}
+                          height={28}
+                          className="person-photo-round"
+                          onClick={() => onSelectPerson?.(child.id)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <div
+                          className="pv-family-chip-info"
+                          onClick={() => onSelectPerson?.(child.id)}
+                          style={{ cursor: 'pointer' }}
+                        >
                           <span className="pv-family-chip-name">
                             {[child.firstName, child.lastName].filter(Boolean).join(' ')}
                           </span>
@@ -2395,7 +2468,7 @@ export default function PersonView({
                           </span>
                         </div>
                         <PersonTooltip person={child} position="above" />
-                      </button>
+                      </div>
                     ))
                   )}
                   {totalChildren === 0 && (
