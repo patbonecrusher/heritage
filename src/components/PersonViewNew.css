@@ -873,6 +873,12 @@
   background: var(--color-surface);
 }
 
+.pv-add-event-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}
+
 .pv-event-edit-btn {
   width: 28px;
   height: 28px;

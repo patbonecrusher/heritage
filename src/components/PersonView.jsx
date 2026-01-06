@@ -1071,6 +1071,30 @@ export default function PersonView({
     setAddEventDropdownOpen(false);
   }, []);
 
+  // Start adding a new union/marriage
+  const startAddingUnion = useCallback(() => {
+    const newUnionId = `union-new-${Date.now()}`;
+    const newUnion = {
+      id: newUnionId,
+      partnerId: '',
+      type: 'marriage',
+      startDate: { type: 'unknown' },
+      startPlace: '',
+      endReason: '',
+      priorStatus1: '',
+      priorStatus2: '',
+    };
+    setUnions(prev => [...prev, newUnion]);
+    setEditingEventId(newUnionId);
+    setEditEventDate({ type: 'unknown' });
+    setEditEventPlace('');
+    setEditEventPlaceId(null);
+    setEditUnionEndReason('');
+    setEditUnionPriorStatus1('');
+    setEditUnionPriorStatus2('');
+    setAddEventDropdownOpen(false);
+  }, []);
+
   // Delete an event
   const deleteEvent = useCallback((eventId) => {
     const updatedEvents = events.filter(e => e.id !== eventId);
@@ -1870,6 +1894,13 @@ export default function PersonView({
                       </button>
                       {addEventDropdownOpen && (
                         <div className="pv-add-event-menu">
+                          <button
+                            type="button"
+                            onClick={startAddingUnion}
+                          >
+                            {EVENT_ICONS.marriage} Marriage
+                          </button>
+                          <div className="pv-add-event-divider" />
                           {EVENT_TYPES.map(et => (
                             <button
                               key={et.value}
