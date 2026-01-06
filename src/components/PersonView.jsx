@@ -1083,6 +1083,15 @@ export default function PersonView({
     }
   }, [events, onSave, person]);
 
+  // Delete a union
+  const deleteUnion = useCallback((unionId) => {
+    const updatedUnions = unions.filter(u => u.id !== unionId);
+    setUnions(updatedUnions);
+    if (onUnionsChange) {
+      onUnionsChange(updatedUnions);
+    }
+  }, [unions, onUnionsChange]);
+
   // Load data when person changes
   useEffect(() => {
     if (person) {
@@ -2107,10 +2116,14 @@ export default function PersonView({
                                         type="button"
                                         className="btn-danger btn-small"
                                         onClick={() => {
-                                          deleteEvent(event.id);
+                                          if (event.isUnion) {
+                                            deleteUnion(event.id);
+                                          } else {
+                                            deleteEvent(event.id);
+                                          }
                                           cancelEventEdit();
                                         }}
-                                        title="Delete event"
+                                        title={event.isUnion ? "Delete union" : "Delete event"}
                                       >
                                         Delete
                                       </button>
