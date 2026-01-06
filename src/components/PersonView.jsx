@@ -755,6 +755,7 @@ export default function PersonView({
   const [newFamilyLastName, setNewFamilyLastName] = useState('');
   const [newFamilyGender, setNewFamilyGender] = useState('');
   const [selectedExistingChildId, setSelectedExistingChildId] = useState(''); // For selecting existing person as child
+  const [confirmRemove, setConfirmRemove] = useState(null); // { type: 'parent'|'child', name, onConfirm }
 
   // Citation dialog state
   const [citationDialogOpen, setCitationDialogOpen] = useState(false);
@@ -1173,6 +1174,15 @@ export default function PersonView({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // If confirmation dialog is open, handle Escape
+      if (confirmRemove) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setConfirmRemove(null);
+        }
+        return;
+      }
+
       // If new parent dialog is open, handle its shortcuts
       if (showNewParentDialog) {
         if (e.key === 'Escape') {
@@ -1295,7 +1305,7 @@ export default function PersonView({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showNewParentDialog, newParentFirstName, newParentLastName, selectedExistingParentId, selectedFatherId, selectedMotherId, parents, onParentsChange, person, onCreatePerson, showNewFamilyDialog, newFamilyFirstName, newFamilyLastName, newFamilyGender, unions, onUnionsChange, canNavigateBack, onNavigateBack]);
+  }, [confirmRemove, showNewParentDialog, newParentFirstName, newParentLastName, selectedExistingParentId, selectedFatherId, selectedMotherId, parents, onParentsChange, person, onCreatePerson, showNewFamilyDialog, newFamilyFirstName, newFamilyLastName, newFamilyGender, unions, onUnionsChange, canNavigateBack, onNavigateBack]);
 
   const formatDatesDisplay = (birth, death) => {
     let birthStr = formatSingleDate(birth);
@@ -1566,10 +1576,17 @@ export default function PersonView({
                       className="pv-remove-btn"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onParentsChange?.({
-                          personId: person.id,
-                          fatherId: null,
-                          motherId: parents.mother?.id || null
+                        const fatherName = [parents.father.firstName, parents.father.lastName].filter(Boolean).join(' ') || 'Unknown';
+                        setConfirmRemove({
+                          type: 'parent',
+                          name: fatherName,
+                          onConfirm: () => {
+                            onParentsChange?.({
+                              personId: person.id,
+                              fatherId: null,
+                              motherId: parents.mother?.id || null
+                            });
+                          }
                         });
                       }}
                       title="Remove father"
@@ -1627,10 +1644,17 @@ export default function PersonView({
                       className="pv-remove-btn"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onParentsChange?.({
-                          personId: person.id,
-                          fatherId: parents.father?.id || null,
-                          motherId: null
+                        const motherName = [parents.mother.firstName, parents.mother.lastName].filter(Boolean).join(' ') || 'Unknown';
+                        setConfirmRemove({
+                          type: 'parent',
+                          name: motherName,
+                          onConfirm: () => {
+                            onParentsChange?.({
+                              personId: person.id,
+                              fatherId: parents.father?.id || null,
+                              motherId: null
+                            });
+                          }
                         });
                       }}
                       title="Remove mother"
@@ -2369,7 +2393,11 @@ export default function PersonView({
                                   className="pv-remove-btn"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    onRemoveChild?.(union.id, child.id);
+                                    setConfirmRemove({
+                                      type: 'child',
+                                      name: childName || 'Unknown',
+                                      onConfirm: () => onRemoveChild?.(union.id, child.id)
+                                    });
                                   }}
                                   title="Remove child from family"
                                 >
@@ -2429,18 +2457,24 @@ export default function PersonView({
                 <span className="pv-family-bar-label">Children</span>
                 <div className="pv-family-bar-members">
                   {familyData.flatMap(({ union, partner, children }) =>
-                    children.map(child => (
+                    children.map(child => {
+                      const childName = [child.firstName, child.lastName].filter(Boolean).join(' ') || 'Unknown';
+                      return (
                       <div
                         key={child.id}
                         className={`pv-family-chip has-person-tooltip ${child.gender || ''}`}
-                        title={[child.firstName, child.lastName].filter(Boolean).join(' ')}
+                        title={childName}
                       >
                         <button
                           type="button"
                           className="pv-remove-btn"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onRemoveChild?.(union.id, child.id);
+                            setConfirmRemove({
+                              type: 'child',
+                              name: childName,
+                              onConfirm: () => onRemoveChild?.(union.id, child.id)
+                            });
                           }}
                           title="Remove child from family"
                         >
@@ -2469,7 +2503,7 @@ export default function PersonView({
                         </div>
                         <PersonTooltip person={child} position="above" />
                       </div>
-                    ))
+                    );})
                   )}
                   {totalChildren === 0 && (
                     <span style={{ color: 'var(--color-textMuted)', fontSize: 13 }}>No children</span>
@@ -2766,6 +2800,42 @@ export default function PersonView({
                   disabled={!selectedExistingParentId && !newParentFirstName && !newParentLastName}
                 >
                   Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Dialog for Remove */}
+        {confirmRemove && (
+          <div className="dialog-overlay" onClick={() => setConfirmRemove(null)}>
+            <div className="dialog confirm-dialog" onClick={(e) => e.stopPropagation()}>
+              <div className="dialog-header">
+                <h3>Remove {confirmRemove.type === 'parent' ? 'Parent' : 'Child'}</h3>
+              </div>
+              <div className="dialog-body">
+                <p>
+                  Remove <strong>{confirmRemove.name}</strong> as {confirmRemove.type === 'parent' ? 'a parent' : 'a child'}?
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--color-textMuted)', marginTop: 8 }}>
+                  This only removes the relationship, not the person.
+                </p>
+              </div>
+              <div className="dialog-actions">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setConfirmRemove(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-danger"
+                  onClick={() => {
+                    confirmRemove.onConfirm?.();
+                    setConfirmRemove(null);
+                  }}
+                >
+                  Remove
                 </button>
               </div>
             </div>
