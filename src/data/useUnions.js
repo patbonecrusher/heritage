@@ -163,14 +163,16 @@ export function useUnions() {
     const now = new Date().toISOString();
 
     await run(`
-      INSERT INTO union_ (id, person1_id, person2_id, type, status, notes, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO union_ (id, person1_id, person2_id, type, status, prior_status_1, prior_status_2, notes, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id,
       data.person1_id,
       data.person2_id || null,
       data.type || 'marriage',
       data.status || null,
+      data.prior_status_1 || null,
+      data.prior_status_2 || null,
       data.notes || null,
       now,
       now,

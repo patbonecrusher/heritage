@@ -780,6 +780,7 @@ export default function PersonView({
   const [editEventPlaceId, setEditEventPlaceId] = useState(null);
   const [editEventCause, setEditEventCause] = useState('');
   const [editUnionEndReason, setEditUnionEndReason] = useState('');
+  const [editUnionPartnerId, setEditUnionPartnerId] = useState(''); // Partner for union
   const [editUnionPriorStatus1, setEditUnionPriorStatus1] = useState(''); // Current person's status at marriage
   const [editUnionPriorStatus2, setEditUnionPriorStatus2] = useState(''); // Partner's status at marriage
   const [editEventType, setEditEventType] = useState(null); // For new events
@@ -926,6 +927,7 @@ export default function PersonView({
         setEditEventPlace(union.startPlace || '');
         setEditEventPlaceId(union.startPlaceId || null);
         setEditEventCause(''); // Unions don't have cause
+        setEditUnionPartnerId(union.partnerId || '');
         setEditUnionEndReason(union.endReason || '');
         setEditUnionPriorStatus1(union.priorStatus1 || '');
         setEditUnionPriorStatus2(union.priorStatus2 || '');
@@ -1006,7 +1008,7 @@ export default function PersonView({
         // Editing a union
         const updatedUnions = unions.map(u =>
           u.id === editingEventId
-            ? { ...u, startDate: editEventDate, startPlace: editEventPlace, startPlaceId: editEventPlaceId, endReason: editUnionEndReason, priorStatus1: editUnionPriorStatus1, priorStatus2: editUnionPriorStatus2 }
+            ? { ...u, partnerId: editUnionPartnerId, startDate: editEventDate, startPlace: editEventPlace, startPlaceId: editEventPlaceId, endReason: editUnionEndReason, priorStatus1: editUnionPriorStatus1, priorStatus2: editUnionPriorStatus2 }
             : u
         );
         setUnions(updatedUnions);
@@ -1050,7 +1052,7 @@ export default function PersonView({
     setEditingEventId(null);
     setIsAddingNewEvent(false);
     setEditEventType(null);
-  }, [editingEventId, editEventDate, editEventPlace, editEventPlaceId, editEventCause, editUnionEndReason, editUnionPriorStatus1, editUnionPriorStatus2, editEventType, isAddingNewEvent, events, unions, onSave, onUnionsChange, person]);
+  }, [editingEventId, editEventDate, editEventPlace, editEventPlaceId, editEventCause, editUnionPartnerId, editUnionEndReason, editUnionPriorStatus1, editUnionPriorStatus2, editEventType, isAddingNewEvent, events, unions, onSave, onUnionsChange, person]);
 
   // Cancel editing an event
   const cancelEventEdit = useCallback(() => {
@@ -1089,6 +1091,7 @@ export default function PersonView({
     setEditEventDate({ type: 'unknown' });
     setEditEventPlace('');
     setEditEventPlaceId(null);
+    setEditUnionPartnerId('');
     setEditUnionEndReason('');
     setEditUnionPriorStatus1('');
     setEditUnionPriorStatus2('');
@@ -2060,9 +2063,18 @@ export default function PersonView({
                                     </>
                                   )}
 
-                                  {/* End reason and Notes/Citations for unions/marriages */}
+                                  {/* Partner and End reason for unions/marriages */}
                                   {event.isUnion && (
                                     <>
+                                      <div className="pv-inline-edit-row">
+                                        <label className="pv-inline-edit-label">Partner</label>
+                                        <PersonPicker
+                                          value={editUnionPartnerId}
+                                          onChange={(id) => setEditUnionPartnerId(id)}
+                                          people={allPeople.filter(p => p.id !== person?.id)}
+                                          placeholder="Select partner..."
+                                        />
+                                      </div>
                                       <div className="pv-inline-edit-row">
                                         <label className="pv-inline-edit-label">Status</label>
                                         <select
@@ -2091,7 +2103,7 @@ export default function PersonView({
                                       </div>
                                       <div className="pv-inline-edit-row">
                                         <label className="pv-inline-edit-label">
-                                          {event.partner?.firstName || 'Partner'}'s prior status
+                                          {(editUnionPartnerId && allPeople.find(p => p.id === editUnionPartnerId)?.firstName) || 'Partner'}'s prior status
                                         </label>
                                         <select
                                           className="text-input"

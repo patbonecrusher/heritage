@@ -12,7 +12,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const BUNDLE_EXTENSION = '.heritage';
-const CURRENT_FORMAT_VERSION = 3;
+const CURRENT_FORMAT_VERSION = 4;
 
 const INFO_PLIST_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -357,12 +357,15 @@ class BundleManager {
 
       // v4: Add prior_status_1 and prior_status_2 to union_ table
       const unionColumns = db.pragma('table_info(union_)');
+      console.log('Union table columns:', unionColumns.map(c => c.name).join(', '));
       const hasPriorStatus1 = unionColumns.some(col => col.name === 'prior_status_1');
+      console.log('hasPriorStatus1:', hasPriorStatus1);
       if (!hasPriorStatus1) {
         console.log('Adding prior_status_1 column to union_ table');
         db.exec('ALTER TABLE union_ ADD COLUMN prior_status_1 TEXT');
       }
       const hasPriorStatus2 = unionColumns.some(col => col.name === 'prior_status_2');
+      console.log('hasPriorStatus2:', hasPriorStatus2);
       if (!hasPriorStatus2) {
         console.log('Adding prior_status_2 column to union_ table');
         db.exec('ALTER TABLE union_ ADD COLUMN prior_status_2 TEXT');

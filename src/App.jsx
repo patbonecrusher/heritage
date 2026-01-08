@@ -1185,6 +1185,9 @@ function App() {
                     person1_id: selectedPersonId,
                     person2_id: union.partnerId || union.partner2Id,
                     type: union.type || 'marriage',
+                    status: union.endReason || null,
+                    prior_status_1: union.priorStatus1 || null,
+                    prior_status_2: union.priorStatus2 || null,
                   });
                   // Add children to new union
                   for (const childId of (union.childIds || [])) {
@@ -1199,6 +1202,7 @@ function App() {
                       date: eventData.date,
                       date_qualifier: eventData.date_qualifier,
                       place_detail: union.startPlace || null,
+                      place_id: union.startPlaceId || null,
                     });
                   }
                 } else {
