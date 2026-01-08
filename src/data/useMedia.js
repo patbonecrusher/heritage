@@ -138,7 +138,7 @@ export function useMedia() {
         file.filename,
         mediaType,
         file.mimeType,
-        metadata.title || null,
+        metadata.title || file.filename, // Default title to filename
         metadata.description || null,
         metadata.date_taken || null,
         metadata.source_id || null,

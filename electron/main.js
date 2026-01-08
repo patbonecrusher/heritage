@@ -217,6 +217,40 @@ function buildMenu() {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Pedigree',
+          accelerator: 'CmdOrCtrl+1',
+          click: () => mainWindow.webContents.send('menu-view-pedigree')
+        },
+        {
+          label: 'Descendants',
+          accelerator: 'CmdOrCtrl+2',
+          click: () => mainWindow.webContents.send('menu-view-descendants')
+        },
+        {
+          label: 'Person',
+          accelerator: 'CmdOrCtrl+3',
+          click: () => mainWindow.webContents.send('menu-view-person')
+        },
+        {
+          label: 'Canvas',
+          accelerator: 'CmdOrCtrl+4',
+          click: () => mainWindow.webContents.send('menu-view-canvas')
+        },
+        { type: 'separator' },
+        {
+          label: 'Toggle Library',
+          accelerator: 'CmdOrCtrl+L',
+          click: () => mainWindow.webContents.send('menu-toggle-library')
+        },
+        {
+          label: 'Fit to View',
+          accelerator: 'CmdOrCtrl+0',
+          click: () => mainWindow.webContents.send('menu-fit-view')
+        },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+        { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools' },
@@ -224,19 +258,6 @@ function buildMenu() {
         { role: 'resetZoom' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
-        { type: 'separator' },
-        {
-          label: 'Fit to View',
-          accelerator: 'CmdOrCtrl+0',
-          click: () => mainWindow.webContents.send('menu-fit-view')
-        },
-        {
-          label: 'Toggle Library',
-          accelerator: 'CmdOrCtrl+L',
-          click: () => mainWindow.webContents.send('menu-toggle-library')
-        },
         { type: 'separator' },
         {
           label: 'Enable Claude Desktop Integration',

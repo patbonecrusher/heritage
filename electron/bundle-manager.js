@@ -12,7 +12,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const BUNDLE_EXTENSION = '.heritage';
-const CURRENT_FORMAT_VERSION = 2;
+const CURRENT_FORMAT_VERSION = 4;
 
 const INFO_PLIST_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -157,8 +157,9 @@ class BundleManager {
     const ext = path.extname(sourcePath).toLowerCase();
     const uuid = uuidv4();
     const newFilename = `${uuid}${ext}`;
-    const relativePath = `Media/${type}/${newFilename}`;
-    const destPath = path.join(this.bundlePath, relativePath);
+    // Store path without Media/ prefix (protocol handler adds it)
+    const relativePath = `${type}/${newFilename}`;
+    const destPath = path.join(this.bundlePath, 'Media', relativePath);
 
     // Copy file
     fs.copyFileSync(sourcePath, destPath);
@@ -186,8 +187,9 @@ class BundleManager {
     try {
       const sharp = require('sharp');
       const thumbnailFilename = `${uuid}_thumb.jpg`;
-      const thumbnailRelativePath = `Media/thumbnails/${thumbnailFilename}`;
-      const thumbnailPath = path.join(this.bundlePath, thumbnailRelativePath);
+      // Store path without Media/ prefix (protocol handler adds it)
+      const thumbnailRelativePath = `thumbnails/${thumbnailFilename}`;
+      const thumbnailPath = path.join(this.bundlePath, 'Media', thumbnailRelativePath);
 
       await sharp(imagePath)
         .resize(200, 200, { fit: 'cover' })
@@ -275,6 +277,13 @@ class BundleManager {
         db.exec('ALTER TABLE person ADD COLUMN is_living INTEGER DEFAULT 0');
       }
 
+      // Ensure nickname column exists
+      const hasNickname = personColumns.some(col => col.name === 'nickname');
+      if (!hasNickname) {
+        console.log('Adding nickname column to person table');
+        db.exec('ALTER TABLE person ADD COLUMN nickname TEXT');
+      }
+
       // v2: Add media_id to citation table for media citations
       const citationColumns = db.pragma('table_info(citation)');
       const hasMediaId = citationColumns.some(col => col.name === 'media_id');
@@ -323,6 +332,43 @@ class BundleManager {
             insertNote.run(noteId, person.id, person.notes, person.created_at || now, now);
           }
         }
+      }
+
+      // v3: Fix media paths - remove "Media/" prefix from path and thumbnail_path
+      // The protocol handler adds "Media/" so we shouldn't store it in the database
+      const mediaWithOldPaths = db.prepare(`
+        SELECT id, path, thumbnail_path FROM media
+        WHERE (path LIKE 'Media/%' OR thumbnail_path LIKE 'Media/%')
+        AND deleted_at IS NULL
+      `).all();
+
+      if (mediaWithOldPaths.length > 0) {
+        console.log(`Fixing ${mediaWithOldPaths.length} media paths (removing Media/ prefix)`);
+        const updateMedia = db.prepare(`
+          UPDATE media SET path = ?, thumbnail_path = ? WHERE id = ?
+        `);
+
+        for (const media of mediaWithOldPaths) {
+          const newPath = media.path?.startsWith('Media/') ? media.path.slice(6) : media.path;
+          const newThumbPath = media.thumbnail_path?.startsWith('Media/') ? media.thumbnail_path.slice(6) : media.thumbnail_path;
+          updateMedia.run(newPath, newThumbPath, media.id);
+        }
+      }
+
+      // v4: Add prior_status_1 and prior_status_2 to union_ table
+      const unionColumns = db.pragma('table_info(union_)');
+      console.log('Union table columns:', unionColumns.map(c => c.name).join(', '));
+      const hasPriorStatus1 = unionColumns.some(col => col.name === 'prior_status_1');
+      console.log('hasPriorStatus1:', hasPriorStatus1);
+      if (!hasPriorStatus1) {
+        console.log('Adding prior_status_1 column to union_ table');
+        db.exec('ALTER TABLE union_ ADD COLUMN prior_status_1 TEXT');
+      }
+      const hasPriorStatus2 = unionColumns.some(col => col.name === 'prior_status_2');
+      console.log('hasPriorStatus2:', hasPriorStatus2);
+      if (!hasPriorStatus2) {
+        console.log('Adding prior_status_2 column to union_ table');
+        db.exec('ALTER TABLE union_ ADD COLUMN prior_status_2 TEXT');
       }
     } finally {
       db.close();

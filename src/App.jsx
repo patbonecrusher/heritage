@@ -118,6 +118,12 @@ function dbUnionToPersonViewFormat(dbUnion, currentPersonId) {
     ? dbUnion.person2_id
     : dbUnion.person1_id;
 
+  // Map prior status based on which person is current
+  // prior_status_1 is for person1, prior_status_2 is for person2
+  const isCurrentPerson1 = dbUnion.person1_id === currentPersonId;
+  const priorStatus1 = isCurrentPerson1 ? (dbUnion.prior_status_1 || '') : (dbUnion.prior_status_2 || '');
+  const priorStatus2 = isCurrentPerson1 ? (dbUnion.prior_status_2 || '') : (dbUnion.prior_status_1 || '');
+
   return {
     id: dbUnion.id,
     partner1Id: currentPersonId,
@@ -125,9 +131,12 @@ function dbUnionToPersonViewFormat(dbUnion, currentPersonId) {
     partnerId: partnerId,
     type: dbUnion.type || 'marriage',
     startDate: dbUnion.marriageEvent ? dbEventToDateFormat(dbUnion.marriageEvent) : { type: 'unknown' },
-    startPlace: dbUnion.marriageEvent?.place_name || '',
+    startPlace: dbUnion.marriageEvent?.place_detail || dbUnion.marriageEvent?.place_name || '',
+    startPlaceId: dbUnion.marriageEvent?.place_id || null,
     endDate: null,
     endReason: dbUnion.status || '',
+    priorStatus1: priorStatus1,
+    priorStatus2: priorStatus2,
     childIds: (dbUnion.children || []).map(c => c.id),
     sources: [],
     isExisting: true,
@@ -141,8 +150,8 @@ function App() {
   const { isOpen, bundleInfo, createBundle, openBundle, openBundlePath, closeBundle, isLoading, triggerRefresh } = useDatabase();
   const { persons, createPerson, updatePerson: updatePersonDb, deletePerson, getPerson, getPersonFull, fetchPersons } = usePersons();
   const { unions: dbUnions, createUnion, updateUnion, deleteUnion, addChild, removeChild, createChildForUnion, getUnionsForPerson, getParentUnionForPerson, findOrCreateUnion, fetchAllUnions } = useUnions();
-  const { upsertBirthEvent, upsertDeathEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent, getAllVitalEvents } = useEvents();
-  const { places } = usePlaces();
+  const { upsertBirthEvent, upsertDeathEvent, upsertMarriageEvent, getBirthEvent, getDeathEvent, getEventsForPerson, createEvent, updateEvent, deleteEvent, getAllVitalEvents } = useEvents();
+  const { places, createPlace, fetchPlaces } = usePlaces();
   const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getCitationsForMedia, createCitation, updateCitation, deleteCitation } = useSources();
   const { getMediaForPerson } = useMedia();
 
@@ -976,13 +985,30 @@ function App() {
     window.electronAPI.onMenuFitView(() => handleFitView());
     window.electronAPI.onMenuPreferences(() => handleOpenPreferences());
     window.electronAPI.onMenuToggleLibrary(() => setLibraryPanelOpen(prev => !prev));
+    window.electronAPI.onMenuViewPedigree(() => {
+      setViewMode('focused');
+      setFocusedView('pedigree');
+    });
+    window.electronAPI.onMenuViewDescendants(() => {
+      setViewMode('focused');
+      setFocusedView('descendants');
+    });
+    window.electronAPI.onMenuViewPerson(() => {
+      if (selectedPersonId) {
+        setViewMode('focused');
+        setFocusedView('person');
+      }
+    });
+    window.electronAPI.onMenuViewCanvas(() => {
+      setViewMode('canvas');
+    });
 
     return () => {
       if (window.electronAPI?.removeMenuListeners) {
         window.electronAPI.removeMenuListeners();
       }
     };
-  }, [handleNew, handleLoad, handleSave, handleExportPng, handleExportSvg, addNode, handleFitView, handleOpenPreferences]);
+  }, [handleNew, handleLoad, handleSave, handleExportPng, handleExportSvg, addNode, handleFitView, handleOpenPreferences, selectedPersonId]);
 
   // Render main view based on mode
   const renderMainView = () => {
@@ -1159,6 +1185,9 @@ function App() {
                     person1_id: selectedPersonId,
                     person2_id: union.partnerId || union.partner2Id,
                     type: union.type || 'marriage',
+                    status: union.endReason || null,
+                    prior_status_1: union.priorStatus1 || null,
+                    prior_status_2: union.priorStatus2 || null,
                   });
                   // Add children to new union
                   for (const childId of (union.childIds || [])) {
@@ -1173,14 +1202,33 @@ function App() {
                       date: eventData.date,
                       date_qualifier: eventData.date_qualifier,
                       place_detail: union.startPlace || null,
+                      place_id: union.startPlaceId || null,
                     });
                   }
                 } else {
                   // Update existing union
+                  // Need to map priorStatus based on who is person1 in the database
+                  const existingDbUnion = loadedUnions.find(u => u.id === union.id);
+                  const isCurrentPerson1 = existingDbUnion?.person1_id === selectedPersonId;
                   await updateUnion(union.id, {
                     type: union.type,
                     status: union.endReason || null,
+                    // priorStatus1 in PersonView is always the current person's status
+                    // Map it back to the correct database column based on who is person1
+                    prior_status_1: isCurrentPerson1 ? (union.priorStatus1 || null) : (union.priorStatus2 || null),
+                    prior_status_2: isCurrentPerson1 ? (union.priorStatus2 || null) : (union.priorStatus1 || null),
                   });
+
+                  // Update marriage event (date/place)
+                  if (union.startDate && union.startDate.type !== 'unknown') {
+                    const eventData = dateFormatToDbEvent(union.startDate);
+                    await upsertMarriageEvent(union.id, {
+                      date: eventData.date,
+                      date_qualifier: eventData.date_qualifier,
+                      place_detail: union.startPlace || null,
+                      place_id: union.startPlaceId || null,
+                    });
+                  }
 
                   // Sync children - compare existing vs updated
                   const existingUnion = loadedUnions.find(u => u.id === union.id);
@@ -1230,6 +1278,7 @@ function App() {
                   given_names: updatedData.firstName,
                   surname: updatedData.lastName,
                   surname_at_birth: updatedData.maidenName,
+                  nickname: updatedData.nickname,
                   gender: updatedData.gender,
                   notes: updatedData.notes,
                   is_living: isLiving ? 1 : 0,
@@ -1334,6 +1383,14 @@ function App() {
           onNavigateForward={navigateForward}
           canNavigateForward={canNavigateForward}
           places={places}
+          onCreatePlace={async (name) => {
+            if (storageMode === 'bundle') {
+              const id = await createPlace({ name });
+              // Return the created place object
+              return { id, name };
+            }
+            return null;
+          }}
           onParentsChange={async ({ personId, fatherId, motherId }) => {
             if (storageMode === 'bundle') {
               // Handle parent changes in bundle mode via database
@@ -1437,6 +1494,27 @@ function App() {
 
                 return { ...prev, unions: [...updatedUnions, newUnion] };
               });
+            }
+          }}
+          onRemoveChild={async (unionId, childId) => {
+            if (storageMode === 'bundle') {
+              // Remove child from union in database
+              await removeChild(unionId, childId);
+              // Reload unions
+              const reloadedUnions = await getUnionsForPerson(selectedPersonId);
+              setLoadedUnions(reloadedUnions || []);
+              // Also refresh the global unions list for pedigree/descendants views
+              await fetchAllUnions();
+            } else {
+              // Legacy mode - remove child from union
+              setData(prev => ({
+                ...prev,
+                unions: prev.unions.map(u =>
+                  u.id === unionId
+                    ? { ...u, childIds: (u.childIds || []).filter(id => id !== childId) }
+                    : u
+                )
+              }));
             }
           }}
           onCreatePerson={({ firstName, lastName, gender }) => {
@@ -1709,49 +1787,6 @@ function App() {
         />
 
         <div className="main-view">
-          {/* View mode toggle */}
-          <div className="view-toggle">
-            <span className="view-toggle-label">View:</span>
-            <button
-              className={`view-toggle-btn ${viewMode === 'focused' ? 'active' : ''}`}
-              onClick={() => setViewMode('focused')}
-            >
-              Focused
-            </button>
-            <button
-              className={`view-toggle-btn ${viewMode === 'canvas' ? 'active' : ''}`}
-              onClick={() => setViewMode('canvas')}
-            >
-              Canvas
-            </button>
-
-            {viewMode === 'focused' && (
-              <>
-                <div className="view-toggle-separator" />
-                <button
-                  className={`view-toggle-btn ${focusedView === 'pedigree' ? 'active' : ''}`}
-                  onClick={() => setFocusedView('pedigree')}
-                >
-                  Pedigree
-                </button>
-                <button
-                  className={`view-toggle-btn ${focusedView === 'descendants' ? 'active' : ''}`}
-                  onClick={() => setFocusedView('descendants')}
-                >
-                  Descendants
-                </button>
-                <button
-                  className={`view-toggle-btn ${focusedView === 'person' ? 'active' : ''}`}
-                  onClick={() => setFocusedView('person')}
-                  disabled={!selectedPersonId}
-                  title={selectedPersonId ? 'View selected person' : 'Select a person first'}
-                >
-                  Person
-                </button>
-              </>
-            )}
-          </div>
-
           {renderMainView()}
         </div>
 
@@ -1764,6 +1799,7 @@ function App() {
           onOpenPlacesLibrary={() => setPlacesLibraryOpen(true)}
           onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
           onOpenSourcesLibrary={() => setSourcesLibraryOpen(true)}
+          places={places}
         />
       </div>
 
@@ -1823,7 +1859,7 @@ function App() {
 
       {/* Full Library Modals - for editing/managing */}
       {placesLibraryOpen && (
-        <PlacesLibrary onClose={() => setPlacesLibraryOpen(false)} />
+        <PlacesLibrary onClose={() => setPlacesLibraryOpen(false)} onPlacesChanged={fetchPlaces} />
       )}
       {mediaLibraryOpen && (
         <MediaLibrary onClose={() => setMediaLibraryOpen(false)} />

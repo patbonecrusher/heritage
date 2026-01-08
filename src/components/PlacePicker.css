@@ -72,3 +72,33 @@
   margin-left: 8px;
   flex-shrink: 0;
 }
+
+.place-picker-add {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bgSecondary);
+  color: var(--color-primary);
+}
+
+.place-picker-add:hover,
+.place-picker-add.highlighted {
+  background: var(--color-primaryHover, rgba(74, 158, 255, 0.1));
+}
+
+.place-picker-add-icon {
+  font-size: 14px;
+  font-weight: 600;
+  margin-right: 8px;
+  color: var(--color-primary);
+}
+
+.place-picker-add-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.place-picker-add:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -101,9 +101,77 @@
   text-overflow: ellipsis;
 }
 
+/* Add parent button state */
+.pv-parent-card.pv-parent-add {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.pv-parent-card.pv-parent-add:hover {
+  opacity: 1;
+  border-style: solid;
+}
+
+.pv-parent-card.pv-parent-add .pv-parent-name {
+  color: var(--color-textMuted);
+}
+
+.pv-parent-photo-add {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-surfaceHover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--color-textMuted);
+  font-weight: 300;
+}
+
+.pv-parent-card.pv-parent-add:hover .pv-parent-photo-add {
+  background: var(--color-primary);
+  color: white;
+}
+
 .pv-parent-dates {
   font-size: 10px;
   color: var(--color-textMuted);
+}
+
+/* Remove button for parent/child cards */
+.pv-remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-error, #dc3545);
+  color: white;
+  border: 2px solid var(--color-surface);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.pv-parent-card {
+  position: relative;
+}
+
+.pv-parent-card:hover .pv-remove-btn {
+  opacity: 1;
+}
+
+.pv-remove-btn:hover {
+  background: var(--color-errorHover, #c82333);
+  transform: scale(1.1);
 }
 
 /* Main info row: photo + name */
@@ -270,8 +338,294 @@
   background: var(--color-primaryHover, #3a8eef);
 }
 
+.pv-card-edit-btn {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-textMuted);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pv-card-edit-btn:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
 .pv-card-body {
   padding: 16px;
+}
+
+/* Card editing state */
+.pv-card.editing {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+/* Inline edit styles */
+.pv-inline-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.pv-inline-edit-row:last-of-type {
+  margin-bottom: 16px;
+}
+
+.pv-inline-edit-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-textMuted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pv-inline-edit-input {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bgSecondary);
+  color: var(--color-text);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.pv-inline-edit-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.pv-inline-edit-input::placeholder {
+  color: var(--color-textMuted);
+  opacity: 0.6;
+}
+
+.pv-inline-edit-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.pv-inline-edit-toggle .toggle-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bgSecondary);
+  color: var(--color-textMuted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pv-inline-edit-toggle .toggle-btn:hover {
+  border-color: var(--color-textMuted);
+}
+
+.pv-inline-edit-toggle .toggle-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.pv-inline-edit-toggle .toggle-btn.male.active {
+  background: var(--color-male, #4a9eff);
+  border-color: var(--color-male, #4a9eff);
+}
+
+.pv-inline-edit-toggle .toggle-btn.female.active {
+  background: var(--color-female, #ff6b9d);
+  border-color: var(--color-female, #ff6b9d);
+}
+
+.pv-inline-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.pv-inline-edit-actions .btn-secondary,
+.pv-inline-edit-actions .btn-primary {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pv-inline-edit-actions .btn-secondary {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-textMuted);
+}
+
+.pv-inline-edit-actions .btn-secondary:hover {
+  background: var(--color-bgSecondary);
+  color: var(--color-text);
+}
+
+.pv-inline-edit-actions .btn-primary {
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: white;
+}
+
+.pv-inline-edit-actions .btn-primary:hover {
+  background: var(--color-primaryHover, #3a8eef);
+}
+
+/* Events Edit Mode */
+.pv-edit-event-section {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--color-bgSecondary);
+}
+
+.pv-edit-event-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pv-edit-event-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: var(--color-primary);
+  color: white;
+}
+
+.pv-edit-event-icon.birth {
+  background: #4caf50;
+}
+
+.pv-edit-event-icon.death {
+  background: #607d8b;
+}
+
+.pv-edit-event-icon.baptism {
+  background: #9c27b0;
+}
+
+.pv-edit-event-icon.service {
+  background: #795548;
+}
+
+.pv-edit-event-icon.immigration,
+.pv-edit-event-icon.emigration {
+  background: #ff9800;
+}
+
+.pv-edit-event-icon.burial {
+  background: #455a64;
+}
+
+.pv-edit-event-label {
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.pv-edit-event-remove {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-textMuted);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pv-edit-event-remove:hover {
+  background: #f44336;
+  color: white;
+}
+
+.pv-edit-event-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pv-edit-notes-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 50px;
+}
+
+.pv-edit-notes-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.pv-edit-notes-textarea::placeholder {
+  color: var(--color-textMuted);
+}
+
+.pv-edit-event-hint {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+.pv-add-event-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-top: 8px;
+}
+
+.pv-add-event-btn {
+  padding: 6px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-textMuted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pv-add-event-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(74, 158, 255, 0.1);
 }
 
 /* Events Timeline */
@@ -403,6 +757,17 @@
   font-size: 10px;
 }
 
+.pv-event-cause {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  font-style: italic;
+}
+
+.pv-event-cause-label {
+  font-style: normal;
+  font-weight: 500;
+}
+
 .pv-event-partner {
   font-size: 12px;
   color: var(--color-text);
@@ -417,6 +782,32 @@
   height: 20px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.pv-event-status {
+  margin-top: 4px;
+}
+
+.pv-event-status-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--color-surfaceHover);
+  color: var(--color-textMuted);
+}
+
+.pv-event-prior-status {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-textMuted);
+}
+
+.pv-prior-status-item {
+  display: inline-block;
 }
 
 .pv-event-notes {
@@ -442,6 +833,156 @@
 
 .pv-event-media-thumb:hover {
   border-color: var(--color-primary);
+}
+
+/* Per-event editing styles */
+.pv-add-event-dropdown {
+  position: relative;
+  margin-left: auto;
+}
+
+.pv-add-event-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 160px;
+  overflow: hidden;
+}
+
+.pv-add-event-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.pv-add-event-menu button:hover {
+  background: var(--color-surface);
+}
+
+.pv-add-event-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}
+
+.pv-event-edit-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-textMuted);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.pv-event:hover .pv-event-edit-btn {
+  opacity: 1;
+}
+
+.pv-event-edit-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.pv-event.editing {
+  background: var(--color-surface);
+  margin: -8px -12px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.pv-event.editing::before {
+  display: none;
+}
+
+.pv-event-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pv-event-edit-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.pv-event-edit-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.pv-event-edit-actions-right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.pv-event-empty {
+  font-size: 12px;
+  color: var(--color-textMuted);
+  font-style: italic;
+}
+
+.pv-event-alive-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--color-success, #10b981);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 10px;
+}
+
+.pv-event.pv-event-alive {
+  opacity: 0.8;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn-danger {
+  background: var(--color-danger, #ef4444);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background: var(--color-dangerHover, #dc2626);
 }
 
 /* Media Gallery in card */
@@ -490,10 +1031,15 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease;
+  position: relative;
 }
 
 .pv-family-member:hover {
   background: var(--color-background);
+}
+
+.pv-family-member:hover .pv-remove-btn {
+  opacity: 1;
 }
 
 .pv-family-member-photo {
@@ -535,6 +1081,14 @@
 
 .pv-family-header {
   transition: background 0.15s ease;
+}
+
+.pv-family-header-clickable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .pv-family-header:hover {
@@ -776,6 +1330,10 @@
 .pv-family-chip:hover {
   border-color: var(--color-primary);
   background: var(--color-surface);
+}
+
+.pv-family-chip:hover .pv-remove-btn {
+  opacity: 1;
 }
 
 .pv-family-chip.male {

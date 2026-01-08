@@ -210,6 +210,10 @@ export function usePersons() {
       fields.push('surname_at_birth = ?');
       values.push(data.surname_at_birth);
     }
+    if (data.nickname !== undefined) {
+      fields.push('nickname = ?');
+      values.push(data.nickname);
+    }
     if (data.gender !== undefined) {
       fields.push('gender = ?');
       values.push(data.gender);

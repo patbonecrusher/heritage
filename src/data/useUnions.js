@@ -99,7 +99,7 @@ export function useUnions() {
       WHERE (u.person1_id = ? OR u.person2_id = ?) AND u.deleted_at IS NULL
     `, [personId, personId, personId]);
 
-    // Get spouse details and children for each union
+    // Get spouse details, children, and marriage event for each union
     for (const union of unions) {
       if (union.spouse_id) {
         union.spouse = await get('SELECT * FROM person WHERE id = ?', [union.spouse_id]);
@@ -110,6 +110,13 @@ export function useUnions() {
         JOIN person p ON uc.person_id = p.id
         WHERE uc.union_id = ? AND uc.deleted_at IS NULL AND p.deleted_at IS NULL
         ORDER BY uc.birth_order, p.id
+      `, [union.id]);
+      // Get marriage event
+      union.marriageEvent = await get(`
+        SELECT e.*, p.name as place_name
+        FROM event e
+        LEFT JOIN place p ON e.place_id = p.id
+        WHERE e.union_id = ? AND e.type = 'marriage' AND e.deleted_at IS NULL
       `, [union.id]);
     }
 
@@ -156,14 +163,16 @@ export function useUnions() {
     const now = new Date().toISOString();
 
     await run(`
-      INSERT INTO union_ (id, person1_id, person2_id, type, status, notes, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO union_ (id, person1_id, person2_id, type, status, prior_status_1, prior_status_2, notes, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id,
       data.person1_id,
       data.person2_id || null,
       data.type || 'marriage',
       data.status || null,
+      data.prior_status_1 || null,
+      data.prior_status_2 || null,
       data.notes || null,
       now,
       now,
@@ -189,6 +198,14 @@ export function useUnions() {
     if (data.status !== undefined) {
       fields.push('status = ?');
       values.push(data.status);
+    }
+    if (data.prior_status_1 !== undefined) {
+      fields.push('prior_status_1 = ?');
+      values.push(data.prior_status_1);
+    }
+    if (data.prior_status_2 !== undefined) {
+      fields.push('prior_status_2 = ?');
+      values.push(data.prior_status_2);
     }
     if (data.notes !== undefined) {
       fields.push('notes = ?');

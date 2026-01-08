@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuAddPerson: (callback) => ipcRenderer.on('menu-add-person', callback),
   onMenuFitView: (callback) => ipcRenderer.on('menu-fit-view', callback),
   onMenuToggleLibrary: (callback) => ipcRenderer.on('menu-toggle-library', callback),
+  onMenuViewPedigree: (callback) => ipcRenderer.on('menu-view-pedigree', callback),
+  onMenuViewDescendants: (callback) => ipcRenderer.on('menu-view-descendants', callback),
+  onMenuViewPerson: (callback) => ipcRenderer.on('menu-view-person', callback),
+  onMenuViewCanvas: (callback) => ipcRenderer.on('menu-view-canvas', callback),
 
   // Bundle opened event (for double-click open)
   onBundleOpened: (callback) => ipcRenderer.on('bundle-opened', (event, data) => callback(data)),
@@ -38,6 +42,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('menu-add-person');
     ipcRenderer.removeAllListeners('menu-fit-view');
     ipcRenderer.removeAllListeners('menu-toggle-library');
+    ipcRenderer.removeAllListeners('menu-view-pedigree');
+    ipcRenderer.removeAllListeners('menu-view-descendants');
+    ipcRenderer.removeAllListeners('menu-view-person');
+    ipcRenderer.removeAllListeners('menu-view-canvas');
     ipcRenderer.removeAllListeners('bundle-opened');
     ipcRenderer.removeAllListeners('database-changed');
   },

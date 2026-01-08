@@ -73,6 +73,7 @@ CREATE TABLE person (
     given_names TEXT,
     surname TEXT,
     surname_at_birth TEXT,  -- maiden name
+    nickname TEXT,
     gender TEXT,  -- 'male', 'female', 'unknown'
     is_living INTEGER DEFAULT 0,  -- 1 if person is still alive
     primary_photo_id TEXT,  -- references media(id), defined later
@@ -115,6 +116,8 @@ CREATE TABLE union_ (
     person2_id TEXT REFERENCES person(id),  -- nullable for unknown spouse
     type TEXT DEFAULT 'marriage',  -- 'marriage', 'partnership', 'common_law', 'unknown'
     status TEXT,  -- 'married', 'divorced', 'annulled', 'widowed', 'separated'
+    prior_status_1 TEXT,  -- person1's marital status before this union: 'single', 'widowed', 'divorced'
+    prior_status_2 TEXT,  -- person2's marital status before this union: 'single', 'widowed', 'divorced'
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
