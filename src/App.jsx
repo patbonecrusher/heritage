@@ -36,6 +36,7 @@ import { useToast } from './hooks/useToast';
 import { useLibraryPanel } from './hooks/useLibraryPanel';
 import { useDialogs } from './hooks/useDialogs';
 import { usePersonNavigation } from './hooks/usePersonNavigation';
+import { useFileOperations } from './hooks/useFileOperations';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -76,13 +77,9 @@ function App() {
 
   // Core data state - using new format (legacy JSON mode)
   const [data, setData] = useState(createEmptyData());
-  const [currentFilePath, setCurrentFilePath] = useState(null);
 
   // Mode: 'legacy' for JSON files, 'bundle' for .heritage bundles
   const [storageMode, setStorageMode] = useState(null); // null = welcome screen
-
-  // Recent files for welcome screen
-  const [recentFiles, setRecentFiles] = useState([]);
 
 
   // Combined view data for pedigree/descendants views (works in both modes)
@@ -306,15 +303,6 @@ function App() {
       setNavigationHistory([]);
     }
   }, [isOpen, storageMode]);
-
-  // Fetch recent files for welcome screen
-  useEffect(() => {
-    if (storageMode === null && window.electronAPI?.bundle?.getRecentFiles) {
-      window.electronAPI.bundle.getRecentFiles().then(files => {
-        setRecentFiles(files || []);
-      });
-    }
-  }, [storageMode]);
 
   // Persist library panel state
   useEffect(() => {
@@ -626,127 +614,19 @@ function App() {
   }, [theme]);
 
   // File operations
-  const handleNew = useCallback(async () => {
-    // Create a new .heritage bundle
-    const result = await createBundle('Family Tree');
-    if (result) {
-      setStorageMode('bundle');
-      setData(createEmptyData());
-      setCurrentFilePath(null);
-      setSelectedPersonId(null);
-      setNavigationHistory([]);
-    }
-  }, [createBundle]);
-
-  const handleNewLegacy = useCallback(() => {
-    // Create a new JSON file (legacy mode)
-    setStorageMode('legacy');
-    setData(createEmptyData());
-    setCurrentFilePath(null);
-    setSelectedPersonId(null);
-    setNavigationHistory([]);
-  }, []);
-
-  const handleSave = useCallback(async (forceNewFile = false) => {
-    const jsonString = JSON.stringify(data, null, 2);
-
-    if (window.electronAPI) {
-      if (currentFilePath && !forceNewFile) {
-        const result = await window.electronAPI.writeFile({
-          filePath: currentFilePath,
-          data: jsonString,
-        });
-        if (result) {
-          localStorage.setItem('heritage-last-file', result);
-          showToast('Saved');
-        }
-      } else {
-        const result = await window.electronAPI.saveFile({
-          data: jsonString,
-          defaultName: 'family.json',
-          filters: [{ name: 'JSON', extensions: ['json'] }]
-        });
-        if (result) {
-          setCurrentFilePath(result);
-          localStorage.setItem('heritage-last-file', result);
-          showToast('Saved');
-        }
-      }
-    } else {
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = 'family.json';
-      link.href = url;
-      link.click();
-      showToast('Downloaded');
-    }
-  }, [data, currentFilePath, showToast]);
-
-  const handleLoad = useCallback(async () => {
-    // Open a .heritage bundle
-    const result = await openBundle();
-    if (result) {
-      setStorageMode('bundle');
-      setData(createEmptyData()); // Will be loaded from database
-      setCurrentFilePath(null);
-      setNavigationHistory([]);
-      setSelectedPersonId(null);
-      // TODO: Load persons from database and select first one
-    }
-  }, [openBundle]);
-
-  const handleOpenRecentFile = useCallback(async (filePath) => {
-    // Open a recent .heritage bundle by path
-    const result = await openBundlePath(filePath);
-    if (result) {
-      setStorageMode('bundle');
-      setData(createEmptyData());
-      setCurrentFilePath(null);
-      setNavigationHistory([]);
-      setSelectedPersonId(null);
-    }
-  }, [openBundlePath]);
-
-  const handleLoadLegacy = useCallback(async () => {
-    // Open a JSON file (legacy mode)
-    if (window.electronAPI) {
-      const result = await window.electronAPI.openFile();
-      if (result && result.content) {
-        const migratedData = migrateToNewFormat(result.content);
-        setStorageMode('legacy');
-        setData(migratedData);
-        setCurrentFilePath(result.path);
-        localStorage.setItem('heritage-last-file', result.path);
-        setNavigationHistory([]);
-
-        if (migratedData.people?.length > 0) {
-          setSelectedPersonId(migratedData.people[0].id);
-        }
-      }
-    } else {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const content = JSON.parse(event.target.result);
-          const migratedData = migrateToNewFormat(content);
-          setStorageMode('legacy');
-          setData(migratedData);
-          setNavigationHistory([]);
-
-          if (migratedData.people?.length > 0) {
-            setSelectedPersonId(migratedData.people[0].id);
-          }
-        };
-        reader.readAsText(file);
-      };
-      input.click();
-    }
-  }, []);
+  // Extract file operations to custom hook
+  const fileOps = useFileOperations({
+    storageMode,
+    setStorageMode,
+    data,
+    setData,
+    navigation: { setSelectedPersonId, clearHistory: clearNavHistory },
+    createBundle,
+    openBundle,
+    openBundlePath,
+    showToast,
+  });
+  const { currentFilePath, setCurrentFilePath, recentFiles, createNew: handleNew, createNewLegacy: handleNewLegacy, save: handleSave, open: handleLoad, openRecent: handleOpenRecentFile, openLegacy: handleLoadLegacy } = fileOps;
 
   // Source management
   const handleAddSource = useCallback((callback) => {
