@@ -29,7 +29,7 @@ import PlacesLibrary from './components/PlacesLibrary';
 import SourcesLibrary from './components/SourcesLibrary';
 import LibraryPanel from './components/LibraryPanel';
 import { exportToImage, exportToSvg } from './utils/export';
-import { dbEventToDateFormat, dateFormatToDbEvent, dbUnionToPersonViewFormat, dbDateToLegacy, dbEventToLegacy } from './utils/formatConverters';
+import { dateFormatToDbEvent, dbDateToLegacy, dbEventToLegacy } from './utils/formatConverters';
 import { useTheme } from './contexts/ThemeContext';
 import { useDatabase, usePersons, useUnions, useEvents, usePlaces, useSources, useMedia, generateId } from './data';
 import { useToast } from './hooks/useToast';
@@ -37,6 +37,9 @@ import { useLibraryPanel } from './hooks/useLibraryPanel';
 import { useDialogs } from './hooks/useDialogs';
 import { usePersonNavigation } from './hooks/usePersonNavigation';
 import { useFileOperations } from './hooks/useFileOperations';
+import { usePersonDataLoader } from './hooks/usePersonDataLoader';
+import { useCitationManager } from './hooks/useCitationManager';
+import { usePersonForView } from './hooks/usePersonForView';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -56,24 +59,6 @@ function App() {
   const { places, createPlace, fetchPlaces } = usePlaces();
   const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getCitationsForMedia, createCitation, updateCitation, deleteCitation } = useSources();
   const { getMediaForPerson } = useMedia();
-
-  // Loaded events for selected person (bundle mode)
-  const [loadedBirthEvent, setLoadedBirthEvent] = useState(null);
-  const [loadedDeathEvent, setLoadedDeathEvent] = useState(null);
-  const [loadedOtherEvents, setLoadedOtherEvents] = useState([]);
-  const [loadedUnions, setLoadedUnions] = useState([]);
-  const [loadedParentUnion, setLoadedParentUnion] = useState(null); // Union where person is a child
-  const [loadedDataForPersonId, setLoadedDataForPersonId] = useState(null); // Track which person data belongs to
-  const [vitalEvents, setVitalEvents] = useState({}); // Map of personId -> { birthDate, deathDate, birthPlace, deathPlace }
-
-  // Loaded citations for selected person (bundle mode)
-  const [personCitations, setPersonCitations] = useState([]); // Citations attached to person
-  const [birthCitations, setBirthCitations] = useState([]);
-  const [deathCitations, setDeathCitations] = useState([]);
-  const [eventCitations, setEventCitations] = useState({}); // Map of eventId -> citations[]
-  const [personUnionCitations, setPersonUnionCitations] = useState({}); // Map of unionId -> citations[] for PersonView
-  const [unionCitations, setUnionCitations] = useState([]); // Citations for union being edited in dialog
-  const [mediaCitations, setMediaCitations] = useState({}); // Map of mediaId -> citations[] for PersonView
 
   // Core data state - using new format (legacy JSON mode)
   const [data, setData] = useState(createEmptyData());
@@ -163,6 +148,54 @@ function App() {
   // Extract toast state to custom hook
   const { toast, showToast, hideToast } = useToast();
 
+  // Load person data using custom hook (bundle mode)
+  const {
+    loadedBirthEvent,
+    setLoadedBirthEvent,
+    loadedDeathEvent,
+    setLoadedDeathEvent,
+    loadedOtherEvents,
+    setLoadedOtherEvents,
+    loadedUnions,
+    setLoadedUnions,
+    loadedParentUnion,
+    setLoadedParentUnion,
+    loadedDataForPersonId,
+    personCitations,
+    setPersonCitations,
+    birthCitations,
+    setBirthCitations,
+    deathCitations,
+    setDeathCitations,
+    eventCitations,
+    setEventCitations,
+    personUnionCitations,
+    setPersonUnionCitations,
+    unionCitations,
+    setUnionCitations,
+    mediaCitations,
+    setMediaCitations,
+    vitalEvents,
+    setVitalEvents,
+  } = usePersonDataLoader({
+    storageMode,
+    selectedPersonId,
+    isOpen,
+    editingUnionId,
+    triggerRefresh,
+    getBirthEvent,
+    getDeathEvent,
+    getEventsForPerson,
+    getUnionsForPerson,
+    getParentUnionForPerson,
+    getCitationsForPerson,
+    getCitationsForEvent,
+    getCitationsForUnion,
+    getMediaForPerson,
+    getCitationsForMedia,
+    getAllVitalEvents,
+  });
+
   // Extract library panel state to custom hook
   const libraryPanelHook = useLibraryPanel();
   const libraryPanelOpen = libraryPanelHook.libraryPanel.isOpen;
@@ -179,107 +212,38 @@ function App() {
   const setSourcesLibraryOpen = libraryPanelHook.sourcesLibrary.open;
   const closeSourcesLibrary = libraryPanelHook.sourcesLibrary.close;
 
+  // Extract citation management to custom hook (bundle mode)
+  const citationHandlers = useCitationManager({
+    setPersonCitations,
+    setBirthCitations,
+    setDeathCitations,
+    setEventCitations,
+    setPersonUnionCitations,
+    setMediaCitations,
+    setUnionCitations,
+    getCitationsForPerson,
+    getCitationsForEvent,
+    getCitationsForUnion,
+    getCitationsForMedia,
+    getMediaForPerson,
+    createCitation,
+    updateCitation,
+    deleteCitation,
+    selectedPersonId,
+    loadedBirthEvent,
+    loadedDeathEvent,
+    loadedOtherEvents,
+    loadedUnions,
+    editingUnionId,
+  });
+
   // React Flow state for canvas mode
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
 
   // Load events and unions for selected person in bundle mode
-  useEffect(() => {
-    // Clear previous person's data immediately and mark as not-yet-loaded
-    setLoadedBirthEvent(null);
-    setLoadedDeathEvent(null);
-    setLoadedOtherEvents([]);
-    setLoadedUnions([]);
-    setLoadedParentUnion(null);
-    setLoadedDataForPersonId(null);
-    setBirthCitations([]);
-    setDeathCitations([]);
-    setEventCitations({});
-    setPersonUnionCitations({});
-    setMediaCitations({});
-
-    const loadPersonData = async () => {
-      if (storageMode === 'bundle' && selectedPersonId && isOpen) {
-        // Load birth and death events, unions (where person is partner), and parent union (where person is child)
-        const [birth, death, allEvents, unions, parentUnion] = await Promise.all([
-          getBirthEvent(selectedPersonId),
-          getDeathEvent(selectedPersonId),
-          getEventsForPerson(selectedPersonId),
-          getUnionsForPerson(selectedPersonId),
-          getParentUnionForPerson(selectedPersonId),
-        ]);
-        setLoadedBirthEvent(birth);
-        setLoadedDeathEvent(death);
-        // Filter out birth/death events from other events
-        const otherEvents = (allEvents || []).filter(e => e.type !== 'birth' && e.type !== 'death');
-        setLoadedOtherEvents(otherEvents);
-        setLoadedUnions(unions || []);
-        setLoadedParentUnion(parentUnion);
-        // Mark that data is loaded for this specific person
-        setLoadedDataForPersonId(selectedPersonId);
-
-        // Load citations for person
-        const personCits = await getCitationsForPerson(selectedPersonId);
-        setPersonCitations(personCits || []);
-
-        // Load citations for birth and death events
-        if (birth?.id) {
-          const citations = await getCitationsForEvent(birth.id);
-          setBirthCitations(citations || []);
-        }
-        if (death?.id) {
-          const citations = await getCitationsForEvent(death.id);
-          setDeathCitations(citations || []);
-        }
-
-        // Load citations for other events
-        const citationsMap = {};
-        for (const event of otherEvents) {
-          const citations = await getCitationsForEvent(event.id);
-          if (citations && citations.length > 0) {
-            citationsMap[event.id] = citations;
-          }
-        }
-        setEventCitations(citationsMap);
-
-        // Load citations for unions
-        const unionCitationsMap = {};
-        for (const union of (unions || [])) {
-          const citations = await getCitationsForUnion(union.id);
-          if (citations && citations.length > 0) {
-            unionCitationsMap[union.id] = citations;
-          }
-        }
-        setPersonUnionCitations(unionCitationsMap);
-
-        // Load citations for media
-        const media = await getMediaForPerson(selectedPersonId);
-        const mediaCitationsMap = {};
-        for (const item of (media || [])) {
-          const citations = await getCitationsForMedia(item.id);
-          if (citations && citations.length > 0) {
-            mediaCitationsMap[item.id] = citations;
-          }
-        }
-        setMediaCitations(mediaCitationsMap);
-      }
-    };
-    loadPersonData();
-  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getEventsForPerson, getUnionsForPerson, getParentUnionForPerson, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getMediaForPerson, getCitationsForMedia]);
-
-  // Load citations for union being edited
-  useEffect(() => {
-    const loadUnionCitations = async () => {
-      if (storageMode === 'bundle' && editingUnionId && isOpen) {
-        const citations = await getCitationsForUnion(editingUnionId);
-        setUnionCitations(citations || []);
-      } else {
-        setUnionCitations([]);
-      }
-    };
-    loadUnionCitations();
-  }, [storageMode, editingUnionId, isOpen, getCitationsForUnion]);
+  // Data loading is now handled by usePersonDataLoader hook
 
   // Convert data to React Flow format for canvas view
   const reactFlowData = useMemo(() => {
@@ -320,16 +284,7 @@ function App() {
     }
   }, [storageMode, isOpen, persons, selectedPersonId]);
 
-  // Load vital events (birth/death) for all persons when bundle opens
-  useEffect(() => {
-    const loadVitalEvents = async () => {
-      if (storageMode === 'bundle' && isOpen) {
-        const events = await getAllVitalEvents();
-        setVitalEvents(events);
-      }
-    };
-    loadVitalEvents();
-  }, [storageMode, isOpen, getAllVitalEvents, triggerRefresh]);
+  // Vital events loading is handled by usePersonDataLoader hook
 
   // Disabled: auto-loading last file on startup
   // The app now starts fresh each time
@@ -698,6 +653,27 @@ function App() {
     };
   }, [handleNew, handleLoad, handleSave, handleExportPng, handleExportSvg, addNode, handleFitView, handleOpenPreferences, selectedPersonId]);
 
+  // Get selected person data (works in both bundle and legacy modes)
+  const selectedPerson = storageMode === 'bundle'
+    ? persons.find(p => p.id === selectedPersonId)
+    : findPersonById(data, selectedPersonId);
+
+  // Transform person and unions data to view format (must be at top level of component)
+  const { personForView, unionsForView, allPeople: peopleForView } = usePersonForView({
+    storageMode,
+    selectedPersonId,
+    selectedPerson,
+    loadedBirthEvent,
+    loadedDeathEvent,
+    loadedOtherEvents,
+    loadedUnions,
+    loadedParentUnion,
+    loadedDataForPersonId,
+    persons,
+    vitalEvents,
+    data,
+  });
+
   // Render main view based on mode
   const renderMainView = () => {
     if (viewMode === 'canvas') {
@@ -731,11 +707,6 @@ function App() {
 
     // Person view mode (read-only with edit capability)
     if (focusedView === 'person') {
-      // In bundle mode, use database persons; in legacy mode, use local data
-      const selectedPerson = storageMode === 'bundle'
-        ? persons.find(p => p.id === selectedPersonId)
-        : findPersonById(data, selectedPersonId);
-
       // If no valid person is selected, render pedigree view instead
       if (!selectedPerson) {
         return (
@@ -760,89 +731,12 @@ function App() {
         );
       }
 
-      // Convert database person to legacy format for PersonView
-      // Only use loaded events if they belong to the currently selected person
-      const eventsReady = loadedDataForPersonId === selectedPersonId;
-      const personForView = storageMode === 'bundle' && selectedPerson
-        ? {
-            id: selectedPerson.id,
-            firstName: selectedPerson.given_names || '',
-            lastName: selectedPerson.surname || '',
-            maidenName: selectedPerson.surname_at_birth || '',
-            gender: selectedPerson.gender || '',
-            notes: selectedPerson.notes || '',
-            // Convert database events to PersonView format (only if loaded for this person)
-            birthDate: eventsReady ? dbEventToDateFormat(loadedBirthEvent) : { type: 'unknown' },
-            deathDate: selectedPerson.is_living
-              ? { type: 'alive', display: 'Living' }
-              : (eventsReady ? dbEventToDateFormat(loadedDeathEvent) : { type: 'unknown' }),
-            birthPlace: eventsReady ? (loadedBirthEvent?.place_detail || loadedBirthEvent?.place_name || '') : '',
-            birthPlaceId: eventsReady ? (loadedBirthEvent?.place_id || null) : null,
-            birthEventId: eventsReady ? (loadedBirthEvent?.id || null) : null,
-            deathPlace: eventsReady ? (loadedDeathEvent?.place_detail || loadedDeathEvent?.place_name || '') : '',
-            deathPlaceId: eventsReady ? (loadedDeathEvent?.place_id || null) : null,
-            deathEventId: eventsReady ? (loadedDeathEvent?.id || null) : null,
-            // Convert other events from database format (only if loaded for this person)
-            events: eventsReady ? loadedOtherEvents.map(e => ({
-              id: e.id,
-              type: e.type,
-              date: dbEventToDateFormat(e),
-              place: e.place_detail || e.place_name || '',
-              placeId: e.place_id || null,
-              description: e.description || '',
-            })) : [],
-            sources: [],
-          }
-        : selectedPerson;
-
-      // Convert database unions to PersonView format for bundle mode (only if loaded for this person)
-      // Include both unions where person is a partner AND the parent union where person is a child
-      let unionsForView;
-      if (storageMode === 'bundle') {
-        if (eventsReady) {
-          // Unions where person is a partner
-          const partnerUnions = loadedUnions.map(u => dbUnionToPersonViewFormat(u, selectedPersonId));
-          // Parent union where person is a child (needs different format for getParentIds to work)
-          const parentUnionFormatted = loadedParentUnion ? {
-            id: loadedParentUnion.id,
-            partner1Id: loadedParentUnion.person1_id,
-            partner2Id: loadedParentUnion.person2_id,
-            childIds: (loadedParentUnion.children || []).map(c => c.id),
-            type: loadedParentUnion.type || 'marriage',
-          } : null;
-          unionsForView = parentUnionFormatted
-            ? [...partnerUnions, parentUnionFormatted]
-            : partnerUnions;
-        } else {
-          unionsForView = [];
-        }
-      } else {
-        unionsForView = (data.unions || []).filter(u =>
-          u.partner1Id === selectedPersonId || u.partner2Id === selectedPersonId ||
-          (u.childIds || []).includes(selectedPersonId)
-        );
-      }
-
       return (
         <PersonView
           person={personForView}
           sources={data.sources || {}}
           onAddSource={handleAddSource}
-          allPeople={storageMode === 'bundle'
-            ? persons.map(p => {
-                const vital = vitalEvents[p.id] || {};
-                return {
-                  id: p.id,
-                  firstName: p.given_names || '',
-                  lastName: p.surname || '',
-                  gender: p.gender || '',
-                  birthDate: vital.birthDate,
-                  deathDate: vital.deathDate,
-                  birthPlace: vital.birthPlace,
-                  deathPlace: vital.deathPlace,
-                };
-              })
-            : (data.people || [])}
+          allPeople={peopleForView}
           existingUnions={unionsForView}
           allUnions={storageMode === 'bundle'
             ? dbUnions.map(u => ({
@@ -1280,115 +1174,9 @@ function App() {
           eventCitations={eventCitations}
           unionCitations={personUnionCitations}
           mediaCitations={mediaCitations}
-          onCreateCitation={async (data) => {
-            await createCitation(data);
-            // Reload citations for the affected person, event or union
-            if (data.person_id) {
-              const citations = await getCitationsForPerson(data.person_id);
-              setPersonCitations(citations || []);
-            }
-            if (data.event_id) {
-              const eventId = data.event_id;
-              const citations = await getCitationsForEvent(eventId);
-              if (eventId === loadedBirthEvent?.id) {
-                setBirthCitations(citations || []);
-              } else if (eventId === loadedDeathEvent?.id) {
-                setDeathCitations(citations || []);
-              } else {
-                setEventCitations(prev => ({ ...prev, [eventId]: citations || [] }));
-              }
-            }
-            if (data.union_id) {
-              const unionId = data.union_id;
-              const citations = await getCitationsForUnion(unionId);
-              setPersonUnionCitations(prev => ({ ...prev, [unionId]: citations || [] }));
-            }
-            if (data.media_id) {
-              const mediaId = data.media_id;
-              const citations = await getCitationsForMedia(mediaId);
-              setMediaCitations(prev => ({ ...prev, [mediaId]: citations || [] }));
-            }
-          }}
-          onUpdateCitation={async (citationId, data) => {
-            await updateCitation(citationId, data);
-            // Reload all citations for this person
-            if (selectedPersonId) {
-              const personCits = await getCitationsForPerson(selectedPersonId);
-              setPersonCitations(personCits || []);
-            }
-            if (loadedBirthEvent?.id) {
-              const citations = await getCitationsForEvent(loadedBirthEvent.id);
-              setBirthCitations(citations || []);
-            }
-            if (loadedDeathEvent?.id) {
-              const citations = await getCitationsForEvent(loadedDeathEvent.id);
-              setDeathCitations(citations || []);
-            }
-            for (const event of loadedOtherEvents) {
-              const citations = await getCitationsForEvent(event.id);
-              if (citations && citations.length > 0) {
-                setEventCitations(prev => ({ ...prev, [event.id]: citations }));
-              }
-            }
-            // Also reload union citations
-            for (const union of loadedUnions) {
-              const citations = await getCitationsForUnion(union.id);
-              setPersonUnionCitations(prev => ({ ...prev, [union.id]: citations || [] }));
-            }
-            // Also reload media citations
-            if (selectedPersonId) {
-              const media = await getMediaForPerson(selectedPersonId);
-              for (const item of (media || [])) {
-                const citations = await getCitationsForMedia(item.id);
-                setMediaCitations(prev => ({ ...prev, [item.id]: citations || [] }));
-              }
-            }
-          }}
-          onDeleteCitation={async (citationId) => {
-            await deleteCitation(citationId);
-            // Reload all citations for this person
-            if (selectedPersonId) {
-              const personCits = await getCitationsForPerson(selectedPersonId);
-              setPersonCitations(personCits || []);
-            }
-            if (loadedBirthEvent?.id) {
-              const citations = await getCitationsForEvent(loadedBirthEvent.id);
-              setBirthCitations(citations || []);
-            }
-            if (loadedDeathEvent?.id) {
-              const citations = await getCitationsForEvent(loadedDeathEvent.id);
-              setDeathCitations(citations || []);
-            }
-            const citationsMap = {};
-            for (const event of loadedOtherEvents) {
-              const citations = await getCitationsForEvent(event.id);
-              if (citations && citations.length > 0) {
-                citationsMap[event.id] = citations;
-              }
-            }
-            setEventCitations(citationsMap);
-            // Also reload union citations
-            const unionCitationsMap = {};
-            for (const union of loadedUnions) {
-              const citations = await getCitationsForUnion(union.id);
-              if (citations && citations.length > 0) {
-                unionCitationsMap[union.id] = citations;
-              }
-            }
-            setPersonUnionCitations(unionCitationsMap);
-            // Also reload media citations
-            if (selectedPersonId) {
-              const media = await getMediaForPerson(selectedPersonId);
-              const mediaCitationsMap = {};
-              for (const item of (media || [])) {
-                const citations = await getCitationsForMedia(item.id);
-                if (citations && citations.length > 0) {
-                  mediaCitationsMap[item.id] = citations;
-                }
-              }
-              setMediaCitations(mediaCitationsMap);
-            }
-          }}
+          onCreateCitation={citationHandlers.onCreateCitation}
+          onUpdateCitation={citationHandlers.onUpdateCitation}
+          onDeleteCitation={citationHandlers.onDeleteCitation}
           dbSources={dbSources}
         />
       );
@@ -1503,30 +1291,9 @@ function App() {
         initialData={unionDialogInitialData}
         citations={unionCitations}
         dbSources={dbSources}
-        onCreateCitation={async (data) => {
-          await createCitation(data);
-          // Reload union citations
-          if (editingUnionId) {
-            const citations = await getCitationsForUnion(editingUnionId);
-            setUnionCitations(citations || []);
-          }
-        }}
-        onUpdateCitation={async (citationId, data) => {
-          await updateCitation(citationId, data);
-          // Reload union citations
-          if (editingUnionId) {
-            const citations = await getCitationsForUnion(editingUnionId);
-            setUnionCitations(citations || []);
-          }
-        }}
-        onDeleteCitation={async (citationId) => {
-          await deleteCitation(citationId);
-          // Reload union citations
-          if (editingUnionId) {
-            const citations = await getCitationsForUnion(editingUnionId);
-            setUnionCitations(citations || []);
-          }
-        }}
+        onCreateCitation={citationHandlers.onCreateUnionCitation}
+        onUpdateCitation={citationHandlers.onUpdateUnionCitation}
+        onDeleteCitation={citationHandlers.onDeleteUnionCitation}
       />
 
       <PreferencesDialog
