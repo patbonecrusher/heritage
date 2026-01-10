@@ -37,6 +37,7 @@ import { useLibraryPanel } from './hooks/useLibraryPanel';
 import { useDialogs } from './hooks/useDialogs';
 import { usePersonNavigation } from './hooks/usePersonNavigation';
 import { useFileOperations } from './hooks/useFileOperations';
+import { usePersonDataLoader } from './hooks/usePersonDataLoader';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -57,23 +58,53 @@ function App() {
   const { sources: dbSources, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getCitationsForMedia, createCitation, updateCitation, deleteCitation } = useSources();
   const { getMediaForPerson } = useMedia();
 
-  // Loaded events for selected person (bundle mode)
-  const [loadedBirthEvent, setLoadedBirthEvent] = useState(null);
-  const [loadedDeathEvent, setLoadedDeathEvent] = useState(null);
-  const [loadedOtherEvents, setLoadedOtherEvents] = useState([]);
-  const [loadedUnions, setLoadedUnions] = useState([]);
-  const [loadedParentUnion, setLoadedParentUnion] = useState(null); // Union where person is a child
-  const [loadedDataForPersonId, setLoadedDataForPersonId] = useState(null); // Track which person data belongs to
-  const [vitalEvents, setVitalEvents] = useState({}); // Map of personId -> { birthDate, deathDate, birthPlace, deathPlace }
-
-  // Loaded citations for selected person (bundle mode)
-  const [personCitations, setPersonCitations] = useState([]); // Citations attached to person
-  const [birthCitations, setBirthCitations] = useState([]);
-  const [deathCitations, setDeathCitations] = useState([]);
-  const [eventCitations, setEventCitations] = useState({}); // Map of eventId -> citations[]
-  const [personUnionCitations, setPersonUnionCitations] = useState({}); // Map of unionId -> citations[] for PersonView
-  const [unionCitations, setUnionCitations] = useState([]); // Citations for union being edited in dialog
-  const [mediaCitations, setMediaCitations] = useState({}); // Map of mediaId -> citations[] for PersonView
+  // Load person data using custom hook (bundle mode)
+  const {
+    loadedBirthEvent,
+    setLoadedBirthEvent,
+    loadedDeathEvent,
+    setLoadedDeathEvent,
+    loadedOtherEvents,
+    setLoadedOtherEvents,
+    loadedUnions,
+    setLoadedUnions,
+    loadedParentUnion,
+    setLoadedParentUnion,
+    loadedDataForPersonId,
+    personCitations,
+    setPersonCitations,
+    birthCitations,
+    setBirthCitations,
+    deathCitations,
+    setDeathCitations,
+    eventCitations,
+    setEventCitations,
+    personUnionCitations,
+    setPersonUnionCitations,
+    unionCitations,
+    setUnionCitations,
+    mediaCitations,
+    setMediaCitations,
+    vitalEvents,
+    setVitalEvents,
+  } = usePersonDataLoader({
+    storageMode,
+    selectedPersonId,
+    isOpen,
+    editingUnionId,
+    triggerRefresh,
+    getBirthEvent,
+    getDeathEvent,
+    getEventsForPerson,
+    getUnionsForPerson,
+    getParentUnionForPerson,
+    getCitationsForPerson,
+    getCitationsForEvent,
+    getCitationsForUnion,
+    getMediaForPerson,
+    getCitationsForMedia,
+    getAllVitalEvents,
+  });
 
   // Core data state - using new format (legacy JSON mode)
   const [data, setData] = useState(createEmptyData());
@@ -185,101 +216,7 @@ function App() {
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
 
   // Load events and unions for selected person in bundle mode
-  useEffect(() => {
-    // Clear previous person's data immediately and mark as not-yet-loaded
-    setLoadedBirthEvent(null);
-    setLoadedDeathEvent(null);
-    setLoadedOtherEvents([]);
-    setLoadedUnions([]);
-    setLoadedParentUnion(null);
-    setLoadedDataForPersonId(null);
-    setBirthCitations([]);
-    setDeathCitations([]);
-    setEventCitations({});
-    setPersonUnionCitations({});
-    setMediaCitations({});
-
-    const loadPersonData = async () => {
-      if (storageMode === 'bundle' && selectedPersonId && isOpen) {
-        // Load birth and death events, unions (where person is partner), and parent union (where person is child)
-        const [birth, death, allEvents, unions, parentUnion] = await Promise.all([
-          getBirthEvent(selectedPersonId),
-          getDeathEvent(selectedPersonId),
-          getEventsForPerson(selectedPersonId),
-          getUnionsForPerson(selectedPersonId),
-          getParentUnionForPerson(selectedPersonId),
-        ]);
-        setLoadedBirthEvent(birth);
-        setLoadedDeathEvent(death);
-        // Filter out birth/death events from other events
-        const otherEvents = (allEvents || []).filter(e => e.type !== 'birth' && e.type !== 'death');
-        setLoadedOtherEvents(otherEvents);
-        setLoadedUnions(unions || []);
-        setLoadedParentUnion(parentUnion);
-        // Mark that data is loaded for this specific person
-        setLoadedDataForPersonId(selectedPersonId);
-
-        // Load citations for person
-        const personCits = await getCitationsForPerson(selectedPersonId);
-        setPersonCitations(personCits || []);
-
-        // Load citations for birth and death events
-        if (birth?.id) {
-          const citations = await getCitationsForEvent(birth.id);
-          setBirthCitations(citations || []);
-        }
-        if (death?.id) {
-          const citations = await getCitationsForEvent(death.id);
-          setDeathCitations(citations || []);
-        }
-
-        // Load citations for other events
-        const citationsMap = {};
-        for (const event of otherEvents) {
-          const citations = await getCitationsForEvent(event.id);
-          if (citations && citations.length > 0) {
-            citationsMap[event.id] = citations;
-          }
-        }
-        setEventCitations(citationsMap);
-
-        // Load citations for unions
-        const unionCitationsMap = {};
-        for (const union of (unions || [])) {
-          const citations = await getCitationsForUnion(union.id);
-          if (citations && citations.length > 0) {
-            unionCitationsMap[union.id] = citations;
-          }
-        }
-        setPersonUnionCitations(unionCitationsMap);
-
-        // Load citations for media
-        const media = await getMediaForPerson(selectedPersonId);
-        const mediaCitationsMap = {};
-        for (const item of (media || [])) {
-          const citations = await getCitationsForMedia(item.id);
-          if (citations && citations.length > 0) {
-            mediaCitationsMap[item.id] = citations;
-          }
-        }
-        setMediaCitations(mediaCitationsMap);
-      }
-    };
-    loadPersonData();
-  }, [storageMode, selectedPersonId, isOpen, getBirthEvent, getDeathEvent, getEventsForPerson, getUnionsForPerson, getParentUnionForPerson, getCitationsForPerson, getCitationsForEvent, getCitationsForUnion, getMediaForPerson, getCitationsForMedia]);
-
-  // Load citations for union being edited
-  useEffect(() => {
-    const loadUnionCitations = async () => {
-      if (storageMode === 'bundle' && editingUnionId && isOpen) {
-        const citations = await getCitationsForUnion(editingUnionId);
-        setUnionCitations(citations || []);
-      } else {
-        setUnionCitations([]);
-      }
-    };
-    loadUnionCitations();
-  }, [storageMode, editingUnionId, isOpen, getCitationsForUnion]);
+  // Data loading is now handled by usePersonDataLoader hook
 
   // Convert data to React Flow format for canvas view
   const reactFlowData = useMemo(() => {
@@ -320,16 +257,7 @@ function App() {
     }
   }, [storageMode, isOpen, persons, selectedPersonId]);
 
-  // Load vital events (birth/death) for all persons when bundle opens
-  useEffect(() => {
-    const loadVitalEvents = async () => {
-      if (storageMode === 'bundle' && isOpen) {
-        const events = await getAllVitalEvents();
-        setVitalEvents(events);
-      }
-    };
-    loadVitalEvents();
-  }, [storageMode, isOpen, getAllVitalEvents, triggerRefresh]);
+  // Vital events loading is handled by usePersonDataLoader hook
 
   // Disabled: auto-loading last file on startup
   // The app now starts fresh each time
