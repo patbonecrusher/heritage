@@ -41,6 +41,7 @@ import { usePersonDataLoader } from './hooks/usePersonDataLoader';
 import { useCitationManager } from './hooks/useCitationManager';
 import { usePersonForView } from './hooks/usePersonForView';
 import { usePersonOperations } from './hooks/usePersonOperations';
+import { usePersonViewConfig } from './hooks/usePersonViewConfig';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -711,6 +712,42 @@ function App() {
     data,
   });
 
+  // Build PersonView configuration (all props consolidated into one object)
+  const { personViewProps } = usePersonViewConfig({
+    storageMode,
+    selectedPersonId,
+    personForView,
+    peopleForView,
+    unionsForView,
+    data,
+    dbUnions,
+    places,
+    personCitations,
+    birthCitations,
+    deathCitations,
+    eventCitations,
+    personUnionCitations,
+    mediaCitations,
+    dbSources,
+    personOps,
+    setFocusedView,
+    navigateToPerson,
+    navigateBack,
+    navigateForward,
+    canNavigateBack,
+    canNavigateForward,
+    setSelectedPersonId,
+    createPlace,
+    createPerson,
+    fetchPersons,
+    deletePerson,
+    fetchAllUnions,
+    triggerRefresh,
+    setData,
+    generateId,
+    citationHandlers,
+  });
+
   // Render main view based on mode
   const renderMainView = () => {
     if (viewMode === 'canvas') {
@@ -768,123 +805,7 @@ function App() {
         );
       }
 
-      return (
-        <PersonView
-          person={personForView}
-          sources={data.sources || {}}
-          onAddSource={handleAddSource}
-          allPeople={peopleForView}
-          existingUnions={unionsForView}
-          allUnions={storageMode === 'bundle'
-            ? dbUnions.map(u => ({
-                id: u.id,
-                partner1Id: u.person1_id,
-                partner2Id: u.person2_id,
-                childIds: u.childIds || [],
-              }))
-            : (data.unions || [])}
-          onUnionsChange={personOps.onUnionsChange}
-          onSave={personOps.onSave}
-          onCancel={() => {
-            setFocusedView('pedigree');
-          }}
-          onSelectPerson={navigateToPerson}
-          onNavigateBack={navigateBack}
-          canNavigateBack={canNavigateBack}
-          onNavigateForward={navigateForward}
-          canNavigateForward={canNavigateForward}
-          places={places}
-          onCreatePlace={async (name) => {
-            if (storageMode === 'bundle') {
-              const id = await createPlace({ name });
-              // Return the created place object
-              return { id, name };
-            }
-            return null;
-          }}
-          onParentsChange={personOps.onParentsChange}
-          onRemoveChild={personOps.onRemoveChild}
-          onCreatePerson={({ firstName, lastName, gender }) => {
-            if (storageMode === 'bundle') {
-              // Generate ID upfront so we can return it immediately
-              // The person will be created asynchronously in the database
-              const newId = generateId();
-              // Create person in database asynchronously
-              createPerson({
-                id: newId,
-                given_names: firstName || '',
-                surname: lastName || '',
-                gender: gender || 'unknown',
-              }).then(() => {
-                // Refresh persons list after creation
-                fetchPersons();
-              });
-              return newId;
-            } else {
-              // Legacy mode
-              const newId = String(Date.now());
-              const newPerson = {
-                id: newId,
-                firstName: firstName || '',
-                lastName: lastName || '',
-                middleName: '',
-                maidenName: '',
-                nickname: '',
-                title: '',
-                gender: gender || 'male',
-                birthDate: { type: 'unknown' },
-                deathDate: { type: 'unknown' },
-                birthPlace: '',
-                deathPlace: '',
-                notes: '',
-                image: '',
-                events: [],
-              };
-              setData(prev => ({
-                ...prev,
-                people: [...(prev.people || []), newPerson]
-              }));
-              return newId;
-            }
-          }}
-          onDelete={async (personId) => {
-            if (storageMode === 'bundle') {
-              // Clear selection first to avoid showing deleted person
-              setSelectedPersonId(null);
-              setFocusedView('pedigree');
-              // Then delete and trigger refresh for all hooks (including Sidebar)
-              await deletePerson(personId);
-              await fetchAllUnions();
-              triggerRefresh();
-            } else {
-              // Legacy mode - clear selection first
-              setSelectedPersonId(null);
-              setFocusedView('pedigree');
-              // Then update data
-              setData(prev => ({
-                ...prev,
-                people: (prev.people || []).filter(p => p.id !== personId),
-                // Also remove from any unions
-                unions: (prev.unions || []).map(u => ({
-                  ...u,
-                  childIds: (u.childIds || []).filter(id => id !== personId)
-                })).filter(u => u.partner1Id !== personId && u.partner2Id !== personId)
-              }));
-            }
-          }}
-          // Citation props
-          personCitations={personCitations}
-          birthCitations={birthCitations}
-          deathCitations={deathCitations}
-          eventCitations={eventCitations}
-          unionCitations={personUnionCitations}
-          mediaCitations={mediaCitations}
-          onCreateCitation={citationHandlers.onCreateCitation}
-          onUpdateCitation={citationHandlers.onUpdateCitation}
-          onDeleteCitation={citationHandlers.onDeleteCitation}
-          dbSources={dbSources}
-        />
-      );
+      return <PersonView {...personViewProps} />;
     }
 
     if (focusedView === 'pedigree') {
