@@ -116,6 +116,7 @@
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/ui": "^4.0.16",
     "concurrently": "^8.2.2",
     "electron": "^29.1.0",
     "electron-builder": "^25.1.8",

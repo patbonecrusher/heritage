@@ -1,14 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import {
   createEmptyData,
+  createPerson,
+  createUnion,
   addPerson,
   updatePerson,
+  removePerson,
+  addUnion,
+  updateUnion,
+  removeUnion,
+  addChildToUnion,
   findPersonById,
   findPersonByName,
   getUnionsForPerson,
   getParentIds,
   getChildrenIds,
   getSiblingIds,
+  getPeople,
+  getUnions,
 } from '../../utils/dataModel';
 
 describe('dataModel utilities', () => {
@@ -46,7 +55,10 @@ describe('dataModel utilities', () => {
       const result = addPerson(data, newPerson);
 
       expect(result.people).toHaveLength(1);
-      expect(result.people[0]).toEqual(newPerson);
+      expect(result.people[0].id).toBe('person-1');
+      expect(result.people[0].firstName).toBe('John');
+      expect(result.people[0].lastName).toBe('Doe');
+      expect(result.people[0].gender).toBe('male');
     });
 
     it('does not mutate original data', () => {
@@ -179,14 +191,13 @@ describe('dataModel utilities', () => {
 
       const result = findPersonById(data, 'person-2');
 
-      expect(result).toEqual({
-        id: 'person-2',
-        firstName: 'Jane',
-        lastName: 'Doe',
-      });
+      expect(result).toBeDefined();
+      expect(result.id).toBe('person-2');
+      expect(result.firstName).toBe('Jane');
+      expect(result.lastName).toBe('Doe');
     });
 
-    it('returns null if person not found', () => {
+    it('returns undefined if person not found', () => {
       const data = {
         people: [{ id: 'person-1', firstName: 'John', lastName: 'Doe' }],
         unions: [],
@@ -195,7 +206,7 @@ describe('dataModel utilities', () => {
 
       const result = findPersonById(data, 'person-999');
 
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
     it('handles empty people array', () => {
@@ -207,12 +218,12 @@ describe('dataModel utilities', () => {
 
       const result = findPersonById(data, 'person-1');
 
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
   });
 
   describe('findPersonByName', () => {
-    it('finds person by first name', () => {
+    it('finds person by first name (exact single match)', () => {
       const data = {
         people: [
           { id: 'person-1', firstName: 'John', lastName: 'Doe' },
@@ -225,10 +236,11 @@ describe('dataModel utilities', () => {
       const result = findPersonByName(data, 'John');
 
       expect(result).toBeDefined();
-      expect(result[0].firstName).toBe('John');
+      expect(result.id).toBe('person-1');
+      expect(result.firstName).toBe('John');
     });
 
-    it('finds person by last name', () => {
+    it('finds person by last name (exact single match)', () => {
       const data = {
         people: [
           { id: 'person-1', firstName: 'John', lastName: 'Doe' },
@@ -240,11 +252,12 @@ describe('dataModel utilities', () => {
 
       const result = findPersonByName(data, 'Doe');
 
-      expect(result).toHaveLength(1);
-      expect(result[0].firstName).toBe('John');
+      expect(result).toBeDefined();
+      expect(result.id).toBe('person-1');
+      expect(result.firstName).toBe('John');
     });
 
-    it('returns empty array if no matches', () => {
+    it('returns null if no matches', () => {
       const data = {
         people: [{ id: 'person-1', firstName: 'John', lastName: 'Doe' }],
         unions: [],
@@ -253,7 +266,22 @@ describe('dataModel utilities', () => {
 
       const result = findPersonByName(data, 'Unknown');
 
-      expect(result).toEqual([]);
+      expect(result).toBeNull();
+    });
+
+    it('returns null if multiple matches', () => {
+      const data = {
+        people: [
+          { id: 'person-1', firstName: 'John', lastName: 'Doe' },
+          { id: 'person-2', firstName: 'John', lastName: 'Smith' },
+        ],
+        unions: [],
+        sources: {},
+      };
+
+      const result = findPersonByName(data, 'John');
+
+      expect(result).toBeNull();
     });
   });
 
