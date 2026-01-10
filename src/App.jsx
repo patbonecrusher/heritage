@@ -29,8 +29,13 @@ import PlacesLibrary from './components/PlacesLibrary';
 import SourcesLibrary from './components/SourcesLibrary';
 import LibraryPanel from './components/LibraryPanel';
 import { exportToImage, exportToSvg } from './utils/export';
+import { dbEventToDateFormat, dateFormatToDbEvent, dbUnionToPersonViewFormat, dbDateToLegacy, dbEventToLegacy } from './utils/formatConverters';
 import { useTheme } from './contexts/ThemeContext';
 import { useDatabase, usePersons, useUnions, useEvents, usePlaces, useSources, useMedia, generateId } from './data';
+import { useToast } from './hooks/useToast';
+import { useLibraryPanel } from './hooks/useLibraryPanel';
+import { useDialogs } from './hooks/useDialogs';
+import { usePersonNavigation } from './hooks/usePersonNavigation';
 import { migrateToNewFormat, convertToReactFlow } from './utils/migration';
 import { isNewFormat, createEmptyData, addPerson, updatePerson, findPersonById } from './utils/dataModel';
 
@@ -38,110 +43,6 @@ const nodeTypes = {
   person: PersonNode,
   union: UnionNode,
 };
-
-// Helper to convert database event to PersonView date format
-function dbEventToDateFormat(event) {
-  if (!event || !event.date) {
-    return { type: 'unknown' };
-  }
-
-  // Parse the date string (expected format: YYYY-MM-DD or YYYY-MM or YYYY)
-  const dateParts = event.date.split('-');
-  const year = dateParts[0] || '';
-  const month = dateParts[1] || '';
-  const day = dateParts[2] || '';
-
-  // Handle qualifiers
-  if (event.date_qualifier === 'about') {
-    return {
-      type: 'approximate',
-      year,
-      variance: 5,
-      display: `c. ${year}`,
-    };
-  }
-
-  // Build display string
-  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-                  'July', 'August', 'September', 'October', 'November', 'December'];
-  let display = '';
-  if (day && month && year) {
-    display = `${parseInt(day)} ${MONTHS[parseInt(month) - 1]?.substring(0, 3)} ${year}`;
-  } else if (month && year) {
-    display = `${MONTHS[parseInt(month) - 1]} ${year}`;
-  } else if (year) {
-    display = year;
-  }
-
-  return {
-    type: 'exact',
-    year,
-    month,
-    day,
-    display,
-  };
-}
-
-// Helper to convert PersonView date format to database event format
-function dateFormatToDbEvent(dateObj) {
-  if (!dateObj || dateObj.type === 'unknown') {
-    return { date: null, date_qualifier: 'exact' };
-  }
-
-  if (dateObj.type === 'alive') {
-    return { date: null, date_qualifier: 'exact', is_living: true };
-  }
-
-  // Build date string
-  let dateStr = '';
-  if (dateObj.year) {
-    dateStr = dateObj.year;
-    if (dateObj.month) {
-      dateStr += `-${dateObj.month.padStart(2, '0')}`;
-      if (dateObj.day) {
-        dateStr += `-${dateObj.day.padStart(2, '0')}`;
-      }
-    }
-  }
-
-  // Handle approximate dates
-  if (dateObj.type === 'approximate') {
-    return { date: dateStr || null, date_qualifier: 'about' };
-  }
-
-  return { date: dateStr || null, date_qualifier: 'exact' };
-}
-
-// Helper to convert database union to PersonView union format
-function dbUnionToPersonViewFormat(dbUnion, currentPersonId) {
-  const partnerId = dbUnion.person1_id === currentPersonId
-    ? dbUnion.person2_id
-    : dbUnion.person1_id;
-
-  // Map prior status based on which person is current
-  // prior_status_1 is for person1, prior_status_2 is for person2
-  const isCurrentPerson1 = dbUnion.person1_id === currentPersonId;
-  const priorStatus1 = isCurrentPerson1 ? (dbUnion.prior_status_1 || '') : (dbUnion.prior_status_2 || '');
-  const priorStatus2 = isCurrentPerson1 ? (dbUnion.prior_status_2 || '') : (dbUnion.prior_status_1 || '');
-
-  return {
-    id: dbUnion.id,
-    partner1Id: currentPersonId,
-    partner2Id: partnerId,
-    partnerId: partnerId,
-    type: dbUnion.type || 'marriage',
-    startDate: dbUnion.marriageEvent ? dbEventToDateFormat(dbUnion.marriageEvent) : { type: 'unknown' },
-    startPlace: dbUnion.marriageEvent?.place_detail || dbUnion.marriageEvent?.place_name || '',
-    startPlaceId: dbUnion.marriageEvent?.place_id || null,
-    endDate: null,
-    endReason: dbUnion.status || '',
-    priorStatus1: priorStatus1,
-    priorStatus2: priorStatus2,
-    childIds: (dbUnion.children || []).map(c => c.id),
-    sources: [],
-    isExisting: true,
-  };
-}
 
 function App() {
   const reactFlowWrapper = useRef(null);
@@ -183,39 +84,6 @@ function App() {
   // Recent files for welcome screen
   const [recentFiles, setRecentFiles] = useState([]);
 
-  // Helper to convert database date to legacy format
-  const dbDateToLegacy = (dateStr, qualifier, isLiving) => {
-    if (isLiving) return { type: 'alive' };
-    if (!dateStr) return { type: 'unknown' };
-
-    const parts = dateStr.split('-');
-    const year = parts[0] || '';
-    const month = parts[1] || '';
-    const day = parts[2] || '';
-
-    if (qualifier === 'about') {
-      return { type: 'approximate', year, variance: 5, display: `c. ${year}` };
-    }
-
-    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    let display = year;
-    if (month && day) {
-      display = `${parseInt(day)} ${MONTHS[parseInt(month) - 1]} ${year}`;
-    } else if (month) {
-      display = `${MONTHS[parseInt(month) - 1]} ${year}`;
-    }
-
-    return { type: 'exact', year, month, day, display };
-  };
-
-  // Helper to convert database event to legacy format
-  const dbEventToLegacy = (event) => ({
-    id: event.id,
-    type: event.type,
-    date: dbDateToLegacy(event.date, event.date_qualifier, false),
-    place: event.place_detail || event.place_name || '',
-    description: event.description || '',
-  });
 
   // Combined view data for pedigree/descendants views (works in both modes)
   const viewData = useMemo(() => {
@@ -270,114 +138,54 @@ function App() {
   // View mode state
   const [viewMode, setViewMode] = useState('focused'); // 'focused' | 'canvas'
   const [focusedView, setFocusedView] = useState('pedigree'); // 'pedigree' | 'descendants' | 'person'
-  const [selectedPersonId, setSelectedPersonId] = useState(null);
-  const [navigationHistory, setNavigationHistory] = useState([]);
-  const [forwardHistory, setForwardHistory] = useState([]);
 
-  // Navigation functions
-  const navigateToPerson = useCallback((personId) => {
-    if (personId && personId !== selectedPersonId) {
-      const doNavigation = () => {
-        // Push current person to history before navigating
-        if (selectedPersonId) {
-          setNavigationHistory(prev => [...prev, selectedPersonId]);
-        }
-        // Clear forward history when navigating to a new person
-        setForwardHistory([]);
-        setSelectedPersonId(personId);
-      };
+  // Extract navigation logic to custom hook
+  const navigation = usePersonNavigation();
+  const { selectedPersonId, setSelectedPersonId, navigateTo: navigateToPerson, navigateBack, navigateForward, canGoBack: canNavigateBack, canGoForward: canNavigateForward, clearHistory: clearNavHistory } = navigation;
 
-      // Use View Transitions API if available for smooth crossfade
-      if (document.startViewTransition) {
-        document.startViewTransition(doNavigation);
-      } else {
-        doNavigation();
-      }
-    }
-  }, [selectedPersonId]);
+  // Extract dialog state to custom hook
+  const dialogs = useDialogs();
+  const { unionDialog, preferencesDialog, sourceDialog } = dialogs;
+  const unionDialogOpen = unionDialog.isOpen;
+  const editingUnionId = unionDialog.editingId;
+  const unionDialogInitialData = unionDialog.initialData;
+  const pendingUnion = unionDialog.pendingUnion;
+  const setUnionDialogOpen = unionDialog.open;
+  const setEditingUnionId = unionDialog.setEditingId;
+  const setUnionDialogInitialData = unionDialog.setInitialData;
+  const setPendingUnion = unionDialog.setPending;
+  const preferencesOpen = preferencesDialog.isOpen;
+  const setPreferencesOpen = preferencesDialog.open;
+  const sourceDialogOpen = sourceDialog.isOpen;
+  const editingSource = sourceDialog.editingSource;
+  const pendingSourceCallback = sourceDialog.pendingCallback;
+  const setSourceDialogOpen = sourceDialog.open;
+  const setEditingSource = sourceDialog.setEditingSource;
+  const setPendingSourceCallback = sourceDialog.setPendingCallback;
 
-  const navigateBack = useCallback(() => {
-    if (navigationHistory.length > 0) {
-      const doNavigation = () => {
-        const prevPersonId = navigationHistory[navigationHistory.length - 1];
-        // Push current person to forward history
-        if (selectedPersonId) {
-          setForwardHistory(prev => [...prev, selectedPersonId]);
-        }
-        setNavigationHistory(prev => prev.slice(0, -1));
-        setSelectedPersonId(prevPersonId);
-      };
+  // Extract toast state to custom hook
+  const { toast, showToast, hideToast } = useToast();
 
-      // Use View Transitions API if available for smooth crossfade
-      if (document.startViewTransition) {
-        document.startViewTransition(doNavigation);
-      } else {
-        doNavigation();
-      }
-    }
-  }, [navigationHistory, selectedPersonId]);
-
-  const navigateForward = useCallback(() => {
-    if (forwardHistory.length > 0) {
-      const doNavigation = () => {
-        const nextPersonId = forwardHistory[forwardHistory.length - 1];
-        // Push current person to back history
-        if (selectedPersonId) {
-          setNavigationHistory(prev => [...prev, selectedPersonId]);
-        }
-        setForwardHistory(prev => prev.slice(0, -1));
-        setSelectedPersonId(nextPersonId);
-      };
-
-      // Use View Transitions API if available for smooth crossfade
-      if (document.startViewTransition) {
-        document.startViewTransition(doNavigation);
-      } else {
-        doNavigation();
-      }
-    }
-  }, [forwardHistory, selectedPersonId]);
-
-  const canNavigateBack = navigationHistory.length > 0;
-  const canNavigateForward = forwardHistory.length > 0;
+  // Extract library panel state to custom hook
+  const libraryPanelHook = useLibraryPanel();
+  const libraryPanelOpen = libraryPanelHook.libraryPanel.isOpen;
+  const setLibraryPanelOpen = libraryPanelHook.libraryPanel.setIsOpen;
+  const libraryActiveTab = libraryPanelHook.libraryPanel.activeTab;
+  const setLibraryActiveTab = libraryPanelHook.libraryPanel.setActiveTab;
+  const placesLibraryOpen = libraryPanelHook.placesLibrary.isOpen;
+  const setPlacesLibraryOpen = libraryPanelHook.placesLibrary.open;
+  const closePlacesLibrary = libraryPanelHook.placesLibrary.close;
+  const mediaLibraryOpen = libraryPanelHook.mediaLibrary.isOpen;
+  const setMediaLibraryOpen = libraryPanelHook.mediaLibrary.open;
+  const closeMediaLibrary = libraryPanelHook.mediaLibrary.close;
+  const sourcesLibraryOpen = libraryPanelHook.sourcesLibrary.isOpen;
+  const setSourcesLibraryOpen = libraryPanelHook.sourcesLibrary.open;
+  const closeSourcesLibrary = libraryPanelHook.sourcesLibrary.close;
 
   // React Flow state for canvas mode
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
-
-  // Union Dialog state
-  const [unionDialogOpen, setUnionDialogOpen] = useState(false);
-  const [editingUnionId, setEditingUnionId] = useState(null);
-  const [unionDialogInitialData, setUnionDialogInitialData] = useState(null);
-  const [pendingUnion, setPendingUnion] = useState(null);
-
-  // Preferences Dialog state
-  const [preferencesOpen, setPreferencesOpen] = useState(false);
-
-  // Toast notification
-  const [toast, setToast] = useState({ visible: false, message: '' });
-  const showToast = useCallback((message) => {
-    setToast({ visible: true, message });
-  }, []);
-
-  // Sources library (stored in data.sources)
-  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
-  const [editingSource, setEditingSource] = useState(null);
-  const [pendingSourceCallback, setPendingSourceCallback] = useState(null);
-
-  // Library panel (replaces modal libraries)
-  const [libraryPanelOpen, setLibraryPanelOpen] = useState(() => {
-    return localStorage.getItem('heritage-library-panel-open') === 'true';
-  });
-  const [libraryActiveTab, setLibraryActiveTab] = useState(() => {
-    return localStorage.getItem('heritage-library-active-tab') || 'media';
-  });
-
-  // Full library modals (for editing/managing)
-  const [placesLibraryOpen, setPlacesLibraryOpen] = useState(false);
-  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
-  const [sourcesLibraryOpen, setSourcesLibraryOpen] = useState(false);
 
   // Load events and unions for selected person in bundle mode
   useEffect(() => {
@@ -1871,7 +1679,7 @@ function App() {
       <Toast
         message={toast.message}
         isVisible={toast.visible}
-        onClose={() => setToast({ visible: false, message: '' })}
+        onClose={hideToast}
       />
     </div>
   );
