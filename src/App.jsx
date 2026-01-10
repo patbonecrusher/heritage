@@ -653,6 +653,27 @@ function App() {
     };
   }, [handleNew, handleLoad, handleSave, handleExportPng, handleExportSvg, addNode, handleFitView, handleOpenPreferences, selectedPersonId]);
 
+  // Get selected person data (works in both bundle and legacy modes)
+  const selectedPerson = storageMode === 'bundle'
+    ? persons.find(p => p.id === selectedPersonId)
+    : findPersonById(data, selectedPersonId);
+
+  // Transform person and unions data to view format (must be at top level of component)
+  const { personForView, unionsForView, allPeople: peopleForView } = usePersonForView({
+    storageMode,
+    selectedPersonId,
+    selectedPerson,
+    loadedBirthEvent,
+    loadedDeathEvent,
+    loadedOtherEvents,
+    loadedUnions,
+    loadedParentUnion,
+    loadedDataForPersonId,
+    persons,
+    vitalEvents,
+    data,
+  });
+
   // Render main view based on mode
   const renderMainView = () => {
     if (viewMode === 'canvas') {
@@ -686,11 +707,6 @@ function App() {
 
     // Person view mode (read-only with edit capability)
     if (focusedView === 'person') {
-      // In bundle mode, use database persons; in legacy mode, use local data
-      const selectedPerson = storageMode === 'bundle'
-        ? persons.find(p => p.id === selectedPersonId)
-        : findPersonById(data, selectedPersonId);
-
       // If no valid person is selected, render pedigree view instead
       if (!selectedPerson) {
         return (
@@ -714,22 +730,6 @@ function App() {
           />
         );
       }
-
-      // Transform person and unions data to view format
-      const { personForView, unionsForView, allPeople: peopleForView } = usePersonForView({
-        storageMode,
-        selectedPersonId,
-        selectedPerson,
-        loadedBirthEvent,
-        loadedDeathEvent,
-        loadedOtherEvents,
-        loadedUnions,
-        loadedParentUnion,
-        loadedDataForPersonId,
-        persons,
-        vitalEvents,
-        data,
-      });
 
       return (
         <PersonView
