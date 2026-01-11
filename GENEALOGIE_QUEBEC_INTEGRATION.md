@@ -8,7 +8,10 @@ This document outlines the strategy for integrating Heritage with GénéalogieQu
 
 **Platform:** GénéalogieQuébec.com
 **Contact:** Institut généalogique Drouin (contact@institutdrouin.com, 514-400-3961)
+**API Status:** ❌ NO PUBLIC API AVAILABLE
 **Current Integration:** Placeholder in Heritage (credentials storage, common source listing)
+
+⚠️ **IMPORTANT:** See [GQ_INTEGRATION_NO_API.md](GQ_INTEGRATION_NO_API.md) for recommended alternative approach
 
 ### What Exists in Heritage
 - Credentials storage in secure Electron store (email/password)
@@ -348,22 +351,21 @@ export class GenealogieQuebecClient {
 
 ## Feasibility Assessment
 
-### Based on Current Research:
+### API Availability: ❌ NOT AVAILABLE
 
-**API Availability: UNKNOWN**
-- GénéalogieQuébec does not advertise a public API
-- Website is consumer-focused, not developer-focused
-- Direct contact required
+GénéalogieQuébec.com **does not provide a public API** for third-party integration.
 
-**Licensing Considerations:**
-- Subscription-based platform (100+ million documents)
-- Integration might require business agreement
-- Some features may only work for paying subscribers
+**Alternative Approaches:**
 
-**Estimated Effort (if API available):**
-- **Low complexity API**: 1-2 weeks
-- **Medium complexity API**: 2-4 weeks
-- **No public API available**: Requires web scraping (not recommended)
+| Option | Feasibility | Effort | Sustainability | Legal Risk |
+|--------|------------|--------|-----------------|-----------|
+| Partnership API | 🟡 Medium | 4-12 weeks | ✅ High | None |
+| User Import | ✅ High | 2-3 weeks | ✅ High | None |
+| Web Scraping | 🟡 Medium | 1-2 weeks | ❌ Low | ⚠️ High |
+| FamilySearch API | ✅ High | 1-2 weeks | ✅ High | None |
+
+**RECOMMENDED:** User-assisted import + Partnership outreach
+- See [GQ_INTEGRATION_NO_API.md](GQ_INTEGRATION_NO_API.md) for detailed strategy
 
 ## References
 
