@@ -49,17 +49,20 @@ export function parseGQDate(dateString) {
     };
   }
 
-  // Month and year: "January 1850" or "Janvier 1850"
-  const monthYearMatch = trimmed.match(GQ_DATE_PATTERNS.MONTH_YEAR);
+  // Month and year: "January 1850" or "Janvier 1850" or "février 1850"
+  // More permissive pattern to match non-ASCII characters
+  const monthYearMatch = trimmed.match(/^([a-zA-Z\u00C0-\u00FF]+)\s+(\d{4})$/i);
   if (monthYearMatch) {
     const [, monthName, year] = monthYearMatch;
     const monthNum = parseQuebecMonth(monthName);
-    return {
-      type: 'exact',
-      year,
-      month: monthNum ? monthNum.toString().padStart(2, '0') : '',
-      day: '',
-    };
+    if (monthNum) {
+      return {
+        type: 'exact',
+        year,
+        month: monthNum.toString().padStart(2, '0'),
+        day: '',
+      };
+    }
   }
 
   // If we can't parse it, return unknown
@@ -71,18 +74,24 @@ export function parseGQDate(dateString) {
  */
 function parseQuebecMonth(monthName) {
   const normalized = monthName.toLowerCase();
+
+  // Remove accents for matching
+  const normalizedNoAccents = normalized
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '');
+
   const englishMonths = {
     january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
     july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
     jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
   };
   const frenchMonths = {
-    janvier: 1, février: 2, février: 2, mars: 3, avril: 4, mai: 5, juin: 6,
-    juillet: 7, août: 8, septembre: 9, octobre: 10, novembre: 11, décembre: 12,
-    janv: 1, févr: 2, avr: 4, sept: 9, oct: 10, nov: 11, déc: 12,
+    janvier: 1, fevrier: 2, février: 2, mars: 3, avril: 4, mai: 5, juin: 6,
+    juillet: 7, aout: 8, août: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12, décembre: 12,
+    janv: 1, fevr: 2, févr: 2, avr: 4, sept: 9, oct: 10, nov: 11, dec: 12, déc: 12,
   };
 
-  return englishMonths[normalized] || frenchMonths[normalized] || null;
+  return englishMonths[normalized] || englishMonths[normalizedNoAccents] || frenchMonths[normalized] || frenchMonths[normalizedNoAccents] || null;
 }
 
 /**
@@ -92,24 +101,26 @@ function parseQuebecMonth(monthName) {
 export function normalizeQCPlace(placeName) {
   if (!placeName) return null;
 
-  let normalized = placeName.trim();
-
-  // Remove accents and normalize
-  normalized = normalized
+  const original = placeName.trim();
+  const normalized = original
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '');
 
   // Check against mapping for standardization
   for (const [standard, aliases] of Object.entries(GQ_PLACE_MAPPING)) {
     for (const alias of aliases) {
-      if (normalized.toLowerCase() === alias.toLowerCase()) {
+      const aliasNormalized = alias
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      if (normalized.toLowerCase() === aliasNormalized.toLowerCase()) {
         return standard;
       }
     }
   }
 
-  // If no mapping found, return original
-  return placeName;
+  // If no mapping found, return original (preserves diacritics)
+  return original;
 }
 
 /**
@@ -204,8 +215,8 @@ function mapGQGender(gqGender) {
   if (!gqGender) return null;
 
   const lower = gqGender.toLowerCase();
-  if (lower.includes('male') || lower === 'm') return 'male';
-  if (lower.includes('female') || lower === 'f') return 'female';
+  if (lower === 'female' || lower === 'f') return 'female';
+  if (lower === 'male' || lower === 'm') return 'male';
   return 'unknown';
 }
 
