@@ -116,7 +116,6 @@ export function useAttachGQEvent({
           }
 
           if (loadedPhotos.length > 0) {
-            console.log('Loading existing photos:', loadedPhotos);
             setPhotos(loadedPhotos);
           }
         } catch (err) {
