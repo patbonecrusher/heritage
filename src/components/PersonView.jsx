@@ -716,7 +716,7 @@ export default function PersonView({
   onCreateCitation, onUpdateCitation, onDeleteCitation, dbSources = []
 }) {
   const { theme } = useTheme();
-  const { triggerRefresh } = useDatabase();
+  const { triggerRefresh, run, query, generateId } = useDatabase();
 
   const [title, setTitle] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -2953,15 +2953,14 @@ export default function PersonView({
               onSave={async (gqEventData) => {
                 try {
                   // Create new event with all the data from the dialog
+                  const eventId = `event-${Date.now()}`;
                   const newEvent = {
-                    id: `event-${Date.now()}`,
+                    id: eventId,
                     type: gqEventData.eventData.type,
                     date: gqEventData.eventData.date,
                     place: gqEventData.eventData.place,
                     confidence: gqEventData.eventData.confidence,
                     notes: gqEventData.eventData.notes,
-                    // Include photos IDs for linking
-                    photoIds: gqEventData.photoData.map(p => p.id),
                     // Include event-specific fields
                     ...(gqEventData.eventData.spouse_id && { spouse_id: gqEventData.eventData.spouse_id }),
                     ...(gqEventData.eventData.spouse_name && { spouse_name: gqEventData.eventData.spouse_name }),
@@ -2974,6 +2973,97 @@ export default function PersonView({
                     ...person,
                     events: [...(person.events || []), newEvent]
                   };
+
+                  // Process photos: convert to base64, save to bundle, and create database records
+                  const savedMediaIds = [];
+
+                  for (const photoData of gqEventData.photoData) {
+                    if (photoData.file) {
+                      try {
+                        // Convert File to base64
+                        const reader = new FileReader();
+                        const base64Data = await new Promise((resolve, reject) => {
+                          reader.onload = () => resolve(reader.result);
+                          reader.onerror = reject;
+                          reader.readAsDataURL(photoData.file);
+                        });
+
+                        // Save to bundle
+                        const bundleResult = await window.electronAPI.bundle.addMediaFromBase64({
+                          base64Data: base64Data,
+                          filename: photoData.file.name,
+                          mimeType: photoData.file.type,
+                          type: 'photos'
+                        });
+
+                        if (bundleResult.error) {
+                          console.error('Error saving photo to bundle:', bundleResult.error);
+                          continue;
+                        }
+
+                        // Now create media record in the database
+                        const mediaId = bundleResult.id;
+                        const now = new Date().toISOString();
+
+                        await run(`
+                          INSERT INTO media (
+                            id, path, thumbnail_path, filename, type, mime_type,
+                            title, created_at, updated_at
+                          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        `, [
+                          mediaId,
+                          bundleResult.path,
+                          bundleResult.thumbnailPath || null,
+                          bundleResult.filename,
+                          'photo',
+                          photoData.file.type,
+                          photoData.label || bundleResult.filename,
+                          now,
+                          now,
+                        ]);
+
+                        // Create media_link to link media to event
+                        const linkId = generateId();
+                        await run(`
+                          INSERT INTO media_link (
+                            id, media_id, event_id, page_range_start, page_range_end,
+                            created_at
+                          ) VALUES (?, ?, ?, ?, ?, ?)
+                        `, [
+                          linkId,
+                          mediaId,
+                          eventId,
+                          photoData.pageRange ? photoData.pageRange.split('-')[0] : null,
+                          photoData.pageRange ? photoData.pageRange.split('-')[1] : null,
+                          now,
+                        ]);
+
+                        // Also link to person if in bundle mode
+                        if (person.id) {
+                          const personLinkId = generateId();
+                          await run(`
+                            INSERT INTO media_link (
+                              id, media_id, person_id,
+                              created_at
+                            ) VALUES (?, ?, ?, ?)
+                          `, [
+                            personLinkId,
+                            mediaId,
+                            person.id,
+                            now,
+                          ]);
+                        }
+
+                        savedMediaIds.push(mediaId);
+                      } catch (photoError) {
+                        console.error('Error processing photo:', photoError);
+                        // Continue with next photo on error
+                      }
+                    }
+                  }
+
+                  // Store photo IDs in event for reference
+                  newEvent.photoIds = savedMediaIds;
 
                   // Call onSave to update the person in the database
                   if (onSave) {

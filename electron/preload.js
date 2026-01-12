@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.invoke('bundle-close'),
     info: () => ipcRenderer.invoke('bundle-info'),
     importMedia: (type) => ipcRenderer.invoke('bundle-import-media', { type }),
+    addMediaFromBase64: (data) => ipcRenderer.invoke('bundle-add-media-base64', data),
     resolveMedia: (relativePath) => ipcRenderer.invoke('bundle-resolve-media', relativePath),
     readMediaBase64: (relativePath) => ipcRenderer.invoke('bundle-read-media-base64', relativePath),
     deleteMedia: (relativePath) => ipcRenderer.invoke('bundle-delete-media', relativePath),

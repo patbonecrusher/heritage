@@ -708,6 +708,67 @@ ipcMain.handle('bundle-delete-media', async (event, relativePath) => {
   }
 });
 
+// Add media to bundle from base64 data
+ipcMain.handle('bundle-add-media-base64', async (event, data) => {
+  if (!bundleManager) {
+    return { error: 'No bundle open' };
+  }
+  try {
+    const { base64Data, filename, type = 'photos' } = data;
+
+    // Decode base64 to buffer
+    const buffer = Buffer.from(base64Data.split(',')[1] || base64Data, 'base64');
+
+    // Get file extension from filename or mime type
+    let ext = path.extname(filename).toLowerCase();
+    if (!ext) {
+      const mimeTypes = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/gif': '.gif',
+        'image/webp': '.webp',
+      };
+      const mimeType = data.mimeType || 'image/jpeg';
+      ext = mimeTypes[mimeType] || '.jpg';
+    }
+
+    // Use filename if provided, otherwise generate UUID
+    const saveFilename = filename ? path.basename(filename, ext) + ext : `${require('uuid').v4()}${ext}`;
+    const relativePath = `${type}/${saveFilename}`;
+    const destPath = path.join(bundleManager.bundlePath, 'Media', relativePath);
+
+    // Ensure directory exists
+    const dir = path.dirname(destPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // Write file
+    fs.writeFileSync(destPath, buffer);
+
+    // Generate thumbnail for images
+    let thumbnailPath = null;
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+      const uuid = path.basename(saveFilename, ext);
+      thumbnailPath = await bundleManager.generateThumbnail(destPath, uuid);
+    }
+
+    bundleManager.updateLastModified();
+
+    return {
+      success: true,
+      id: path.basename(saveFilename, ext),
+      path: relativePath,
+      thumbnailPath: thumbnailPath,
+      filename: saveFilename,
+      mimeType: data.mimeType,
+    };
+  } catch (error) {
+    console.error('Error adding media from base64:', error);
+    return { error: error.message };
+  }
+});
+
 // ============================================
 // Database Query Handlers
 // ============================================
