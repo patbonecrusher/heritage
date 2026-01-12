@@ -2939,17 +2939,6 @@ export default function PersonView({
             ? person.events?.find(e => e.id === attachGQDialog.eventId)
             : null;
 
-          // Debug: log what we're finding
-          if (attachGQDialog.eventId) {
-            console.log('=== AttachGQDialog Debug ===');
-            console.log('Looking for eventId:', attachGQDialog.eventId);
-            console.log('person.events:', person.events);
-            console.log('Found event:', existingEvent);
-            if (existingEvent) {
-              console.log('Event data:', existingEvent);
-              console.log('Event photoIds:', existingEvent.photoIds);
-            }
-          }
 
           return (
             <AttachGQEventDialog
