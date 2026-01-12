@@ -10,7 +10,7 @@
  * - Witness/godparent management
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { parseGQDate, normalizeQCPlace } from '@/integrations/genealogieQuebec/dataMapper';
 
 export function useAttachGQEvent({
@@ -50,6 +50,45 @@ export function useAttachGQEvent({
   const [mainPhotoIndex, setMainPhotoIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  // ============================================
+  // Load Existing Photos
+  // ============================================
+
+  useEffect(() => {
+    // If editing existing event with photos, load them from media database
+    if (existingEventData?.photoIds && existingEventData.photoIds.length > 0) {
+      // Try to load photos from the event's media references
+      const loadExistingPhotos = async () => {
+        try {
+          const loadedPhotos = [];
+
+          for (const photoId of existingEventData.photoIds) {
+            // Try to get media from database
+            // For now, we'll create a placeholder for the photo
+            // The actual loading would require database access
+            loadedPhotos.push({
+              id: photoId,
+              file: null, // Already saved, no File object needed
+              label: `Photo ${loadedPhotos.length + 1}`,
+              pageRange: '',
+              type: 'image',
+              preview: `heritage-media://media/photos/${photoId}.jpg`, // Placeholder - actual path from database
+              isExisting: true, // Mark as existing so we don't re-save it
+            });
+          }
+
+          if (loadedPhotos.length > 0) {
+            setPhotos(loadedPhotos);
+          }
+        } catch (err) {
+          console.error('Error loading existing photos:', err);
+        }
+      };
+
+      loadExistingPhotos();
+    }
+  }, [existingEventData?.photoIds, existingEventData?.id]);
 
   // ============================================
   // Photo Methods
@@ -217,14 +256,16 @@ export function useAttachGQEvent({
         }),
       };
 
-      // Prepare photo data
-      const photoData = photos.map((photo) => ({
-        id: photo.id,
-        file: photo.file,
-        label: photo.label,
-        pageRange: photo.pageRange,
-        type: photo.type,
-      }));
+      // Prepare photo data - only include new photos (skip existing ones)
+      const photoData = photos
+        .filter(photo => !photo.isExisting || photo.file) // Skip existing photos without files
+        .map((photo) => ({
+          id: photo.id,
+          file: photo.file,
+          label: photo.label,
+          pageRange: photo.pageRange,
+          type: photo.type,
+        }));
 
       // Call parent save handler
       await onSave({

@@ -1950,7 +1950,7 @@ export default function PersonView({
                                 <button
                                   type="button"
                                   className="pv-event-attach-gq-btn"
-                                  onClick={() => setAttachGQDialog({ isOpen: true, eventType: event.type })}
+                                  onClick={() => setAttachGQDialog({ isOpen: true, eventType: event.type, eventId: event.id })}
                                   title="Attach GénéalogieQuébec record"
                                 >
                                   📎
@@ -2274,7 +2274,7 @@ export default function PersonView({
                                 <button
                                   type="button"
                                   className="pv-event-attach-gq-btn"
-                                  onClick={() => setAttachGQDialog({ isOpen: true, eventType: event.type })}
+                                  onClick={() => setAttachGQDialog({ isOpen: true, eventType: event.type, eventId: event.id })}
                                   title="Attach GénéalogieQuébec record"
                                 >
                                   📎
@@ -2934,12 +2934,18 @@ export default function PersonView({
             attachGQDialog.eventType === 'death' ? deathCitations :
             (eventCitations[attachGQDialog.eventId] || []);
 
+          // Get existing event data if editing
+          const existingEvent = attachGQDialog.eventId
+            ? person.events?.find(e => e.id === attachGQDialog.eventId)
+            : null;
+
           return (
             <AttachGQEventDialog
               isOpen={attachGQDialog.isOpen}
               onClose={() => setAttachGQDialog({ isOpen: false, eventType: null, eventId: null })}
               person={person}
               eventType={attachGQDialog.eventType}
+              existingEventData={existingEvent}
               allPeople={allPeople}
               places={places}
               citations={eventCitationsForType}
