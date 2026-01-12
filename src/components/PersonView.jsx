@@ -767,6 +767,7 @@ export default function PersonView({
   const [attachGQDialog, setAttachGQDialog] = useState({
     isOpen: false,
     eventType: null,
+    eventId: null,
   });
 
   // Portrait photo viewer state
@@ -2926,39 +2927,54 @@ export default function PersonView({
         )}
 
         {/* Attach GénéalogieQuébec Event Dialog */}
-        {attachGQDialog.isOpen && (
-          <AttachGQEventDialog
-            isOpen={attachGQDialog.isOpen}
-            onClose={() => setAttachGQDialog({ isOpen: false, eventType: null })}
-            person={person}
-            eventType={attachGQDialog.eventType}
-            allPeople={allPeople}
-            places={places}
-            onCreatePlace={onCreatePlace}
-            onSave={async (eventData) => {
-              try {
-                // TODO: Implement save logic for GQ event
-                // This should:
-                // 1. Create/update the event with eventData.eventData
-                // 2. Upload and attach photos from eventData.photoData
-                // 3. Create witnesses/godparents from eventData.witnesses
-                // 4. Create citation with GQ source
-                // 5. Refresh the person view
+        {attachGQDialog.isOpen && (() => {
+          // Get appropriate citations for the event type
+          const eventCitationsForType =
+            attachGQDialog.eventType === 'birth' ? birthCitations :
+            attachGQDialog.eventType === 'death' ? deathCitations :
+            (eventCitations[attachGQDialog.eventId] || []);
 
-                console.log('Event data to save:', eventData);
+          return (
+            <AttachGQEventDialog
+              isOpen={attachGQDialog.isOpen}
+              onClose={() => setAttachGQDialog({ isOpen: false, eventType: null, eventId: null })}
+              person={person}
+              eventType={attachGQDialog.eventType}
+              allPeople={allPeople}
+              places={places}
+              citations={eventCitationsForType}
+              onCreatePlace={onCreatePlace}
+              onCreateCitation={() => {
+                setCitationDialogOpen(true);
+              }}
+              onUpdateCitation={() => {
+                // TODO: Update citation dialog handler
+              }}
+              onSave={async (eventData) => {
+                try {
+                  // TODO: Implement save logic for GQ event
+                  // This should:
+                  // 1. Create/update the event with eventData.eventData
+                  // 2. Upload and attach photos from eventData.photoData
+                  // 3. Create witnesses/godparents from eventData.witnesses
+                  // 4. Create citation with GQ source
+                  // 5. Refresh the person view
 
-                // Close dialog
-                setAttachGQDialog({ isOpen: false, eventType: null });
+                  console.log('Event data to save:', eventData);
 
-                // TODO: Show success notification
-                // TODO: Refresh person data
-              } catch (error) {
-                console.error('Error saving GQ event:', error);
-                // TODO: Show error notification
-              }
-            }}
-          />
-        )}
+                  // Close dialog
+                  setAttachGQDialog({ isOpen: false, eventType: null, eventId: null });
+
+                  // TODO: Show success notification
+                  // TODO: Refresh person data
+                } catch (error) {
+                  console.error('Error saving GQ event:', error);
+                  // TODO: Show error notification
+                }
+              }}
+            />
+          );
+        })()}
       </div>
   );
 }

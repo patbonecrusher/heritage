@@ -313,6 +313,98 @@
   background: var(--color-textMuted);
 }
 
+/* Citation Selection */
+.citation-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.citation-selection select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.citation-selection select:hover:not(:disabled) {
+  border-color: var(--color-textMuted);
+}
+
+.citation-selection select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+}
+
+.citation-selection select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.citation-details {
+  padding: 0.75rem;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.citation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.citation-source {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.citation-url {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-size: 0.8rem;
+  transition: color 0.2s;
+}
+
+.citation-url:hover {
+  text-decoration: underline;
+}
+
+.citation-confidence {
+  font-size: 0.8rem;
+  color: var(--color-textMuted);
+}
+
+.citation-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  text-align: center;
+}
+
+.citation-empty p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-textMuted);
+}
+
+.citation-empty .btn {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 200px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .event-details-panel {

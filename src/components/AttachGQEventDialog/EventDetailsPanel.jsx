@@ -63,17 +63,23 @@ export function EventDetailsPanel({
   witnesses = [],
   allPeople = [],
   places = [],
+  citations = [],
   onUpdateField,
   onAddWitness,
   onRemoveWitness,
   onUpdateWitness,
   onCreatePlace,
+  onCreateCitation,
+  onUpdateCitation,
   error,
   disabled = false,
 }) {
   const [showDateHelp, setShowDateHelp] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState(
     photos.map((p) => p.id)
+  );
+  const [selectedCitationId, setSelectedCitationId] = useState(
+    formData.citationId || null
   );
 
   const handlePhotoSelection = useCallback(
@@ -85,6 +91,14 @@ export function EventDetailsPanel({
       );
     },
     []
+  );
+
+  const handleCitationSelection = useCallback(
+    (citationId) => {
+      setSelectedCitationId(citationId);
+      onUpdateField('citationId', citationId);
+    },
+    [onUpdateField]
   );
 
   // ============================================
@@ -329,6 +343,78 @@ export function EventDetailsPanel({
           </div>
         </div>
       )}
+
+      {/* Citation Selection */}
+      <div className="form-section">
+        <label>
+          Source Citation
+          <button
+            type="button"
+            className="help-button"
+            onClick={onCreateCitation}
+            title="Create new citation"
+            disabled={disabled}
+          >
+            +
+          </button>
+        </label>
+        {citations.length > 0 ? (
+          <div className="citation-selection">
+            <select
+              value={selectedCitationId || ''}
+              onChange={(e) => handleCitationSelection(e.target.value || null)}
+              className="form-input"
+              disabled={disabled}
+            >
+              <option value="">-- Select a citation --</option>
+              {citations.map((citation) => (
+                <option key={citation.id} value={citation.id}>
+                  {citation.source_name}
+                  {citation.page && ` p. ${citation.page}`}
+                  {citation.entry_number && ` #${citation.entry_number}`}
+                </option>
+              ))}
+            </select>
+            {selectedCitationId && (
+              <div className="citation-details">
+                {(() => {
+                  const selected = citations.find((c) => c.id === selectedCitationId);
+                  return selected ? (
+                    <div className="citation-info">
+                      <div className="citation-source">{selected.source_name}</div>
+                      {selected.url && (
+                        <a
+                          href={selected.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="citation-url"
+                        >
+                          View Source
+                        </a>
+                      )}
+                      <div className="citation-confidence">
+                        Confidence: <strong>{selected.confidence}</strong>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="citation-empty">
+            <p>No citations yet. Create one to link this record to a source.</p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onCreateCitation}
+              disabled={disabled}
+            >
+              + New Citation
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Notes/Transcription */}
       <div className="form-section">

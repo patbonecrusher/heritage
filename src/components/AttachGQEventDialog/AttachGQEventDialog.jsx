@@ -24,6 +24,9 @@ export function AttachGQEventDialog({
   allPeople = [],
   places = [],
   onCreatePlace,
+  citations = [],
+  onCreateCitation,
+  onUpdateCitation,
 }) {
   const {
     photos,
@@ -110,11 +113,14 @@ export function AttachGQEventDialog({
                   witnesses={witnesses}
                   allPeople={allPeople}
                   places={places}
+                  citations={citations}
                   onUpdateField={updateFormField}
                   onAddWitness={addWitness}
                   onRemoveWitness={removeWitness}
                   onUpdateWitness={updateWitness}
                   onCreatePlace={onCreatePlace}
+                  onCreateCitation={onCreateCitation}
+                  onUpdateCitation={onUpdateCitation}
                   error={error}
                   disabled={isSaving}
                 />
