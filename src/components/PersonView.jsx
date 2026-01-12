@@ -2950,26 +2950,43 @@ export default function PersonView({
               onUpdateCitation={() => {
                 // TODO: Update citation dialog handler
               }}
-              onSave={async (eventData) => {
+              onSave={async (gqEventData) => {
                 try {
-                  // TODO: Implement save logic for GQ event
-                  // This should:
-                  // 1. Create/update the event with eventData.eventData
-                  // 2. Upload and attach photos from eventData.photoData
-                  // 3. Create witnesses/godparents from eventData.witnesses
-                  // 4. Create citation with GQ source
-                  // 5. Refresh the person view
+                  // Create new event with all the data from the dialog
+                  const newEvent = {
+                    id: `event-${Date.now()}`,
+                    type: gqEventData.eventData.type,
+                    date: gqEventData.eventData.date,
+                    place: gqEventData.eventData.place,
+                    confidence: gqEventData.eventData.confidence,
+                    notes: gqEventData.eventData.notes,
+                    // Include photos IDs for linking
+                    photoIds: gqEventData.photoData.map(p => p.id),
+                    // Include event-specific fields
+                    ...(gqEventData.eventData.spouse_id && { spouse_id: gqEventData.eventData.spouse_id }),
+                    ...(gqEventData.eventData.spouse_name && { spouse_name: gqEventData.eventData.spouse_name }),
+                    ...(gqEventData.eventData.cause && { cause: gqEventData.eventData.cause }),
+                    ...(gqEventData.eventData.witnesses && gqEventData.eventData.witnesses.length > 0 && { witnesses: gqEventData.eventData.witnesses }),
+                  };
 
-                  console.log('Event data to save:', eventData);
+                  // Add event to person's events array
+                  const updatedPerson = {
+                    ...person,
+                    events: [...(person.events || []), newEvent]
+                  };
+
+                  // Call onSave to update the person in the database
+                  if (onSave) {
+                    onSave(updatedPerson);
+                  }
 
                   // Close dialog
                   setAttachGQDialog({ isOpen: false, eventType: null, eventId: null });
 
-                  // TODO: Show success notification
-                  // TODO: Refresh person data
+                  // Trigger refresh to update the view
+                  triggerRefresh();
                 } catch (error) {
                   console.error('Error saving GQ event:', error);
-                  // TODO: Show error notification
                 }
               }}
             />
