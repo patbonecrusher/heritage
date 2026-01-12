@@ -11,6 +11,7 @@ import CitationList from './CitationList';
 import CitationDialog from './CitationDialog';
 import PhotoViewer from './PhotoViewer';
 import NotesSection from './NotesSection';
+import { AttachGQEventDialog } from './AttachGQEventDialog/AttachGQEventDialog';
 import { getParentIds, getChildrenIds } from '../utils/dataModel';
 import { useDatabase } from '../data/DatabaseContext';
 import './PersonViewNew.css';
@@ -761,6 +762,12 @@ export default function PersonView({
   const [citationDialogOpen, setCitationDialogOpen] = useState(false);
   const [editingCitation, setEditingCitation] = useState(null);
   const [citationTarget, setCitationTarget] = useState(null); // { type: 'birth'|'death'|'event', eventId: string }
+
+  // Attach GQ Event dialog state
+  const [attachGQDialog, setAttachGQDialog] = useState({
+    isOpen: false,
+    eventType: null,
+  });
 
   // Portrait photo viewer state
   const [portraitMedia, setPortraitMedia] = useState(null);
@@ -1938,14 +1945,24 @@ export default function PersonView({
                                   <span className="pv-event-alive-badge">Alive</span>
                                 </div>
                               </div>
-                              <button
-                                type="button"
-                                className="pv-event-edit-btn"
-                                onClick={() => startEditingEvent(event.id)}
-                                title="Edit"
-                              >
-                                ✎
-                              </button>
+                              <div className="pv-event-button-group">
+                                <button
+                                  type="button"
+                                  className="pv-event-attach-gq-btn"
+                                  onClick={() => setAttachGQDialog({ isOpen: true, eventType: event.type })}
+                                  title="Attach GénéalogieQuébec record"
+                                >
+                                  📎
+                                </button>
+                                <button
+                                  type="button"
+                                  className="pv-event-edit-btn"
+                                  onClick={() => startEditingEvent(event.id)}
+                                  title="Edit"
+                                >
+                                  ✎
+                                </button>
+                              </div>
                             </div>
                           );
                         }
@@ -2250,16 +2267,26 @@ export default function PersonView({
                                 </>
                               )}
                             </div>
-                            {/* Edit button */}
+                            {/* Action buttons */}
                             {!isEditing && (
-                              <button
-                                type="button"
-                                className="pv-event-edit-btn"
-                                onClick={() => startEditingEvent(event.id)}
-                                title="Edit"
-                              >
-                                ✎
-                              </button>
+                              <div className="pv-event-button-group">
+                                <button
+                                  type="button"
+                                  className="pv-event-attach-gq-btn"
+                                  onClick={() => setAttachGQDialog({ isOpen: true, eventType: event.type })}
+                                  title="Attach GénéalogieQuébec record"
+                                >
+                                  📎
+                                </button>
+                                <button
+                                  type="button"
+                                  className="pv-event-edit-btn"
+                                  onClick={() => startEditingEvent(event.id)}
+                                  title="Edit"
+                                >
+                                  ✎
+                                </button>
+                              </div>
                             )}
                           </div>
                         );
@@ -2896,6 +2923,39 @@ export default function PersonView({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Attach GénéalogieQuébec Event Dialog */}
+        {attachGQDialog.isOpen && (
+          <AttachGQEventDialog
+            isOpen={attachGQDialog.isOpen}
+            onClose={() => setAttachGQDialog({ isOpen: false, eventType: null })}
+            person={person}
+            eventType={attachGQDialog.eventType}
+            allPeople={allPeople}
+            onSave={async (eventData) => {
+              try {
+                // TODO: Implement save logic for GQ event
+                // This should:
+                // 1. Create/update the event with eventData.eventData
+                // 2. Upload and attach photos from eventData.photoData
+                // 3. Create witnesses/godparents from eventData.witnesses
+                // 4. Create citation with GQ source
+                // 5. Refresh the person view
+
+                console.log('Event data to save:', eventData);
+
+                // Close dialog
+                setAttachGQDialog({ isOpen: false, eventType: null });
+
+                // TODO: Show success notification
+                // TODO: Refresh person data
+              } catch (error) {
+                console.error('Error saving GQ event:', error);
+                // TODO: Show error notification
+              }
+            }}
+          />
         )}
       </div>
   );

@@ -879,7 +879,20 @@
   margin: 4px 0;
 }
 
-.pv-event-edit-btn {
+.pv-event-button-group {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.pv-event:hover .pv-event-button-group {
+  opacity: 1;
+}
+
+.pv-event-edit-btn,
+.pv-event-attach-gq-btn {
   width: 28px;
   height: 28px;
   border: none;
@@ -891,18 +904,14 @@
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
   align-self: flex-start;
   margin-top: 2px;
 }
 
-.pv-event:hover .pv-event-edit-btn {
-  opacity: 1;
-}
-
-.pv-event-edit-btn:hover {
+.pv-event-edit-btn:hover,
+.pv-event-attach-gq-btn:hover {
   background: var(--color-surface);
   color: var(--color-text);
 }
