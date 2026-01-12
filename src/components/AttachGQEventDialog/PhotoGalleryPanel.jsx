@@ -270,58 +270,6 @@ export function PhotoGalleryPanel({
                     ✕
                   </button>
                 </div>
-
-                {editingPhotoId === photo.id && (
-                  <div
-                    className="edit-overlay"
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onMouseMove={(e) => e.stopPropagation()}
-                    onMouseUp={(e) => e.stopPropagation()}
-                    onWheel={(e) => e.stopPropagation()}
-                  >
-                    <div className="edit-form">
-                      <div className="form-group">
-                        <label>Document Type:</label>
-                        <select
-                          value={editLabel}
-                          onChange={(e) => setEditLabel(e.target.value)}
-                        >
-                          <option value="GQ Screenshot">GQ Screenshot</option>
-                          <option value="Drouin Original">Drouin Original</option>
-                          <option value="Full Scan">Full Scan</option>
-                          <option value="Church Record">Church Record</option>
-                          <option value="Document">Document</option>
-                        </select>
-                      </div>
-
-                      <div className="form-group">
-                        <label>Page Range:</label>
-                        <input
-                          type="text"
-                          value={editPageRange}
-                          onChange={(e) => setEditPageRange(e.target.value)}
-                          placeholder="e.g., 21 or 21-22"
-                        />
-                      </div>
-
-                      <div className="button-group">
-                        <button
-                          onClick={savePhotoMetadata}
-                          className="btn-primary"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={cancelEditingPhoto}
-                          className="btn-secondary"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -332,6 +280,64 @@ export function PhotoGalleryPanel({
       {photos.length > 0 && (
         <div className="photo-count">
           Showing photo {mainPhotoIndex + 1} of {photos.length}
+        </div>
+      )}
+
+      {/* Edit Overlay - Full screen positioned overlay */}
+      {editingPhotoId && (
+        <div
+          className="edit-overlay-full"
+          onClick={() => setEditingPhotoId(null)}
+        >
+          <div
+            className="edit-form"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseMove={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+          >
+            <h3 className="edit-form-title">Edit Photo Metadata</h3>
+
+            <div className="form-group">
+              <label>Document Type:</label>
+              <select
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+              >
+                <option value="GQ Screenshot">GQ Screenshot</option>
+                <option value="Drouin Original">Drouin Original</option>
+                <option value="Full Scan">Full Scan</option>
+                <option value="Church Record">Church Record</option>
+                <option value="Document">Document</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Page Range:</label>
+              <input
+                type="text"
+                value={editPageRange}
+                onChange={(e) => setEditPageRange(e.target.value)}
+                placeholder="e.g., 21 or 21-22"
+              />
+            </div>
+
+            <div className="button-group">
+              <button
+                onClick={savePhotoMetadata}
+                className="btn-primary"
+              >
+                Save
+              </button>
+              <button
+                onClick={cancelEditingPhoto}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

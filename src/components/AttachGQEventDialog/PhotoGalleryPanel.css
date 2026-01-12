@@ -285,27 +285,34 @@
   /* Delete button styling */
 }
 
-/* Edit Overlay */
-.edit-overlay {
-  position: absolute;
+/* Edit Overlay - Full screen overlay */
+.edit-overlay-full {
+  position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem;
-  z-index: 100;
+  padding: 1rem;
+  z-index: 1001;
   pointer-events: auto;
 }
 
 .edit-form {
   background: var(--color-surface);
   border-radius: 0.5rem;
-  padding: 1rem;
-  min-width: 240px;
-  max-width: 300px;
+  padding: 1.5rem;
+  min-width: 280px;
+  max-width: 350px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   border: 1px solid var(--color-border);
+}
+
+.edit-form-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .form-group {
