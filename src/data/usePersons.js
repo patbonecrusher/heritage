@@ -70,12 +70,21 @@ export function usePersons() {
         eventsByPerson[event.person_id].push(event);
       }
 
-      // Attach events to each person
+      // Deduplicate persons (in case of multiple joins creating duplicates)
+      const uniquePersonsMap = new Map();
       for (const person of rows) {
+        if (!uniquePersonsMap.has(person.id)) {
+          uniquePersonsMap.set(person.id, person);
+        }
+      }
+      const uniquePersons = Array.from(uniquePersonsMap.values());
+
+      // Attach events to each person
+      for (const person of uniquePersons) {
         person.events = eventsByPerson[person.id] || [];
       }
 
-      setPersons(rows);
+      setPersons(uniquePersons);
     } catch (err) {
       console.error('Error fetching persons:', err);
     } finally {
