@@ -1,0 +1,316 @@
+/* Witnesses Section */
+.witnesses-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Header */
+.witnesses-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.witnesses-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.witness-count {
+  background: var(--color-background);
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--color-textMuted);
+  font-weight: 500;
+}
+
+/* No Witnesses Message */
+.no-witnesses {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-textMuted);
+  font-style: italic;
+  background: var(--color-background);
+  border-radius: 0.375rem;
+}
+
+/* Witnesses List */
+.witnesses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Witness Item */
+.witness-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.witness-item:hover {
+  background: var(--color-background);
+  border-color: var(--color-border);
+}
+
+/* Witness Content */
+.witness-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.witness-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.witness-role {
+  font-size: 0.8rem;
+  color: var(--color-textMuted);
+}
+
+.witness-linked {
+  font-size: 0.75rem;
+  color: #059669;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.witness-linked::before {
+  content: '✓';
+  display: inline;
+}
+
+/* Witness Actions */
+.witness-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.link-select {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  background: white;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.link-select:hover:not(:disabled) {
+  border-color: var(--color-textMuted);
+  background: white;
+}
+
+.link-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-remove-witness {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #dc2626;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-remove-witness:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.btn-remove-witness:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Add Witness Form */
+.witness-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.375rem;
+}
+
+.witness-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.witness-form .form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.witness-form .form-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #bae6fd;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: white;
+  color: var(--color-text);
+  transition: all 0.2s;
+}
+
+.witness-form .form-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.witness-form .form-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Form Actions */
+.witness-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.witness-form-actions .btn {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.witness-form-actions .btn-primary {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.witness-form-actions .btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.witness-form-actions .btn-primary:disabled {
+  background: var(--color-border);
+  border-color: var(--color-border);
+  color: var(--color-textMuted);
+  cursor: not-allowed;
+}
+
+.witness-form-actions .btn-secondary {
+  background: white;
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.witness-form-actions .btn-secondary:hover:not(:disabled) {
+  background: var(--color-background);
+  border-color: var(--color-textMuted);
+}
+
+.witness-form-actions .btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Add Witness Button */
+.btn-add-witness {
+  padding: 0.625rem 1.25rem;
+  border: 1px dashed var(--color-primary);
+  border-radius: 0.375rem;
+  background: #eff6ff;
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn-add-witness:hover:not(:disabled) {
+  background: #dbeafe;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.btn-add-witness:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .witnesses-section {
+    padding: 1rem 0;
+  }
+
+  .witness-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .witness-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .link-select {
+    flex: 1;
+  }
+
+  .witness-form {
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .witness-form-actions {
+    flex-direction: column;
+  }
+
+  .witness-form-actions .btn {
+    flex: 1;
+  }
+}
