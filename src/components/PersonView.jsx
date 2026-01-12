@@ -2939,6 +2939,18 @@ export default function PersonView({
             ? person.events?.find(e => e.id === attachGQDialog.eventId)
             : null;
 
+          // Debug: log what we're finding
+          if (attachGQDialog.eventId) {
+            console.log('=== AttachGQDialog Debug ===');
+            console.log('Looking for eventId:', attachGQDialog.eventId);
+            console.log('person.events:', person.events);
+            console.log('Found event:', existingEvent);
+            if (existingEvent) {
+              console.log('Event data:', existingEvent);
+              console.log('Event photoIds:', existingEvent.photoIds);
+            }
+          }
+
           return (
             <AttachGQEventDialog
               isOpen={attachGQDialog.isOpen}
@@ -2958,8 +2970,10 @@ export default function PersonView({
               }}
               onSave={async (gqEventData) => {
                 try {
-                  // Create new event with all the data from the dialog
-                  const eventId = `event-${Date.now()}`;
+                  // Determine if we're updating an existing event or creating a new one
+                  const isExistingEvent = !!existingEvent;
+                  const eventId = isExistingEvent ? existingEvent.id : `event-${Date.now()}`;
+
                   const newEvent = {
                     id: eventId,
                     type: gqEventData.eventData.type,
@@ -2974,11 +2988,17 @@ export default function PersonView({
                     ...(gqEventData.eventData.witnesses && gqEventData.eventData.witnesses.length > 0 && { witnesses: gqEventData.eventData.witnesses }),
                   };
 
-                  // Add event to person's events array
-                  const updatedPerson = {
-                    ...person,
-                    events: [...(person.events || []), newEvent]
-                  };
+                  // Update person's events array
+                  let updatedPerson = { ...person };
+                  if (isExistingEvent) {
+                    // Update existing event in the array
+                    updatedPerson.events = (person.events || []).map(e =>
+                      e.id === eventId ? newEvent : e
+                    );
+                  } else {
+                    // Add new event to the array
+                    updatedPerson.events = [...(person.events || []), newEvent];
+                  }
 
                   // Process photos: convert to base64, save to bundle, and create database records
                   const savedMediaIds = [];
@@ -3074,22 +3094,45 @@ export default function PersonView({
                   // Save event to database
                   const now = new Date().toISOString();
                   try {
-                    await run(`
-                      INSERT INTO event (
-                        id, person_id, type, date, place_detail, confidence, notes,
-                        created_at, updated_at
-                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    `, [
-                      eventId,
-                      person.id,
-                      gqEventData.eventData.type,
-                      gqEventData.eventData.date?.display || gqEventData.eventData.date || '',
-                      gqEventData.eventData.place || '',
-                      gqEventData.eventData.confidence || 'probable',
-                      gqEventData.eventData.notes || '',
-                      now,
-                      now,
-                    ]);
+                    if (isExistingEvent) {
+                      // Update existing event
+                      await run(`
+                        UPDATE event SET
+                          type = ?,
+                          date = ?,
+                          place_detail = ?,
+                          confidence = ?,
+                          notes = ?,
+                          updated_at = ?
+                        WHERE id = ?
+                      `, [
+                        gqEventData.eventData.type,
+                        gqEventData.eventData.date?.display || gqEventData.eventData.date || '',
+                        gqEventData.eventData.place || '',
+                        gqEventData.eventData.confidence || 'probable',
+                        gqEventData.eventData.notes || '',
+                        now,
+                        eventId,
+                      ]);
+                    } else {
+                      // Insert new event
+                      await run(`
+                        INSERT INTO event (
+                          id, person_id, type, date, place_detail, confidence, notes,
+                          created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      `, [
+                        eventId,
+                        person.id,
+                        gqEventData.eventData.type,
+                        gqEventData.eventData.date?.display || gqEventData.eventData.date || '',
+                        gqEventData.eventData.place || '',
+                        gqEventData.eventData.confidence || 'probable',
+                        gqEventData.eventData.notes || '',
+                        now,
+                        now,
+                      ]);
+                    }
                   } catch (dbError) {
                     console.error('Error saving event to database:', dbError);
                     // Continue anyway - we still have it in person.events

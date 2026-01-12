@@ -54,11 +54,16 @@ export function usePersons() {
             ORDER BY created_at
           `, [event.id]);
           event.photoIds = mediaLinks.map(link => link.media_id);
+          if (event.photoIds.length > 0) {
+            console.log(`Event ${event.id} has ${event.photoIds.length} photos`);
+          }
         } catch (err) {
           console.error(`Error fetching photos for event ${event.id}:`, err);
           event.photoIds = [];
         }
       }
+      console.log(`Loaded ${otherEvents.length} other events with photoIds`);
+
 
       // Group events by person_id
       const eventsByPerson = {};
