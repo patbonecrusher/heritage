@@ -2933,6 +2933,8 @@ export default function PersonView({
             person={person}
             eventType={attachGQDialog.eventType}
             allPeople={allPeople}
+            places={places}
+            onCreatePlace={onCreatePlace}
             onSave={async (eventData) => {
               try {
                 // TODO: Implement save logic for GQ event
