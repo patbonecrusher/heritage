@@ -24,7 +24,12 @@ export function PhotoGalleryPanel({
   const [editingPhotoId, setEditingPhotoId] = useState(null);
   const [editLabel, setEditLabel] = useState('');
   const [editPageRange, setEditPageRange] = useState('');
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const fileInputRef = useRef(null);
+  const photoDisplayRef = useRef(null);
+  const imageRef = useRef(null);
 
   const mainPhoto = photos[mainPhotoIndex] || null;
 
@@ -100,6 +105,49 @@ export function PhotoGalleryPanel({
 
   const handleZoomFit = () => {
     setZoomLevel(100);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  // ============================================
+  // Pinch Zoom & Panning
+  // ============================================
+
+  const handleWheel = (e) => {
+    if (!photoDisplayRef.current) return;
+
+    // Check if ctrl/cmd is pressed (pinch gesture or zoom)
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -25 : 25;
+      setZoomLevel((prev) => Math.max(50, Math.min(300, prev + delta)));
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    if (zoomLevel > 100 && e.button === 0) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging && imageRef.current) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      setPanOffset({ x: newX, y: newY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Reset pan when zoom changes
+  const handleZoomChange = (newZoom) => {
+    setZoomLevel(newZoom);
+    if (newZoom === 100) {
+      setPanOffset({ x: 0, y: 0 });
+    }
   };
 
   // ============================================
@@ -138,19 +186,33 @@ export function PhotoGalleryPanel({
         {mainPhoto ? (
           <>
             <div className="photo-display-wrapper">
-              <div className="photo-display">
+              <div
+                ref={photoDisplayRef}
+                className="photo-display"
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                style={{ cursor: zoomLevel > 100 ? 'grab' : 'default' }}
+              >
                 <img
+                  ref={imageRef}
                   src={mainPhoto.preview}
                   alt={mainPhoto.label}
-                  style={{ transform: `scale(${zoomLevel / 100})` }}
+                  style={{
+                    transform: `scale(${zoomLevel / 100}) translate(${panOffset.x}px, ${panOffset.y}px)`,
+                    cursor: isDragging ? 'grabbing' : zoomLevel > 100 ? 'grab' : 'default',
+                  }}
                   className="main-photo"
+                  draggable={false}
                 />
               </div>
 
               {/* Zoom Controls */}
               <div className="zoom-controls">
                 <button
-                  onClick={handleZoomOut}
+                  onClick={() => handleZoomChange(Math.max(50, zoomLevel - 25))}
                   title="Zoom Out"
                   className="zoom-btn"
                 >
@@ -158,7 +220,7 @@ export function PhotoGalleryPanel({
                 </button>
                 <span className="zoom-level">{zoomLevel}%</span>
                 <button
-                  onClick={handleZoomIn}
+                  onClick={() => handleZoomChange(Math.min(300, zoomLevel + 25))}
                   title="Zoom In"
                   className="zoom-btn"
                 >

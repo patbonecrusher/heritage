@@ -52,6 +52,7 @@
   overflow: auto;
   background: var(--color-background);
   position: relative;
+  user-select: none;
 }
 
 .main-photo {
@@ -59,6 +60,7 @@
   max-height: 100%;
   object-fit: contain;
   image-rendering: crisp-edges;
+  transition: transform 0.1s ease-out;
 }
 
 .photo-display-empty {
