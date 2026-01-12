@@ -57,13 +57,14 @@ export function useAttachGQEvent({
 
   const addPhotos = useCallback((files) => {
     const newPhotos = Array.from(files).map((file) => {
-      const photoType = detectPhotoType(file.name);
+      // Use filename without extension as label
+      const filename = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
       return {
         id: `photo-${Date.now()}-${Math.random()}`,
         file,
-        label: photoType.label,
-        pageRange: photoType.pageRange || '',
-        type: photoType.type,
+        label: filename,
+        pageRange: '',
+        type: 'image',
         preview: URL.createObjectURL(file),
       };
     });

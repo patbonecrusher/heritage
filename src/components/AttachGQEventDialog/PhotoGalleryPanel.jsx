@@ -142,7 +142,7 @@ export function PhotoGalleryPanel({
                 <img
                   src={mainPhoto.preview}
                   alt={mainPhoto.label}
-                  style={{ zoom: `${zoomLevel}%` }}
+                  style={{ transform: `scale(${zoomLevel / 100})` }}
                   className="main-photo"
                 />
               </div>
