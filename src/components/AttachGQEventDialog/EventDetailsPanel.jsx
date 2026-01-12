@@ -10,9 +10,10 @@
  * - Photo reference checkboxes
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { WitnessManager } from './WitnessManager';
 import PlacePicker from '../PlacePicker';
+import { parseDateString } from '@/utils/dateParser';
 import './EventDetailsPanel.css';
 
 const PHOTO_TYPE_OPTIONS = {
@@ -437,6 +438,12 @@ export function EventDetailsPanel({
 // ============================================
 
 function DateField({ value, onChange, onShowHelp, showHelp, error }) {
+  const parsedDate = useMemo(() => {
+    return parseDateString(value);
+  }, [value]);
+
+  const isValid = parsedDate.type !== 'unknown' || (value === '' || value === '?');
+
   return (
     <div className="form-group">
       <label htmlFor="date">
@@ -458,6 +465,15 @@ function DateField({ value, onChange, onShowHelp, showHelp, error }) {
         placeholder="15/05/1850 or May 15 1850"
         className={`form-input ${error ? 'error' : ''}`}
       />
+
+      {/* Display parsed date if valid */}
+      {value && isValid && (
+        <div className="date-preview">
+          <span className="date-preview-label">Parsed as:</span>
+          <span className="date-preview-value">{parsedDate.display}</span>
+        </div>
+      )}
+
       {showHelp && (
         <div className="date-help">
           <strong>Accepted formats:</strong>
