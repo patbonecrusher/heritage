@@ -44,6 +44,22 @@ export function usePersons() {
         ORDER BY e.date
       `);
 
+      // For each event, fetch associated photo IDs from media_link table
+      for (const event of otherEvents) {
+        try {
+          const mediaLinks = await query(`
+            SELECT DISTINCT media_id
+            FROM media_link
+            WHERE event_id = ?
+            ORDER BY created_at
+          `, [event.id]);
+          event.photoIds = mediaLinks.map(link => link.media_id);
+        } catch (err) {
+          console.error(`Error fetching photos for event ${event.id}:`, err);
+          event.photoIds = [];
+        }
+      }
+
       // Group events by person_id
       const eventsByPerson = {};
       for (const event of otherEvents) {
@@ -107,6 +123,22 @@ export function usePersons() {
       WHERE e.person_id = ? AND e.deleted_at IS NULL
       ORDER BY e.date
     `, [id]);
+
+    // For each event, fetch associated photo IDs from media_link table
+    for (const event of events) {
+      try {
+        const mediaLinks = await query(`
+          SELECT DISTINCT media_id
+          FROM media_link
+          WHERE event_id = ?
+          ORDER BY created_at
+        `, [event.id]);
+        event.photoIds = mediaLinks.map(link => link.media_id);
+      } catch (err) {
+        console.error(`Error fetching photos for event ${event.id}:`, err);
+        event.photoIds = [];
+      }
+    }
 
     // Get unions (marriages)
     const unions = await query(`
