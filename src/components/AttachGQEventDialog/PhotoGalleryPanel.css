@@ -294,15 +294,18 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem;
-  z-index: 10;
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .edit-form {
-  background: white;
+  background: var(--color-surface);
   border-radius: 0.5rem;
-  padding: 0.75rem;
-  min-width: 180px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  min-width: 240px;
+  max-width: 300px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--color-border);
 }
 
 .form-group {

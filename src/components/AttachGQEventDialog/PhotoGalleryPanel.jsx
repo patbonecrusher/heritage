@@ -275,6 +275,10 @@ export function PhotoGalleryPanel({
                   <div
                     className="edit-overlay"
                     onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseMove={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
+                    onWheel={(e) => e.stopPropagation()}
                   >
                     <div className="edit-form">
                       <div className="form-group">
