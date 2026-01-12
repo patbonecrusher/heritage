@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { parseGQDate, normalizeQCPlace } from '@/integrations/genealogieQuebec/dataMapper';
+import { useDatabase } from '@/data/DatabaseContext';
 
 export function useAttachGQEvent({
   personId,
@@ -20,6 +21,7 @@ export function useAttachGQEvent({
   onSave = async () => {},
   onRequestClose = () => {},
 }) {
+  const { query, resolveMediaPath } = useDatabase();
   // ============================================
   // State: Photos
   // ============================================
@@ -64,21 +66,55 @@ export function useAttachGQEvent({
           const loadedPhotos = [];
 
           for (const photoId of existingEventData.photoIds) {
-            // Try to get media from database
-            // For now, we'll create a placeholder for the photo
-            // The actual loading would require database access
-            loadedPhotos.push({
-              id: photoId,
-              file: null, // Already saved, no File object needed
-              label: `Photo ${loadedPhotos.length + 1}`,
-              pageRange: '',
-              type: 'image',
-              preview: `heritage-media://media/photos/${photoId}.jpg`, // Placeholder - actual path from database
-              isExisting: true, // Mark as existing so we don't re-save it
-            });
+            try {
+              // Query the media database for this photo
+              const mediaRecords = await query(
+                'SELECT * FROM media WHERE id = ?',
+                [photoId]
+              );
+
+              if (mediaRecords && mediaRecords.length > 0) {
+                const media = mediaRecords[0];
+                const previewUrl = media.path ? await resolveMediaPath(media.path) : null;
+
+                loadedPhotos.push({
+                  id: photoId,
+                  file: null, // Already saved, no File object needed
+                  label: media.title || `Photo ${loadedPhotos.length + 1}`,
+                  pageRange: '',
+                  type: 'image',
+                  preview: previewUrl || `heritage-media://media/photos/${photoId}`,
+                  isExisting: true, // Mark as existing so we don't re-save it
+                });
+              } else {
+                // Fallback if media not found in database
+                loadedPhotos.push({
+                  id: photoId,
+                  file: null,
+                  label: `Photo ${loadedPhotos.length + 1}`,
+                  pageRange: '',
+                  type: 'image',
+                  preview: `heritage-media://media/photos/${photoId}`,
+                  isExisting: true,
+                });
+              }
+            } catch (photoErr) {
+              console.error(`Error loading photo ${photoId}:`, photoErr);
+              // Continue with fallback
+              loadedPhotos.push({
+                id: photoId,
+                file: null,
+                label: `Photo ${loadedPhotos.length + 1}`,
+                pageRange: '',
+                type: 'image',
+                preview: `heritage-media://media/photos/${photoId}`,
+                isExisting: true,
+              });
+            }
           }
 
           if (loadedPhotos.length > 0) {
+            console.log('Loading existing photos:', loadedPhotos);
             setPhotos(loadedPhotos);
           }
         } catch (err) {
@@ -87,8 +123,11 @@ export function useAttachGQEvent({
       };
 
       loadExistingPhotos();
+    } else if (!existingEventData?.photoIds) {
+      // Clear photos if no existing data
+      setPhotos([]);
     }
-  }, [existingEventData?.photoIds, existingEventData?.id]);
+  }, [existingEventData, query, resolveMediaPath]);
 
   // ============================================
   // Photo Methods
