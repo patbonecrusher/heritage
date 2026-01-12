@@ -3071,6 +3071,30 @@ export default function PersonView({
                   // Store photo IDs in event for reference
                   newEvent.photoIds = savedMediaIds;
 
+                  // Save event to database
+                  const now = new Date().toISOString();
+                  try {
+                    await run(`
+                      INSERT INTO event (
+                        id, person_id, type, date, place_detail, confidence, notes,
+                        created_at, updated_at
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `, [
+                      eventId,
+                      person.id,
+                      gqEventData.eventData.type,
+                      gqEventData.eventData.date?.display || gqEventData.eventData.date || '',
+                      gqEventData.eventData.place || '',
+                      gqEventData.eventData.confidence || 'probable',
+                      gqEventData.eventData.notes || '',
+                      now,
+                      now,
+                    ]);
+                  } catch (dbError) {
+                    console.error('Error saving event to database:', dbError);
+                    // Continue anyway - we still have it in person.events
+                  }
+
                   // Call onSave to update the person in the database
                   if (onSave) {
                     onSave(updatedPerson);

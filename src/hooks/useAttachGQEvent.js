@@ -22,6 +22,8 @@ export function useAttachGQEvent({
   onRequestClose = () => {},
 }) {
   const { query, resolveMediaPath } = useDatabase();
+
+
   // ============================================
   // State: Photos
   // ============================================
