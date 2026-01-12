@@ -44,35 +44,6 @@
   color: var(--color-textMuted);
 }
 
-.dialog-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  border-radius: 0.375rem;
-  cursor: pointer;
-  font-size: 1.25rem;
-  color: var(--color-textMuted);
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dialog-close:hover:not(:disabled) {
-  background: var(--color-background);
-  border-color: var(--color-textMuted);
-  color: var(--color-text);
-}
-
-.dialog-close:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* Main Content */
 .dialog-content {
@@ -288,6 +259,52 @@
 
 .form-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--color-textMuted);
+}
+
+/* Confirmation Modal */
+.dialog-overlay-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  border-radius: 0.5rem;
+}
+
+.confirmation-modal {
+  background: var(--color-surface);
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.modal-message {
+  margin: 0 0 1.5rem 0;
+  font-size: 0.95rem;
+  color: var(--color-textMuted);
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.modal-actions .btn {
+  flex: 1;
+  min-width: 120px;
 }
 
 /* Print Styles */

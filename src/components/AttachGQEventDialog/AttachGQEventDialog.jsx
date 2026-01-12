@@ -8,7 +8,7 @@
  * - Save/Cancel buttons
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PhotoGalleryPanel } from './PhotoGalleryPanel';
 import { EventDetailsPanel } from './EventDetailsPanel';
 import { useAttachGQEvent } from '@/hooks/useAttachGQEvent';
@@ -28,6 +28,8 @@ export function AttachGQEventDialog({
   onCreateCitation,
   onUpdateCitation,
 }) {
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
   const {
     photos,
     formData,
@@ -55,6 +57,46 @@ export function AttachGQEventDialog({
     onRequestClose: onClose,
   });
 
+  // Check if there are unsaved changes
+  const hasChanges =
+    photos.length > 0 ||
+    Object.values(formData).some((value) => value && value !== '') ||
+    witnesses.length > 0;
+
+  // Handle escape key press
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (hasChanges) {
+          setShowCloseConfirm(true);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, hasChanges, onClose]);
+
+  // Handle close button click
+  const handleCloseClick = () => {
+    if (hasChanges) {
+      setShowCloseConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  // Confirm close without saving
+  const handleConfirmClose = () => {
+    setShowCloseConfirm(false);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   const eventTypeLabel = {
@@ -76,14 +118,6 @@ export function AttachGQEventDialog({
           <p className="dialog-subtitle">
             {person.firstName} {person.lastName}
           </p>
-          <button
-            className="dialog-close"
-            onClick={onClose}
-            title="Close dialog"
-            disabled={isSaving}
-          >
-            ✕
-          </button>
         </div>
 
         {/* Main Content */}
@@ -146,7 +180,7 @@ export function AttachGQEventDialog({
           <div className="footer-actions">
             <button
               className="btn btn-secondary"
-              onClick={onClose}
+              onClick={handleCloseClick}
               disabled={isSaving}
             >
               Cancel
@@ -161,6 +195,33 @@ export function AttachGQEventDialog({
             </button>
           </div>
         </div>
+
+        {/* Close Confirmation Modal */}
+        {showCloseConfirm && (
+          <div className="dialog-overlay-modal">
+            <div className="confirmation-modal">
+              <h3 className="modal-title">Discard Changes?</h3>
+              <p className="modal-message">
+                You have unsaved changes. Are you sure you want to close without saving?
+              </p>
+              <div className="modal-actions">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowCloseConfirm(false)}
+                >
+                  Keep Editing
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleConfirmClose}
+                  style={{ background: 'var(--color-accent)' }}
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
