@@ -8,7 +8,8 @@
  * - Photo metadata editor (label, page range)
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
+import { useImageZoom } from '@/hooks/useImageZoom';
 import './PhotoGalleryPanel.css';
 
 export function PhotoGalleryPanel({
@@ -20,16 +21,29 @@ export function PhotoGalleryPanel({
   onSetMainPhoto,
 }) {
   const [dragActive, setDragActive] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(100);
   const [editingPhotoId, setEditingPhotoId] = useState(null);
   const [editLabel, setEditLabel] = useState('');
   const [editPageRange, setEditPageRange] = useState('');
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const fileInputRef = useRef(null);
-  const photoDisplayRef = useRef(null);
-  const imageRef = useRef(null);
+
+  const {
+    zoomLevel,
+    panOffset,
+    isDragging,
+    containerRef: photoDisplayRef,
+    imageRef,
+    handleWheel,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleZoomChange,
+    zoomIn,
+    zoomOut,
+    fitToWindow,
+    containerStyle,
+    transformStyle,
+  } = useImageZoom(100);
+
+  const [fileInputRef] = useState(() => React.createRef());
 
   const mainPhoto = photos[mainPhotoIndex] || null;
 
@@ -92,65 +106,6 @@ export function PhotoGalleryPanel({
   };
 
   // ============================================
-  // Zoom
-  // ============================================
-
-  const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(prev + 25, 300));
-  };
-
-  const handleZoomOut = () => {
-    setZoomLevel((prev) => Math.max(prev - 25, 50));
-  };
-
-  const handleZoomFit = () => {
-    setZoomLevel(100);
-    setPanOffset({ x: 0, y: 0 });
-  };
-
-  // ============================================
-  // Pinch Zoom & Panning
-  // ============================================
-
-  const handleWheel = (e) => {
-    if (!photoDisplayRef.current) return;
-
-    // Check if ctrl/cmd is pressed (pinch gesture or zoom)
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -25 : 25;
-      setZoomLevel((prev) => Math.max(50, Math.min(300, prev + delta)));
-    }
-  };
-
-  const handleMouseDown = (e) => {
-    if (zoomLevel > 100 && e.button === 0) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    if (isDragging && imageRef.current) {
-      const newX = e.clientX - dragStart.x;
-      const newY = e.clientY - dragStart.y;
-      setPanOffset({ x: newX, y: newY });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  // Reset pan when zoom changes
-  const handleZoomChange = (newZoom) => {
-    setZoomLevel(newZoom);
-    if (newZoom === 100) {
-      setPanOffset({ x: 0, y: 0 });
-    }
-  };
-
-  // ============================================
   // Edit Metadata
   // ============================================
 
@@ -201,7 +156,7 @@ export function PhotoGalleryPanel({
                   src={mainPhoto.preview}
                   alt={mainPhoto.label}
                   style={{
-                    transform: `scale(${zoomLevel / 100}) translate(${panOffset.x}px, ${panOffset.y}px)`,
+                    ...transformStyle,
                     cursor: isDragging ? 'grabbing' : zoomLevel > 100 ? 'grab' : 'default',
                   }}
                   className="main-photo"
@@ -212,7 +167,7 @@ export function PhotoGalleryPanel({
               {/* Zoom Controls */}
               <div className="zoom-controls">
                 <button
-                  onClick={() => handleZoomChange(Math.max(50, zoomLevel - 25))}
+                  onClick={zoomOut}
                   title="Zoom Out"
                   className="zoom-btn"
                 >
@@ -220,14 +175,14 @@ export function PhotoGalleryPanel({
                 </button>
                 <span className="zoom-level">{zoomLevel}%</span>
                 <button
-                  onClick={() => handleZoomChange(Math.min(300, zoomLevel + 25))}
+                  onClick={zoomIn}
                   title="Zoom In"
                   className="zoom-btn"
                 >
                   +
                 </button>
                 <button
-                  onClick={handleZoomFit}
+                  onClick={fitToWindow}
                   title="Fit to Window"
                   className="zoom-btn"
                 >
