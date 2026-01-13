@@ -117,6 +117,12 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dialog-actions button {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Responsive: stack on smaller screens */
