@@ -111,16 +111,19 @@
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
   flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .dialog-footer .dialog-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
+  margin: 0;
+  padding: 0;
+  border: none;
 }
 
 .dialog-footer .dialog-actions button {
