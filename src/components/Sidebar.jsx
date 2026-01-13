@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { groupBySurname } from '../utils/dataModel';
 import { useDatabase, usePersons } from '../data';
+import Dialog from './Dialog/Dialog';
 
 export default function Sidebar({
   data,
@@ -13,6 +14,7 @@ export default function Sidebar({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   // Use database hook when in bundle mode
   const { isOpen } = useDatabase();
@@ -167,7 +169,7 @@ export default function Sidebar({
                       </button>
                       <button
                         className="sidebar-person-delete"
-                        onClick={() => onDeletePerson?.(person.id)}
+                        onClick={() => setDeleteConfirm(person)}
                         title="Delete person"
                       >
                         🗑
@@ -186,6 +188,41 @@ export default function Sidebar({
           + Add Person
         </button>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <Dialog isOpen={true} onClose={() => setDeleteConfirm(null)} size="small">
+          <Dialog.Header>
+            <Dialog.Title>Delete Person</Dialog.Title>
+          </Dialog.Header>
+
+          <Dialog.Content>
+            <p>
+              Are you sure you want to delete <strong>{deleteConfirm.firstName || 'Unknown'} {deleteConfirm.lastName}</strong>?
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--color-textMuted)', marginTop: 8 }}>
+              This action cannot be undone. All events, citations, and relationships will be deleted.
+            </p>
+          </Dialog.Content>
+
+          <Dialog.Footer>
+            <Dialog.Actions>
+              <button className="btn-secondary" onClick={() => setDeleteConfirm(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn-danger"
+                onClick={() => {
+                  setDeleteConfirm(null);
+                  onDeletePerson?.(deleteConfirm.id);
+                }}
+              >
+                Delete
+              </button>
+            </Dialog.Actions>
+          </Dialog.Footer>
+        </Dialog>
+      )}
     </div>
   );
 }
