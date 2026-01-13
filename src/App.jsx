@@ -139,7 +139,8 @@ function App() {
   const setUnionDialogInitialData = unionDialog.setInitialData;
   const setPendingUnion = unionDialog.setPending;
   const preferencesOpen = preferencesDialog.isOpen;
-  const setPreferencesOpen = preferencesDialog.open;
+  const openPreferencesDialog = preferencesDialog.open;
+  const closePreferencesDialog = preferencesDialog.close;
   const sourceDialogOpen = sourceDialog.isOpen;
   const editingSource = sourceDialog.editingSource;
   const pendingSourceCallback = sourceDialog.pendingCallback;
@@ -649,8 +650,8 @@ function App() {
   }, [fitView]);
 
   const handleOpenPreferences = useCallback(() => {
-    setPreferencesOpen(true);
-  }, []);
+    openPreferencesDialog();
+  }, [openPreferencesDialog]);
 
   // Listen for menu events from Electron
   useEffect(() => {
@@ -924,7 +925,7 @@ function App() {
 
       <PreferencesDialog
         isOpen={preferencesOpen}
-        onClose={() => setPreferencesOpen(false)}
+        onClose={closePreferencesDialog}
       />
 
       <SourceDialog
