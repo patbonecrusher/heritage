@@ -41,6 +41,11 @@ export function PhotoViewer({
   onPrevious,
   hasNext = false,
   hasPrevious = false,
+  citations: passedCitations,
+  onAddCitation: passedOnAddCitation,
+  onEditCitation: passedOnEditCitation,
+  onDeleteCitation: passedOnDeleteCitation,
+  dbSources = [],
 }) {
   // Check if this is an image that supports face detection
   const isImage = mimeType?.startsWith('image/') ||
