@@ -131,7 +131,6 @@
   padding: 0;
   border: none;
   flex-shrink: 0;
-  width: 100%;
 }
 
 .dialog-footer .dialog-actions button {

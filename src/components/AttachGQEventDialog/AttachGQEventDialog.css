@@ -94,16 +94,8 @@
   margin-top: 1.5rem;
 }
 
-/* Footer */
-.dialog-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-background);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-}
+/* Footer styles are in Dialog.css */
+/* Inline styles on the footer wrapper handle space-between layout */
 
 .footer-info {
   display: flex;

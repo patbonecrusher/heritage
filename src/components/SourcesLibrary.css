@@ -176,7 +176,8 @@
   border-color: #dc3545;
 }
 
-.sources-library .dialog-footer {
+/* Only apply space-between to the main library footer, not nested dialogs */
+.sources-library > .dialog-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -226,8 +227,10 @@
 /* Nested dialog footers */
 .source-edit-dialog .dialog-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   padding: 16px 20px;
+  width: 100%;
 }
 
 .source-edit-dialog .dialog-footer .dialog-actions {
@@ -238,8 +241,10 @@
 
 .delete-confirm-dialog .dialog-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   padding: 16px 20px;
+  width: 100%;
 }
 
 .delete-confirm-dialog .dialog-footer .dialog-actions {

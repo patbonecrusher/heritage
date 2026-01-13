@@ -257,18 +257,7 @@ html, body, #root {
   background: var(--color-surface);
 }
 
-.dialog-footer {
-  padding: 16px 20px;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
-  flex-shrink: 0;
-}
-
-.dialog-footer .dialog-actions {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-}
+/* Dialog footer styles moved to Dialog/Dialog.css */
 
 .form-row {
   display: grid;
