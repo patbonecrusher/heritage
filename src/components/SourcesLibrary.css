@@ -176,6 +176,13 @@
   border-color: #dc3545;
 }
 
+.sources-library .dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+}
+
 .sources-count {
   font-size: 13px;
   color: var(--color-textMuted);
@@ -214,6 +221,31 @@
 .source-edit-dialog .textarea-input:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+/* Nested dialog footers */
+.source-edit-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 20px;
+}
+
+.source-edit-dialog .dialog-footer .dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.delete-confirm-dialog .dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 20px;
+}
+
+.delete-confirm-dialog .dialog-footer .dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 /* Panel content styles are now in LibraryPanel.css using shared .panel-* and .source-item classes */

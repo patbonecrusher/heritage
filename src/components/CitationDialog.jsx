@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSources, SOURCE_TYPES, CONFIDENCE_LEVELS } from '../data/useSources';
+import Dialog from './Dialog/Dialog';
 import './CitationDialog.css';
 
 export default function CitationDialog({
@@ -82,21 +83,6 @@ export default function CitationDialog({
     }
   }, [isOpen, initialData]);
 
-  // Handle Escape key
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.source_id) return;
@@ -109,18 +95,14 @@ export default function CitationDialog({
 
   const selectedSource = sources.find(s => s.id === formData.source_id);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div className="dialog citation-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="dialog-header">
-          <h3>{initialData ? 'Edit Citation' : 'Add Citation'}</h3>
-          <button className="dialog-close" onClick={onClose}>×</button>
-        </div>
+    <Dialog isOpen={isOpen} onClose={onClose} size="medium">
+      <Dialog.Header>
+        <Dialog.Title>{initialData ? 'Edit Citation' : 'Add Citation'}</Dialog.Title>
+      </Dialog.Header>
 
+      <Dialog.Content>
         <form onSubmit={handleSubmit}>
-          <div className="dialog-body">
             {/* Source Selection */}
             <div className="form-group">
               <label className="field-label required">Source</label>
@@ -317,22 +299,24 @@ export default function CitationDialog({
                 placeholder="Additional notes..."
               />
             </div>
-          </div>
-
-          <div className="dialog-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={!formData.source_id}
-            >
-              {initialData ? 'Save Changes' : 'Add Citation'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+      </Dialog.Content>
+
+      <Dialog.Footer>
+        <Dialog.Actions>
+          <button type="button" className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={!formData.source_id}
+            onClick={handleSubmit}
+          >
+            {initialData ? 'Save Changes' : 'Add Citation'}
+          </button>
+        </Dialog.Actions>
+      </Dialog.Footer>
+    </Dialog>
   );
 }

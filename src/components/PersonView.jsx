@@ -11,6 +11,7 @@ import CitationList from './CitationList';
 import CitationDialog from './CitationDialog';
 import PhotoViewer from './PhotoViewer';
 import NotesSection from './NotesSection';
+import Dialog from './Dialog/Dialog';
 import { AttachGQEventDialog } from './AttachGQEventDialog/AttachGQEventDialog';
 import { getParentIds, getChildrenIds } from '../utils/dataModel';
 import { useDatabase } from '../data/DatabaseContext';
@@ -2638,81 +2639,81 @@ export default function PersonView({
 
         {/* New Family Member Dialog (Child) - View Mode */}
         {showNewFamilyDialog && (
-          <div className="dialog-overlay" onClick={() => setShowNewFamilyDialog(null)} onWheel={e => e.stopPropagation()}>
-            <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
-              <div className="dialog-header">
-                <h3>Add Child</h3>
+          <Dialog isOpen={!!showNewFamilyDialog} onClose={() => setShowNewFamilyDialog(null)} size="medium">
+            <Dialog.Header>
+              <Dialog.Title>Add Child</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Content>
+              {/* Select existing person */}
+              <div className="form-group">
+                <label className="field-label">Select Existing Person</label>
+                <PersonPicker
+                  value={selectedExistingChildId}
+                  people={allPeople}
+                  onChange={(personId) => {
+                    setSelectedExistingChildId(personId || '');
+                    if (personId) {
+                      setNewFamilyFirstName('');
+                      setNewFamilyLastName('');
+                      setNewFamilyGender('');
+                    }
+                  }}
+                  placeholder="Search for existing person..."
+                  excludeIds={[
+                    person?.id,
+                    ...(familyData.find(f => f.union.id === showNewFamilyDialog.unionId)?.children.map(c => c.id) || [])
+                  ].filter(Boolean)}
+                />
               </div>
-              <div className="dialog-body">
-                {/* Select existing person */}
-                <div className="form-group">
-                  <label className="field-label">Select Existing Person</label>
-                  <PersonPicker
-                    value={selectedExistingChildId}
-                    people={allPeople}
-                    onChange={(personId) => {
-                      setSelectedExistingChildId(personId || '');
-                      if (personId) {
-                        setNewFamilyFirstName('');
-                        setNewFamilyLastName('');
-                        setNewFamilyGender('');
-                      }
-                    }}
-                    placeholder="Search for existing person..."
-                    excludeIds={[
-                      person?.id,
-                      ...(familyData.find(f => f.union.id === showNewFamilyDialog.unionId)?.children.map(c => c.id) || [])
-                    ].filter(Boolean)}
-                  />
+
+              {/* Divider */}
+              {!selectedExistingChildId && (
+                <div style={{ textAlign: 'center', color: 'var(--color-textMuted)', margin: '12px 0', fontSize: '12px' }}>
+                  — or create new person —
                 </div>
+              )}
 
-                {/* Divider */}
-                {!selectedExistingChildId && (
-                  <div style={{ textAlign: 'center', color: 'var(--color-textMuted)', margin: '12px 0', fontSize: '12px' }}>
-                    — or create new person —
+              {/* New person fields */}
+              {!selectedExistingChildId && (
+                <>
+                  <div className="form-group">
+                    <label className="field-label">First Name</label>
+                    <input
+                      type="text"
+                      value={newFamilyFirstName}
+                      onChange={(e) => setNewFamilyFirstName(e.target.value)}
+                      className="text-input"
+                      placeholder="First name"
+                    />
                   </div>
-                )}
-
-                {/* New person fields */}
-                {!selectedExistingChildId && (
-                  <>
-                    <div className="form-group">
-                      <label className="field-label">First Name</label>
-                      <input
-                        type="text"
-                        value={newFamilyFirstName}
-                        onChange={(e) => setNewFamilyFirstName(e.target.value)}
-                        className="text-input"
-                        placeholder="First name"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="field-label">Last Name</label>
-                      <input
-                        type="text"
-                        value={newFamilyLastName}
-                        onChange={(e) => setNewFamilyLastName(e.target.value)}
-                        className="text-input"
-                        placeholder="Last name"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="field-label">Gender</label>
-                      <ToggleGroup
-                        options={[
-                          { value: 'male', label: 'Male', className: 'gender-male' },
-                          { value: 'female', label: 'Female', className: 'gender-female' },
-                          { value: 'other', label: 'Other' },
-                        ]}
-                        value={newFamilyGender}
-                        onChange={setNewFamilyGender}
-                        name="new-family-gender-view"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="dialog-footer">
+                  <div className="form-group">
+                    <label className="field-label">Last Name</label>
+                    <input
+                      type="text"
+                      value={newFamilyLastName}
+                      onChange={(e) => setNewFamilyLastName(e.target.value)}
+                      className="text-input"
+                      placeholder="Last name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="field-label">Gender</label>
+                    <ToggleGroup
+                      options={[
+                        { value: 'male', label: 'Male', className: 'gender-male' },
+                        { value: 'female', label: 'Female', className: 'gender-female' },
+                        { value: 'other', label: 'Other' },
+                      ]}
+                      value={newFamilyGender}
+                      onChange={setNewFamilyGender}
+                      name="new-family-gender-view"
+                    />
+                  </div>
+                </>
+              )}
+            </Dialog.Content>
+            <Dialog.Footer>
+              <Dialog.Actions>
                 <button
                   type="button"
                   className="btn-secondary"
@@ -2768,75 +2769,75 @@ export default function PersonView({
                 >
                   Add
                 </button>
-              </div>
-            </div>
-          </div>
+              </Dialog.Actions>
+            </Dialog.Footer>
+          </Dialog>
         )}
 
         {/* New Parent Dialog - View Mode */}
         {showNewParentDialog && (
-          <div className="dialog-overlay" onClick={() => setShowNewParentDialog(null)} onWheel={e => e.stopPropagation()}>
-            <div className="dialog new-parent-dialog" onClick={(e) => e.stopPropagation()}>
-              <div className="dialog-header">
-                <h3>Add {showNewParentDialog === 'father' ? 'Father' : 'Mother'}</h3>
+          <Dialog isOpen={!!showNewParentDialog} onClose={() => setShowNewParentDialog(null)} size="medium">
+            <Dialog.Header>
+              <Dialog.Title>Add {showNewParentDialog === 'father' ? 'Father' : 'Mother'}</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Content>
+              {/* Select existing person */}
+              <div className="form-group">
+                <label className="field-label">Select Existing Person</label>
+                <PersonPicker
+                  value={selectedExistingParentId}
+                  people={allPeople}
+                  onChange={(personId) => {
+                    setSelectedExistingParentId(personId || '');
+                    if (personId) {
+                      setNewParentFirstName('');
+                      setNewParentLastName('');
+                    }
+                  }}
+                  placeholder={`Search for ${showNewParentDialog}...`}
+                  excludeIds={[
+                    person?.id,
+                    parents.father?.id,
+                    parents.mother?.id
+                  ].filter(Boolean)}
+                />
               </div>
-              <div className="dialog-body">
-                {/* Select existing person */}
-                <div className="form-group">
-                  <label className="field-label">Select Existing Person</label>
-                  <PersonPicker
-                    value={selectedExistingParentId}
-                    people={allPeople}
-                    onChange={(personId) => {
-                      setSelectedExistingParentId(personId || '');
-                      if (personId) {
-                        setNewParentFirstName('');
-                        setNewParentLastName('');
-                      }
-                    }}
-                    placeholder={`Search for ${showNewParentDialog}...`}
-                    excludeIds={[
-                      person?.id,
-                      parents.father?.id,
-                      parents.mother?.id
-                    ].filter(Boolean)}
-                  />
+
+              {/* Divider when not selecting existing */}
+              {!selectedExistingParentId && (
+                <div style={{ textAlign: 'center', color: 'var(--color-textMuted)', margin: '12px 0', fontSize: '12px' }}>
+                  — or create new person —
                 </div>
+              )}
 
-                {/* Divider when not selecting existing */}
-                {!selectedExistingParentId && (
-                  <div style={{ textAlign: 'center', color: 'var(--color-textMuted)', margin: '12px 0', fontSize: '12px' }}>
-                    — or create new person —
+              {/* New person fields (hidden when existing person selected) */}
+              {!selectedExistingParentId && (
+                <>
+                  <div className="form-group">
+                    <label className="field-label">First Name</label>
+                    <input
+                      type="text"
+                      value={newParentFirstName}
+                      onChange={(e) => setNewParentFirstName(e.target.value)}
+                      className="text-input"
+                      placeholder="First name"
+                    />
                   </div>
-                )}
-
-                {/* New person fields (hidden when existing person selected) */}
-                {!selectedExistingParentId && (
-                  <>
-                    <div className="form-group">
-                      <label className="field-label">First Name</label>
-                      <input
-                        type="text"
-                        value={newParentFirstName}
-                        onChange={(e) => setNewParentFirstName(e.target.value)}
-                        className="text-input"
-                        placeholder="First name"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="field-label">Last Name</label>
-                      <input
-                        type="text"
-                        value={newParentLastName}
-                        onChange={(e) => setNewParentLastName(e.target.value)}
-                        className="text-input"
-                        placeholder="Last name"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="dialog-footer">
+                  <div className="form-group">
+                    <label className="field-label">Last Name</label>
+                    <input
+                      type="text"
+                      value={newParentLastName}
+                      onChange={(e) => setNewParentLastName(e.target.value)}
+                      className="text-input"
+                      placeholder="Last name"
+                    />
+                  </div>
+                </>
+              )}
+            </Dialog.Content>
+            <Dialog.Footer>
+              <Dialog.Actions>
                 <button
                   type="button"
                   className="btn-secondary"
@@ -2885,27 +2886,27 @@ export default function PersonView({
                 >
                   Add
                 </button>
-              </div>
-            </div>
-          </div>
+              </Dialog.Actions>
+            </Dialog.Footer>
+          </Dialog>
         )}
 
         {/* Confirmation Dialog for Remove */}
         {confirmRemove && (
-          <div className="dialog-overlay" onClick={() => setConfirmRemove(null)}>
-            <div className="dialog confirm-dialog" onClick={(e) => e.stopPropagation()}>
-              <div className="dialog-header">
-                <h3>Remove {confirmRemove.type === 'parent' ? 'Parent' : 'Child'}</h3>
-              </div>
-              <div className="dialog-body">
-                <p>
-                  Remove <strong>{confirmRemove.name}</strong> as {confirmRemove.type === 'parent' ? 'a parent' : 'a child'}?
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--color-textMuted)', marginTop: 8 }}>
-                  This only removes the relationship, not the person.
-                </p>
-              </div>
-              <div className="dialog-actions">
+          <Dialog isOpen={!!confirmRemove} onClose={() => setConfirmRemove(null)} size="small">
+            <Dialog.Header>
+              <Dialog.Title>Remove {confirmRemove.type === 'parent' ? 'Parent' : 'Child'}</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Content>
+              <p>
+                Remove <strong>{confirmRemove.name}</strong> as {confirmRemove.type === 'parent' ? 'a parent' : 'a child'}?
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--color-textMuted)', marginTop: 8 }}>
+                This only removes the relationship, not the person.
+              </p>
+            </Dialog.Content>
+            <Dialog.Footer>
+              <Dialog.Actions>
                 <button
                   className="btn-secondary"
                   onClick={() => setConfirmRemove(null)}
@@ -2921,9 +2922,9 @@ export default function PersonView({
                 >
                   Remove
                 </button>
-              </div>
-            </div>
-          </div>
+              </Dialog.Actions>
+            </Dialog.Footer>
+          </Dialog>
         )}
 
         {/* Attach GénéalogieQuébec Event Dialog */}

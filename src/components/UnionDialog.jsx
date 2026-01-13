@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import CitationList from './CitationList';
 import CitationDialog from './CitationDialog';
+import Dialog from './Dialog/Dialog';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -187,14 +188,11 @@ export default function UnionDialog({
     }
   }, [initialData, isOpen]);
 
+  // Handle Cmd+Enter to save (Dialog handles Escape)
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleSubmit(e);
@@ -203,7 +201,7 @@ export default function UnionDialog({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const handleStartDateChange = (e) => {
     const text = e.target.value;
@@ -257,27 +255,21 @@ export default function UnionDialog({
     await onDeleteCitation?.(citationId);
   };
 
-  if (!isOpen) return null;
-
   const typeLabel = UNION_TYPES.find(t => t.value === unionType)?.label || 'Union';
 
   return (
-    <div className="dialog-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
-      <div
-        className="dialog union-dialog"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="dialog-header">
-          <h2>{initialData ? `Edit ${typeLabel}` : `Add ${typeLabel}`}</h2>
+    <Dialog isOpen={isOpen} onClose={onClose} size="medium">
+      <Dialog.Header>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <Dialog.Title>{initialData ? `Edit ${typeLabel}` : `Add ${typeLabel}`}</Dialog.Title>
           <div className="dialog-shortcuts">
-            <span><KeyHint>Esc</KeyHint> Close</span>
             <span><KeyHint>⌘↵</KeyHint> Save</span>
           </div>
         </div>
+      </Dialog.Header>
 
-        <form onSubmit={handleSubmit} className="dialog-content">
+      <Dialog.Content>
+        <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="field-label">Union Type</label>
             <select
@@ -380,17 +372,19 @@ export default function UnionDialog({
               </p>
             </div>
           )}
-
-          <div className="dialog-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn-primary">
-              Save <KeyHint>⌘↵</KeyHint>
-            </button>
-          </div>
         </form>
-      </div>
+      </Dialog.Content>
+
+      <Dialog.Footer>
+        <Dialog.Actions>
+          <button type="button" className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn-primary" onClick={handleSubmit}>
+            Save <KeyHint>⌘↵</KeyHint>
+          </button>
+        </Dialog.Actions>
+      </Dialog.Footer>
 
       {/* Citation Dialog */}
       <CitationDialog
@@ -403,6 +397,6 @@ export default function UnionDialog({
         citation={editingCitation}
         sources={dbSources}
       />
-    </div>
+    </Dialog>
   );
 }

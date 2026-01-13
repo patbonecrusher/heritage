@@ -239,7 +239,9 @@ export function SourcesLibrary({ onClose }) {
 
         <div className="dialog-footer">
           <span className="sources-count">{filteredSources.length} source{filteredSources.length !== 1 ? 's' : ''}</span>
-          <button className="btn-secondary" onClick={onClose}>Close</button>
+          <div className="dialog-actions">
+            <button className="btn-secondary" onClick={onClose}>Close</button>
+          </div>
         </div>
       </div>
 
@@ -316,16 +318,18 @@ export function SourcesLibrary({ onClose }) {
               </div>
             </div>
             <div className="dialog-footer">
-              <button className="btn-secondary" onClick={() => setShowAddDialog(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={handleCreate}
-                disabled={!newSource.name.trim()}
-              >
-                Add Source
-              </button>
+              <div className="dialog-actions">
+                <button className="btn-secondary" onClick={() => setShowAddDialog(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={handleCreate}
+                  disabled={!newSource.name.trim()}
+                >
+                  Add Source
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -399,16 +403,18 @@ export function SourcesLibrary({ onClose }) {
               </div>
             </div>
             <div className="dialog-footer">
-              <button className="btn-secondary" onClick={() => setEditingSource(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={handleUpdate}
-                disabled={!editingSource.name.trim()}
-              >
-                Save Changes
-              </button>
+              <div className="dialog-actions">
+                <button className="btn-secondary" onClick={() => setEditingSource(null)}>
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={handleUpdate}
+                  disabled={!editingSource.name.trim()}
+                >
+                  Save Changes
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -426,12 +432,14 @@ export function SourcesLibrary({ onClose }) {
               <p className="delete-warning">This will also remove all citations linked to this source.</p>
             </div>
             <div className="dialog-footer">
-              <button className="btn-secondary" onClick={() => setDeleteConfirm(null)}>
-                Cancel
-              </button>
-              <button className="btn-danger" onClick={() => handleDelete(deleteConfirm)}>
-                Delete
-              </button>
+              <div className="dialog-actions">
+                <button className="btn-secondary" onClick={() => setDeleteConfirm(null)}>
+                  Cancel
+                </button>
+                <button className="btn-danger" onClick={() => handleDelete(deleteConfirm)}>
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>

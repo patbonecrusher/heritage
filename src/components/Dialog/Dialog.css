@@ -68,9 +68,11 @@
 
 .dialog-header-content {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  flex: 1;
+  flex-shrink: 1;
   min-width: 0;
+  flex: 1;
 }
 
 .dialog-title {
@@ -103,6 +105,8 @@
   flex: 1;
   background: var(--color-surface);
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Footer */
@@ -124,6 +128,7 @@
   margin: 0;
   padding: 0;
   border: none;
+  flex-shrink: 0;
 }
 
 .dialog-footer .dialog-actions button {
