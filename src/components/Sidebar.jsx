@@ -8,6 +8,7 @@ export default function Sidebar({
   onSelectPerson,
   onEditPerson,
   onAddPerson,
+  onDeletePerson,
   storageMode,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,20 +148,31 @@ export default function Sidebar({
               {!collapsedGroups.has(group.surname) && (
                 <div className="sidebar-group-people">
                   {group.people.map(person => (
-                    <button
+                    <div
                       key={person.id}
-                      className={`sidebar-person ${selectedPersonId === person.id ? 'selected' : ''}`}
-                      onClick={() => onSelectPerson(person.id)}
-                      onDoubleClick={() => onEditPerson && onEditPerson(person.id)}
+                      className="sidebar-person-wrapper"
                     >
-                      <div className="sidebar-person-name">
-                        {person.firstName || 'Unknown'}
-                        {person.nickname && ` "${person.nickname}"`}
-                      </div>
-                      <div className="sidebar-person-dates">
-                        {formatDates(person)}
-                      </div>
-                    </button>
+                      <button
+                        className={`sidebar-person ${selectedPersonId === person.id ? 'selected' : ''}`}
+                        onClick={() => onSelectPerson(person.id)}
+                        onDoubleClick={() => onEditPerson && onEditPerson(person.id)}
+                      >
+                        <div className="sidebar-person-name">
+                          {person.firstName || 'Unknown'}
+                          {person.nickname && ` "${person.nickname}"`}
+                        </div>
+                        <div className="sidebar-person-dates">
+                          {formatDates(person)}
+                        </div>
+                      </button>
+                      <button
+                        className="sidebar-person-delete"
+                        onClick={() => onDeletePerson?.(person.id)}
+                        title="Delete person"
+                      >
+                        🗑
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}

@@ -1801,6 +1801,45 @@ select.text-input option {
   border-left-color: var(--color-primary);
 }
 
+.sidebar-person-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.sidebar-person-wrapper .sidebar-person {
+  flex: 1;
+  margin: 0;
+  padding: 8px 0;
+}
+
+.sidebar-person-delete {
+  opacity: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: opacity 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #dc3545;
+}
+
+.sidebar-person-wrapper:hover .sidebar-person-delete {
+  opacity: 1;
+}
+
+.sidebar-person-delete:hover {
+  opacity: 1 !important;
+  transform: scale(1.2);
+}
+
 .sidebar-person-name {
   font-size: 13px;
   color: var(--color-text);

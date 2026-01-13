@@ -714,7 +714,7 @@ function App() {
   });
 
   // Build PersonView configuration (all props consolidated into one object)
-  const { personViewProps } = usePersonViewConfig({
+  const { personViewProps, handleDeletePerson } = usePersonViewConfig({
     storageMode,
     selectedPersonId,
     personForView,
@@ -886,6 +886,7 @@ function App() {
             setFocusedView('person');
           }}
           onAddPerson={addNode}
+          onDeletePerson={handleDeletePerson}
           storageMode={storageMode}
         />
 

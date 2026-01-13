@@ -226,5 +226,6 @@ export function usePersonViewConfig({
 
   return {
     personViewProps,
+    handleDeletePerson,
   };
 }
