@@ -625,6 +625,7 @@ export function PhotoViewer({
     const handleKeyDown = (e) => {
       // Always allow Escape to close, regardless of other states
       if (e.key === 'Escape') {
+        
         e.preventDefault();
         e.stopPropagation();
         onClose();
@@ -667,7 +668,14 @@ export function PhotoViewer({
   );
 
   return (
-    <div className="photo-viewer-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
+    <div
+      className="photo-viewer-overlay"
+      onClick={(e) => {
+        console.log('PhotoViewer: overlay clicked', e);
+        onClose();
+      }}
+      onWheel={e => e.stopPropagation()}
+    >
       <div className="photo-viewer-container" onClick={e => e.stopPropagation()} ref={containerRef}>
         <div className="photo-viewer-header">
           <div className="photo-viewer-nav">
@@ -727,7 +735,15 @@ export function PhotoViewer({
                 {detecting ? 'Detecting...' : modelsReady ? 'Detect Faces' : 'Loading models...'}
               </button>
             )}
-            <button className="close-btn" onClick={onClose}>Close</button>
+            <button
+              className="close-btn"
+              onClick={() => {
+                
+                onClose();
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
 

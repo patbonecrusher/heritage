@@ -940,13 +940,13 @@ function App() {
 
       {/* Full Library Modals - for editing/managing */}
       {placesLibraryOpen && (
-        <PlacesLibrary onClose={() => setPlacesLibraryOpen(false)} onPlacesChanged={fetchPlaces} />
+        <PlacesLibrary onClose={closePlacesLibrary} onPlacesChanged={fetchPlaces} />
       )}
       {mediaLibraryOpen && (
-        <MediaLibrary onClose={() => setMediaLibraryOpen(false)} />
+        <MediaLibrary onClose={closeMediaLibrary} />
       )}
       {sourcesLibraryOpen && (
-        <SourcesLibrary onClose={() => setSourcesLibraryOpen(false)} />
+        <SourcesLibrary onClose={closeSourcesLibrary} />
       )}
 
       <Toast

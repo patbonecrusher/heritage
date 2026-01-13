@@ -67,13 +67,15 @@ export function MediaLibrary({ onClose }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
+        
         e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [onClose]);
 
   // Load all media
@@ -157,11 +159,24 @@ export function MediaLibrary({ onClose }) {
   }
 
   return (
-    <div className="media-library-overlay" onWheel={e => e.stopPropagation()} onClick={onClose}>
+    <div
+      className="media-library-overlay"
+      onWheel={e => e.stopPropagation()}
+      onClick={(e) => {
+        
+        onClose();
+      }}
+    >
       <div className="media-library" onClick={e => e.stopPropagation()}>
         <div className="media-library-header">
           <h2>Media Library</h2>
-          <button className="media-library-close" onClick={onClose}>
+          <button
+            className="media-library-close"
+            onClick={() => {
+              
+              onClose();
+            }}
+          >
             &times;
           </button>
         </div>

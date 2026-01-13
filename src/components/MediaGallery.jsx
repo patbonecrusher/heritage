@@ -243,7 +243,10 @@ export function MediaGallery({
           mediaId={selectedMedia.id}
           imageSrc={selectedMedia.fullPath}
           mediaPath={selectedMedia.path}
-          onClose={() => setSelectedMedia(null)}
+          onClose={() => {
+            console.log('MediaGallery: onClose handler called, setting selectedMedia to null');
+            setSelectedMedia(null);
+          }}
           citations={mediaCitations[selectedMedia.id] || []}
           onAddCitation={() => onAddCitation?.(selectedMedia.id)}
           onEditCitation={onEditCitation}
