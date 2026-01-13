@@ -113,14 +113,17 @@
   flex-shrink: 0;
 }
 
-.dialog-actions {
+.dialog-footer .dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
-.dialog-actions button {
+.dialog-footer .dialog-actions button {
   flex-shrink: 0;
   white-space: nowrap;
 }
