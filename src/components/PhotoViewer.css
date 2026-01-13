@@ -207,7 +207,8 @@
   position: absolute;
   border: 2px solid;
   cursor: pointer;
-  transition: all 0.15s ease;
+  /* Only transition border and background, not position (which updates frequently during drag) */
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .face-box.saved {
