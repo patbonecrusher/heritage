@@ -8,6 +8,10 @@
   padding-right: 28px;
 }
 
+.person-picker-input:focus {
+  box-shadow: none;
+}
+
 .person-picker-clear {
   position: absolute;
   right: 8px;
