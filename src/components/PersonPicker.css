@@ -1,6 +1,7 @@
 .person-picker {
   position: relative;
   flex: 1;
+  box-shadow: none;
 }
 
 .person-picker-input {
