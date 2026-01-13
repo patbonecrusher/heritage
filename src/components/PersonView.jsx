@@ -714,7 +714,7 @@ export default function PersonView({
   // Citation props
   personCitations = [], birthCitations = [], deathCitations = [], eventCitations = {}, unionCitations = {},
   mediaCitations = {},
-  onCreateCitation, onUpdateCitation, onDeleteCitation, dbSources = []
+  onCreateCitation, onUpdateCitation, onDeleteCitation, dbSources = [], onDelete
 }) {
   const { theme } = useTheme();
   const { triggerRefresh, run, query, generateId } = useDatabase();
@@ -758,6 +758,7 @@ export default function PersonView({
   const [newFamilyGender, setNewFamilyGender] = useState('');
   const [selectedExistingChildId, setSelectedExistingChildId] = useState(''); // For selecting existing person as child
   const [confirmRemove, setConfirmRemove] = useState(null); // { type: 'parent'|'child', name, onConfirm }
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Citation dialog state
   const [citationDialogOpen, setCitationDialogOpen] = useState(false);
@@ -1610,6 +1611,14 @@ export default function PersonView({
                 {totalChildren > 0 && (
                   <div className="pv-children-count">{totalChildren} Children</div>
                 )}
+                <button
+                  type="button"
+                  className="pv-delete-btn"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  title="Delete this person"
+                >
+                  Delete Person
+                </button>
               </div>
 
               {/* Parents inline */}
@@ -2921,6 +2930,42 @@ export default function PersonView({
                   }}
                 >
                   Remove
+                </button>
+              </Dialog.Actions>
+            </Dialog.Footer>
+          </Dialog>
+        )}
+
+        {/* Confirmation Dialog for Delete Person */}
+        {showDeleteConfirm && (
+          <Dialog isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} size="small">
+            <Dialog.Header>
+              <Dialog.Title>Delete Person</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Content>
+              <p>
+                Are you sure you want to delete <strong>{displayName}</strong>?
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--color-textMuted)', marginTop: 8 }}>
+                This action cannot be undone. All events, citations, and relationships will be deleted.
+              </p>
+            </Dialog.Content>
+            <Dialog.Footer>
+              <Dialog.Actions>
+                <button
+                  className="btn-secondary"
+                  onClick={() => setShowDeleteConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-danger"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    onDelete?.(person.id);
+                  }}
+                >
+                  Delete
                 </button>
               </Dialog.Actions>
             </Dialog.Footer>
