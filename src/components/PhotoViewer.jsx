@@ -623,6 +623,14 @@ export function PhotoViewer({
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Always allow Escape to close, regardless of other states
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+
       // Don't navigate if person picker is open or if focus is in an input
       if (showPersonPicker || e.target.tagName === 'INPUT') return;
 
@@ -632,14 +640,11 @@ export function PhotoViewer({
       } else if (e.key === 'ArrowLeft' && hasPrevious && onPrevious) {
         e.preventDefault();
         onPrevious();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [hasNext, hasPrevious, onNext, onPrevious, onClose, showPersonPicker]);
 
   // Render resize handles for a face box

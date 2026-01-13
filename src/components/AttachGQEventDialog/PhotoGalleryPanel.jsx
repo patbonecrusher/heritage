@@ -288,6 +288,15 @@ export function PhotoGalleryPanel({
         <div
           className="edit-overlay-full"
           onClick={() => setEditingPhotoId(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
+              setEditingPhotoId(null);
+            }
+          }}
+          role="presentation"
+          tabIndex={-1}
         >
           <div
             className="edit-form"
