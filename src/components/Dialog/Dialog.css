@@ -1,0 +1,141 @@
+/* Dialog Component Styles */
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.dialog-container {
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--color-text);
+}
+
+/* Size Variants */
+
+/* Small: 400px max - for simple forms */
+.dialog[data-size="small"] {
+  width: 90%;
+  max-width: 400px;
+  max-height: 90vh;
+}
+
+/* Medium: 600px max - default (sources, citations, preferences) */
+.dialog[data-size="medium"] {
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+}
+
+/* Large: 1400px max - wide forms (AttachGQEventDialog, libraries) */
+.dialog[data-size="large"] {
+  width: 90%;
+  max-width: 1400px;
+  max-height: 90vh;
+}
+
+/* Fullscreen: 95vw/95vh - photo viewer, fullscreen experiences */
+.dialog[data-size="fullscreen"] {
+  width: 95vw;
+  max-width: none;
+  height: 95vh;
+  max-height: none;
+}
+
+/* Header */
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.dialog-header-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.dialog-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--color-textMuted);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.dialog-close:hover {
+  color: var(--color-text);
+}
+
+/* Content */
+.dialog-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  background: var(--color-surface);
+  min-height: 0;
+}
+
+/* Footer */
+.dialog-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Responsive: stack on smaller screens */
+@media (max-width: 600px) {
+  .dialog[data-size="large"] {
+    width: 95vw;
+    max-width: none;
+    max-height: 95vh;
+  }
+
+  .dialog[data-size="fullscreen"] {
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .dialog-overlay {
+    align-items: flex-end;
+  }
+}

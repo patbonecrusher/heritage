@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme, themes } from '../contexts/ThemeContext';
+import Dialog from './Dialog/Dialog';
 
 const SITES = [
   { id: 'genealogieQuebec', name: 'Genealogie Quebec', url: 'genealogiequebec.com' },
@@ -29,19 +30,6 @@ function PreferencesDialog({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   const handleSave = async () => {
     if (!window.electronAPI) return;
@@ -71,114 +59,109 @@ function PreferencesDialog({ isOpen, onClose }) {
     }));
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="dialog-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
-      <div className="dialog preferences-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="dialog-header">
-          <h2>Preferences</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
-        </div>
+    <Dialog isOpen={isOpen} onClose={onClose} size="medium">
+      <Dialog.Header>
+        <Dialog.Title>Preferences</Dialog.Title>
+      </Dialog.Header>
 
-        <div className="preferences-tabs">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              className={`preferences-tab ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="preferences-tabs">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            className={`preferences-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        <div className="dialog-content preferences-content">
-          {activeTab === 'appearance' && (
-            <div className="preferences-section">
-              <p className="preferences-hint">
-                Choose a theme for the application.
-              </p>
-              <div className="theme-selector">
-                {Object.entries(themes).map(([key, theme]) => (
-                  <button
-                    key={key}
-                    className={`theme-option ${themeName === key ? 'active' : ''}`}
-                    onClick={() => setTheme(key)}
-                    style={{
-                      '--theme-bg': theme.colors.background,
-                      '--theme-surface': theme.colors.surface,
-                      '--theme-primary': theme.colors.primary,
-                      '--theme-text': theme.colors.text,
-                    }}
-                  >
-                    <div className="theme-preview">
-                      <div className="theme-preview-header" />
-                      <div className="theme-preview-content">
-                        <div className="theme-preview-dot" />
-                        <div className="theme-preview-dot" />
-                      </div>
-                    </div>
-                    <span className="theme-name">{theme.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'credentials' && (
-            <div className="preferences-section">
-              <p className="preferences-hint">
-                Enter your login credentials for genealogy sites. These are stored securely on your device
-                and can be used by the MCP server for research.
-              </p>
-
-              {SITES.map(site => (
-                <div key={site.id} className="site-credentials">
-                  <h4>{site.name}</h4>
-                  <span className="site-url">{site.url}</span>
-                  <div className="credentials-row">
-                    <div className="form-group">
-                      <label>Username / Email</label>
-                      <input
-                        type="text"
-                        value={credentials[site.id]?.username || ''}
-                        onChange={(e) => updateCredential(site.id, 'username', e.target.value)}
-                        placeholder="Enter username"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Password</label>
-                      <input
-                        type="password"
-                        value={credentials[site.id]?.password || ''}
-                        onChange={(e) => updateCredential(site.id, 'password', e.target.value)}
-                        placeholder="Enter password"
-                      />
+      <Dialog.Content className="preferences-content">
+        {activeTab === 'appearance' && (
+          <div className="preferences-section">
+            <p className="preferences-hint">
+              Choose a theme for the application.
+            </p>
+            <div className="theme-selector">
+              {Object.entries(themes).map(([key, theme]) => (
+                <button
+                  key={key}
+                  className={`theme-option ${themeName === key ? 'active' : ''}`}
+                  onClick={() => setTheme(key)}
+                  style={{
+                    '--theme-bg': theme.colors.background,
+                    '--theme-surface': theme.colors.surface,
+                    '--theme-primary': theme.colors.primary,
+                    '--theme-text': theme.colors.text,
+                  }}
+                >
+                  <div className="theme-preview">
+                    <div className="theme-preview-header" />
+                    <div className="theme-preview-content">
+                      <div className="theme-preview-dot" />
+                      <div className="theme-preview-dot" />
                     </div>
                   </div>
-                </div>
+                  <span className="theme-name">{theme.name}</span>
+                </button>
               ))}
             </div>
-          )}
-        </div>
-
-        <div className="dialog-footer">
-          <div className="dialog-actions">
-            <button className="btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              className="btn-primary"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? 'Saving...' : saved ? 'Saved!' : 'Save'}
-            </button>
           </div>
-        </div>
-      </div>
-    </div>
+        )}
+
+        {activeTab === 'credentials' && (
+          <div className="preferences-section">
+            <p className="preferences-hint">
+              Enter your login credentials for genealogy sites. These are stored securely on your device
+              and can be used by the MCP server for research.
+            </p>
+
+            {SITES.map(site => (
+              <div key={site.id} className="site-credentials">
+                <h4>{site.name}</h4>
+                <span className="site-url">{site.url}</span>
+                <div className="credentials-row">
+                  <div className="form-group">
+                    <label>Username / Email</label>
+                    <input
+                      type="text"
+                      value={credentials[site.id]?.username || ''}
+                      onChange={(e) => updateCredential(site.id, 'username', e.target.value)}
+                      placeholder="Enter username"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Password</label>
+                    <input
+                      type="password"
+                      value={credentials[site.id]?.password || ''}
+                      onChange={(e) => updateCredential(site.id, 'password', e.target.value)}
+                      placeholder="Enter password"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Dialog.Content>
+
+      <Dialog.Footer>
+        <Dialog.Actions>
+          <button className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="btn-primary"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save'}
+          </button>
+        </Dialog.Actions>
+      </Dialog.Footer>
+    </Dialog>
   );
 }
 

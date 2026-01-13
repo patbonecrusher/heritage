@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
+import Dialog from './Dialog/Dialog';
 
 const SOURCE_TYPES = [
   { value: 'interview', label: 'Interview/Oral History' },
@@ -84,10 +85,6 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
     if (!isOpen) return;
 
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleSubmit();
@@ -96,7 +93,7 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -124,8 +121,6 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
 
     onSave(source);
   };
-
-  if (!isOpen) return null;
 
   const renderTypeFields = () => {
     switch (sourceType) {
@@ -497,14 +492,13 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
   };
 
   return (
-    <div className="dialog-overlay" onClick={onClose} onWheel={e => e.stopPropagation()}>
-      <div className="dialog source-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="dialog-header">
-          <h2>{initialData ? 'Edit Source' : 'Add Source'}</h2>
-          <button className="dialog-close" onClick={onClose}>×</button>
-        </div>
+    <Dialog isOpen={isOpen} onClose={onClose} size="medium">
+      <Dialog.Header>
+        <Dialog.Title>{initialData ? 'Edit Source' : 'Add Source'}</Dialog.Title>
+      </Dialog.Header>
 
-        <form onSubmit={handleSubmit} className="dialog-content">
+      <Dialog.Content>
+        <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="field-label">Source Type</label>
             <select
@@ -544,17 +538,19 @@ export default function SourceDialog({ isOpen, onClose, onSave, initialData }) {
               rows={2}
             />
           </div>
-
-          <div className="dialog-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn-primary">
-              {initialData ? 'Save' : 'Add Source'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+      </Dialog.Content>
+
+      <Dialog.Footer>
+        <Dialog.Actions>
+          <button type="button" className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="btn-primary" onClick={handleSubmit}>
+            {initialData ? 'Save' : 'Add Source'}
+          </button>
+        </Dialog.Actions>
+      </Dialog.Footer>
+    </Dialog>
   );
 }
